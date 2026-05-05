@@ -2,7 +2,6 @@
 
 > **Subsystem**: Items & Equipment  
 > **Game**: 《酒馆与命运》(Tavern & Destiny)  
-> **Engine**: Unity (C#)
 > **Rules Reference**: DND 5e SRD
 > **Language Policy**: 游戏文本统一采用简体中文，技术标识符使用英文snake_case  
 > **Version**: 1.0 — MVP + Phase 2 scope  
@@ -123,7 +122,7 @@
     },
     "icon_path": {
       "type": "string",
-      "description": "像素图标资源路径，如 'res://assets/items/weapons/longsword.png'"
+      "description": "像素图标资源路径，如 'assets/items/weapons/longsword.png'"
     },
     "level_requirement": {
       "type": "integer",
@@ -242,7 +241,7 @@
         },
         "ac_formula": {
           "type": "string",
-          "description": "AC 计算公式字符串，用于引擎解析。如 '11 + dex_mod'（皮甲）、'14 + min(dex_mod, 2)'（胸甲）、'18'（全身板甲）"
+          "description": "AC 计算公式字符串，用于系统解析。如 '11 + dex_mod'（皮甲）、'14 + min(dex_mod, 2)'（胸甲）、'18'（全身板甲）"
         },
         "max_dex_bonus": {
           "type": "integer",
@@ -2001,467 +2000,9 @@ Attack Roll Calculation Pipeline:
 
 ---
 
-## 13. Unity 实现参考
+## 13. 测试规格
 
-### 13.1 Resource 类定义
-
-```gdscript
-# res://resources/items/item_base.gd
-class_name ItemBaseResource extends Resource
-
-## 物品类型枚举
-enum ItemType {
-    WEAPON, ARMOR, SHIELD, POTION,
-    SCROLL, WAND, RING, AMULET,
-    MISC, QUEST
-}
-
-enum Rarity {
-    COMMON, UNCOMMON, RARE,
-    VERY_RARE, LEGENDARY, ARTIFACT
-}
-
-enum ConditionLevel {
-    PRISTINE, GOOD, WORN, DAMAGED, BROKEN
-}
-
-@export var item_id: String
-@export var item_name: String
-@export var item_name_en: String
-@export var item_type: ItemType
-@export var item_subtype: String
-@export var rarity: Rarity
-@export_multiline var description: String
-@export var weight: float = 0.0
-@export var value_gp: int = 0
-@export var icon_path: String
-@export var level_requirement: int = 1
-@export var stackable: bool = false
-@export var max_stack: int = 1
-@export var soulbound: bool = false
-@export var unique: bool = false
-@export var quest_id: String = ""
-
-@export var weapon_data: WeaponData = null
-@export var armor_data: ArmorData = null
-@export var shield_data: ShieldData = null
-@export var consumable_data: ConsumableData = null
-@export var magical_data: MagicalData = null
-@export var condition_data: ConditionData = null
-```
-
-```gdscript
-# res://resources/items/weapon_data.gd
-class_name WeaponData extends Resource
-
-enum WeaponCategory { SIMPLE, MARTIAL }
-enum WeaponRange { MELEE, RANGED }
-enum WeaponProperty {
-    AMMUNITION, FINESSE, HEAVY, LIGHT, LOADING,
-    REACH, SPECIAL, THROWN, TWO_HANDED, VERSATILE, MONK, SILVERED
-}
-enum DamageType {
-    BLUDGEONING, PIERCING, SLASHING,
-    ACID, COLD, FIRE, FORCE,
-    LIGHTNING, NECROTIC, POISON,
-    PSYCHIC, RADIANT, THUNDER
-}
-
-@export var damage_dice: String = "1d4"
-@export var damage_dice_versatile: String = ""
-@export var damage_type: DamageType = DamageType.SLASHING
-@export var weapon_category: WeaponCategory = WeaponCategory.SIMPLE
-@export var weapon_range: WeaponRange = WeaponRange.MELEE
-@export var properties: Array[WeaponProperty] = []
-@export var range_normal: int = 0
-@export var range_long: int = 0
-@export var ammunition_type: String = ""
-@export var crit_range: int = 20
-```
-
-```gdscript
-# res://resources/items/armor_data.gd
-class_name ArmorData extends Resource
-
-enum ArmorCategory { LIGHT, MEDIUM, HEAVY, SHIELD }
-
-@export var armor_category: ArmorCategory
-@export var base_ac: int = 10
-@export var ac_formula: String = ""
-@export var max_dex_bonus: int = -1  # -1 = null (no cap)
-@export var strength_requirement: int = 0
-@export var stealth_disadvantage: bool = false
-@export var don_time_seconds: float = 0.0
-```
-
-```gdscript
-# res://resources/items/condition_data.gd
-class_name ConditionData extends Resource
-
-@export var max_durability: int = 100
-@export var current_durability: int = 100
-@export var condition_level: ItemBaseResource.ConditionLevel = ItemBaseResource.ConditionLevel.PRISTINE
-
-func update_condition():
-    var ratio = float(current_durability) / float(max_durability)
-    if ratio >= 1.0:
-        condition_level = ItemBaseResource.ConditionLevel.PRISTINE
-    elif ratio >= 0.75:
-        condition_level = ItemBaseResource.ConditionLevel.GOOD
-    elif ratio >= 0.50:
-        condition_level = ItemBaseResource.ConditionLevel.WORN
-    elif ratio > 0.0:
-        condition_level = ItemBaseResource.ConditionLevel.DAMAGED
-    else:
-        condition_level = ItemBaseResource.ConditionLevel.BROKEN
-```
-
-### 13.2 库存系统类设计
-
-```gdscript
-# res://systems/inventory_manager.gd
-class_name InventoryManager extends Node
-
-## 背包最大容量 (MVP: 12 slots)
-@export var backpack_capacity: int = 12
-
-## 装备栏字典 { EquipmentSlot → ItemBaseResource }
-var equipped: Dictionary = {
-    EquipmentSlot.MAIN_HAND: null,
-    EquipmentSlot.OFF_HAND: null,
-    EquipmentSlot.ARMOR: null,
-    EquipmentSlot.RING_1: null,
-    EquipmentSlot.RING_2: null,
-    EquipmentSlot.AMULET: null,
-}
-
-## 背包物品列表
-var backpack: Array[ItemBaseResource] = []
-
-## 当前金币
-var gold: int = 0
-
-## 同调物品列表 (最多3)
-var attuned_items: Array[ItemBaseResource] = []
-const MAX_ATTUNEMENT: int = 3
-
-## Signals
-signal item_equipped(item: ItemBaseResource, slot: EquipmentSlot)
-signal item_unequipped(item: ItemBaseResource, slot: EquipmentSlot)
-signal item_added_to_backpack(item: ItemBaseResource)
-signal item_removed_from_backpack(item: ItemBaseResource)
-signal gold_changed(new_amount: int, delta: int)
-signal attunement_changed(item: ItemBaseResource, is_attuned: bool)
-signal condition_changed(item: ItemBaseResource, old_level: int, new_level: int)
-signal item_broken(item: ItemBaseResource)
-
-
-func can_equip(item: ItemBaseResource, target_slot: EquipmentSlot) -> bool:
-    match item.item_type:
-        ItemBaseResource.ItemType.WEAPON:
-            if target_slot not in [EquipmentSlot.MAIN_HAND, EquipmentSlot.OFF_HAND]:
-                return false
-            if item.weapon_data and item.weapon_data.properties.has(WeaponData.WeaponProperty.TWO_HANDED):
-                if target_slot == EquipmentSlot.MAIN_HAND and equipped[EquipmentSlot.OFF_HAND] != null:
-                    return false
-            if target_slot == EquipmentSlot.OFF_HAND:
-                if not item.weapon_data.properties.has(WeaponData.WeaponProperty.LIGHT):
-                    return false  # MVP阶段: 副手必须为light武器
-        ItemBaseResource.ItemType.ARMOR:
-            if target_slot != EquipmentSlot.ARMOR:
-                return false
-        ItemBaseResource.ItemType.SHIELD:
-            if target_slot != EquipmentSlot.OFF_HAND:
-                return false
-            if equipped[EquipmentSlot.MAIN_HAND] != null:
-                var main = equipped[EquipmentSlot.MAIN_HAND]
-                if main.weapon_data and main.weapon_data.properties.has(WeaponData.WeaponProperty.TWO_HANDED):
-                    return false
-        ItemBaseResource.ItemType.RING:
-            if target_slot not in [EquipmentSlot.RING_1, EquipmentSlot.RING_2]:
-                return false
-        ItemBaseResource.ItemType.AMULET:
-            if target_slot != EquipmentSlot.AMULET:
-                return false
-
-    if item.soulbound and not is_bound_to_current_character(item):
-        return false
-    if item.condition_data and item.condition_data.condition_level == ItemBaseResource.ConditionLevel.BROKEN:
-        return false
-
-    return true
-
-
-func equip(item: ItemBaseResource, target_slot: EquipmentSlot) -> bool:
-    if not can_equip(item, target_slot):
-        return false
-
-    if equipped[target_slot] != null:
-        unequip(target_slot)
-
-    if item.item_type == ItemBaseResource.ItemType.WEAPON:
-        if item.weapon_data and item.weapon_data.properties.has(WeaponData.WeaponProperty.TWO_HANDED):
-            if equipped[EquipmentSlot.OFF_HAND] != null:
-                return false
-            equipped[EquipmentSlot.MAIN_HAND] = item
-            equipped[EquipmentSlot.OFF_HAND] = "TWO_HANDED_OCCUPIED"
-            item_equipped.emit(item, EquipmentSlot.MAIN_HAND)
-            return true
-
-    equipped[target_slot] = item
-    item_equipped.emit(item, target_slot)
-
-    var idx = backpack.find(item)
-    if idx != -1:
-        backpack.remove_at(idx)
-
-    return true
-
-
-func unequip(slot: EquipmentSlot) -> bool:
-    var item = equipped[slot]
-    if item == null or item == "TWO_HANDED_OCCUPIED":
-        return false
-
-    if slot == EquipmentSlot.MAIN_HAND and item.weapon_data:
-        if item.weapon_data.properties.has(WeaponData.WeaponProperty.TWO_HANDED):
-            equipped[EquipmentSlot.OFF_HAND] = null
-
-    equipped[slot] = null
-    item_unequipped.emit(item, slot)
-
-    add_to_backpack(item)
-    return true
-
-
-func add_to_backpack(item: ItemBaseResource) -> bool:
-    if backpack.size() >= backpack_capacity:
-        return false
-    backpack.append(item)
-    item_added_to_backpack.emit(item)
-    return true
-```
-
-### 13.3 装备管理器类
-
-```gdscript
-# res://systems/equipment_manager.gd
-class_name EquipmentManager extends Node
-
-var inventory: InventoryManager
-
-func calculate_ac(character: CharacterResource) -> int:
-    var ac: int = 10
-    var armor_item = inventory.equipped[EquipmentSlot.ARMOR]
-    var shield_item = inventory.equipped[EquipmentSlot.OFF_HAND]
-    var dex_mod = character.ability_scores.dex.modifier
-
-    if armor_item != null and armor_item.armor_data != null:
-        var armor = armor_item.armor_data
-        ac = armor.base_ac
-        if armor.max_dex_bonus >= 0:
-            dex_mod = min(dex_mod, armor.max_dex_bonus)
-        var cond = armor_item.condition_data
-        if cond.condition_level == ItemBaseResource.ConditionLevel.WORN:
-            ac -= 1
-        elif cond.condition_level == ItemBaseResource.ConditionLevel.DAMAGED:
-            ac -= 2
-        elif cond.condition_level == ItemBaseResource.ConditionLevel.BROKEN:
-            ac = 10 + character.ability_scores.dex.modifier
-            dex_mod = 0
-
-    ac += dex_mod
-
-    if shield_item != null and shield_item.shield_data != null:
-        if shield_item.condition_data.condition_level != ItemBaseResource.ConditionLevel.BROKEN:
-            ac += shield_item.shield_data.ac_bonus
-
-    var enchant_ac_bonus: int = 0
-    for slot_key in inventory.equipped:
-        var item = inventory.equipped[slot_key]
-        if item != null and item.magical_data != null:
-            for enchant in item.magical_data.enchantments:
-                if enchant.effect.has("stat_modifiers") and enchant.effect.stat_modifiers.has("ac"):
-                    enchant_ac_bonus = max(enchant_ac_bonus, enchant.effect.stat_modifiers.ac)
-
-    ac += enchant_ac_bonus
-    return ac
-
-
-func calculate_weapon_damage(weapon_item: ItemBaseResource, attacker: CharacterResource,
-                              is_critical: bool = false, is_versatile_grip: bool = false) -> Dictionary:
-    if weapon_item == null or weapon_item.weapon_data == null:
-        return {"total": 0, "breakdown": {}}
-
-    var weapon = weapon_item.weapon_data
-    var cond = weapon_item.condition_data
-
-    var dice_str = weapon.damage_dice
-    if is_versatile_grip and weapon.properties.has(WeaponData.WeaponProperty.VERSATILE):
-        dice_str = weapon.damage_dice_versatile
-
-    var ability_mod = 0
-    if weapon.properties.has(WeaponData.WeaponProperty.FINESSE):
-        ability_mod = max(attacker.ability_scores.str.modifier, attacker.ability_scores.dex.modifier)
-    elif weapon.weapon_range == WeaponData.WeaponRange.RANGED:
-        ability_mod = attacker.ability_scores.dex.modifier
-    else:
-        ability_mod = attacker.ability_scores.str.modifier
-
-    var base_roll = 0
-    if is_critical:
-        base_roll = DiceRoller.max_roll(dice_str)
-    else:
-        base_roll = DiceRoller.roll(dice_str)
-
-    var magic_bonus: int = 0
-    var bonus_dice_rolls: Array = []
-    if weapon_item.magical_data != null:
-        for enchant in weapon_item.magical_data.enchantments:
-            if enchant.effect.has("stat_modifiers") and enchant.effect.stat_modifiers.has("damage_roll"):
-                magic_bonus = max(magic_bonus, enchant.effect.stat_modifiers.damage_roll)
-            if enchant.effect.has("damage_bonus"):
-                var bonus_dice = enchant.effect.damage_bonus.dice
-                if is_critical:
-                    bonus_dice_rolls.append(DiceRoller.max_roll(bonus_dice))
-                else:
-                    bonus_dice_rolls.append(DiceRoller.roll(bonus_dice))
-
-    var condition_penalty: int = 0
-    if cond.condition_level == ItemBaseResource.ConditionLevel.WORN:
-        condition_penalty = 1
-    elif cond.condition_level == ItemBaseResource.ConditionLevel.DAMAGED:
-        condition_penalty = 1
-
-    var total = base_roll + ability_mod + magic_bonus + sum(bonus_dice_rolls) - condition_penalty
-
-    return {
-        "total": max(total, 0),
-        "breakdown": {
-            "base_roll": base_roll,
-            "ability_mod": ability_mod,
-            "magic_bonus": magic_bonus,
-            "bonus_dice": bonus_dice_rolls,
-            "condition_penalty": condition_penalty
-        }
-    }
-
-
-func sum(arr: Array) -> int:
-    var result = 0
-    for val in arr:
-        result += val
-    return result
-```
-
-### 13.4 信号定义
-
-```gdscript
-# res://signals/equipment_signals.gd
-# (或作为 autoload singleton)
-
-signal equipment_changed(character_id: String)
-# 任何装备变更时触发 (equip/unequip)，Character System 监听以刷新数值
-
-signal loot_generated(items: Array)
-# 战利品生成完成时触发，UI 可以弹出战利品窗口
-
-signal item_identified(item: ItemBaseResource)
-# 物品鉴定完成（包括揭示诅咒和附魔）
-
-signal item_condition_changed(item: ItemBaseResource, old_level: int, new_level: int)
-# 物品耐久度变化时触发
-
-signal item_repaired(item: ItemBaseResource, repair_cost: int)
-# 修复完成时触发
-
-signal item_crafted(item: ItemBaseResource, workshop: String)
-# 制作完成时触发
-
-signal item_soulbound(item: ItemBaseResource, character_id: String)
-# 灵魂绑定完成时触发
-
-signal attunement_completed(item: ItemBaseResource, character_id: String)
-# 同调完成时触发
-
-signal curse_revealed(item: ItemBaseResource, curse_id: String)
-# 诅咒被揭示时触发
-```
-
-### 13.5 文件组织结构
-
-```
-res://
-├── resources/
-│   └── items/
-│       ├── item_base.gd              # 基础物品 Resource
-│       ├── weapon_data.gd            # 武器数据 Resource
-│       ├── armor_data.gd             # 护甲数据 Resource
-│       ├── shield_data.gd            # 盾牌数据 Resource
-│       ├── consumable_data.gd        # 消耗品数据 Resource
-│       ├── magical_data.gd           # 魔法属性数据 Resource
-│       ├── enchantment_data.gd       # 附魔数据 Resource
-│       ├── condition_data.gd         # 耐久度数据 Resource
-│       ├── item_database.tres        # 基础物品数据库 (所有SRD武器/护甲)
-│       ├── enchantment_database.tres # 附魔数据库
-│       └── recipe_database.tres      # 配方数据库
-│
-├── systems/
-│   ├── inventory_manager.gd          # 库存管理器 (Node)
-│   ├── equipment_manager.gd          # 装备数值计算器 (Node)
-│   ├── loot_generator.gd             # 战利品生成器 (Node)
-│   ├── rarity_roller.gd              # 稀有度掷骰器 (RefCounted)
-│   ├── enchantment_generator.gd      # 随机附魔生成器 (RefCounted)
-│   ├── condition_manager.gd          # 耐久度管理器 (RefCounted)
-│   ├── crafting_manager.gd           # 制作系统管理器 (Node)
-│   ├── shop_manager.gd               # 商店管理器 (Node)
-│   ├── soulbound_manager.gd          # 灵魂绑定管理器 (RefCounted)
-│   └── copywriter_cache.gd           # 文案Agent缓存 (Node)
-│
-├── scenes/
-│   └── ui/
-│       ├── inventory_ui.tscn         # 背包界面
-│       ├── equipment_slots_ui.tscn   # 装备栏界面
-│       ├── shop_ui.tscn              # 商店界面
-│       ├── crafting_ui.tscn          # 制作界面
-│       ├── loot_popup.tscn           # 战利品弹出窗口
-│       └── item_tooltip.tscn         # 物品悬浮提示
-│
-├── data/
-│   ├── loot_tables/
-│   │   ├── short_adventure.json      # 短冒险战利品表
-│   │   ├── medium_adventure.json     # 中冒险战利品表
-│   │   └── long_adventure.json       # 长冒险战利品表
-│   ├── recipes/
-│   │   ├── blacksmith.json           # 铁匠铺配方
-│   │   ├── alchemist.json            # 炼金台配方
-│   │   └── library.json              # 图书馆配方
-│   └── item_descriptions/
-│       ├── offline_fallback.json     # 离线描述模板
-│       └── copywriter_cache.db       # LLM描述缓存 (SQLite)
-│
-└── tests/
-    ├── unit/
-    │   ├── test_rarity_roller.gd
-    │   ├── test_enchantment_stack.gd
-    │   ├── test_ac_calculation.gd
-    │   ├── test_damage_calculation.gd
-    │   ├── test_loot_generation.gd
-    │   ├── test_condition_system.gd
-    │   ├── test_crafting_recipes.gd
-    │   └── test_shop_pricing.gd
-    └── integration/
-        ├── test_equip_to_combat.gd
-        ├── test_loot_to_inventory.gd
-        └── test_full_loot_economy.gd
-```
-
-
----
-
-## 14. 测试规格
-
-### 14.1 单元测试
+### 13.1 单元测试
 
 #### Test 1: 稀有度掷骰分布验证
 
@@ -2601,7 +2142,7 @@ res://
      893 × 0.5 = 446gp
 ```
 
-### 14.2 集成测试
+### 13.2 集成测试
 
 #### Test I1: 装备 → 数值刷新 → 战斗验证
 
@@ -2655,7 +2196,7 @@ res://
   # 确保 market_value 可用于后续铁匠铺/商店消费
 ```
 
-### 14.3 边界情况测试
+### 13.3 边界情况测试
 
 ```
 边界情况:
@@ -2697,7 +2238,7 @@ res://
      - 尝试为火焰附魔武器添加寒冰附魔 → 弹窗 "此物品已有炎属性附魔，寒冰附魔无法共存"
 ```
 
-### 14.4 平衡验证测试
+### 13.4 平衡验证测试
 
 ```
 测试名称: test_loot_table_balance_1000_runs
@@ -2809,7 +2350,6 @@ res://
 | GDD §5.3-5.4 战斗系统调整 | 槽位制装备、暴击规则 |
 | GDD §6.1-6.2 失败与成长系统 | 装备损坏惩罚、传承系统 |
 | GDD §7 LLM 集成架构 | Token 预算、Agent 分工、离线降级 |
-| Unity Documentation | ScriptableObject、UnityEvent、[SerializeField] |
 
 ---
 

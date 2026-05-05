@@ -1,7 +1,6 @@
 # 角色系统 — 技术设计文档
 
 > **项目**: 酒馆与命运 (Tavern & Destiny)
-> **引擎**: Unity (C#)
 > **规则基线**: DND 5e SRD（经Roguelike调整）
 > **语言政策**: 游戏文本统一采用简体中文，技术标识符使用英文snake_case
 > **文档版本**: v1.0
@@ -107,7 +106,7 @@
     "backstory": "曾是矮人王国铁炉堡的守卫队副官，在一次兽人突袭中失去了队友...",
     "appearance_description": "红棕色胡须编成三股辫，左眉有一道旧刀疤。从不脱下他的锁子甲...",
     "personal_goal": "寻找失落的神器——铁炉之心",
-    "avatar_path": "res://assets/sprites/characters/dwarf_fighter_01.png"
+    "avatar_path": "assets/sprites/characters/dwarf_fighter_01.png"
   },
 
   "stats": {
@@ -942,7 +941,7 @@ Lv1-5职业进阶:
 - 难度系数: Easy 0.8 / Normal 1.0 / Hard 1.3 / Deadly 1.6
 - 多人满额获取: 每个角色独立获取全额XP（不分摊）
 
-#### 2.4.2 升级流程 `[CUSTOM: Unity事件驱动]`
+#### 2.4.2 升级流程 `[CUSTOM: 事件驱动]`
 
 ```
 角色获得足够XP触发升级:
@@ -2140,362 +2139,9 @@ Output: 2-3段传记 (中文), 记录在酒馆英雄之壁
 
 ---
 
-## 9. Unity 实现参考
+## 9. 测试规格
 
-### 9.1 Resource类定义 `[CUSTOM]`
-
-```gdscript
-# res://scripts/character/character_resource.gd
-class_name CharacterResource
-extends Resource
-
-# === 顶层标识 ===
-@export var character_id: String = ""
-@export var created_at: String = ""
-@export var updated_at: String = ""
-@export var status: String = "alive"  # alive, dead, retired, missing
-
-# === 叙事层 (Narrative) ===
-@export var character_name: String = ""
-@export var race_name: String = ""
-@export var gender: String = ""
-@export var age: int = 0
-@export var personality_tags: Array[String] = []
-@export var backstory: String = ""
-@export var appearance_description: String = ""
-@export var personal_goal: String = ""
-@export var avatar_path: String = ""
-
-# === 基础属性 ===
-@export var level: int = 1
-@export var xp: int = 0
-@export var xp_to_next: int = 300
-@export var proficiency_bonus: int = 2
-@export var speed: int = 30
-@export var initiative_modifier: int = 0
-@export var armor_class: int = 10
-
-# === 生命值 ===
-@export var hp_max: int = 10
-@export var hp_current: int = 10
-@export var hp_temporary: int = 0
-
-# === Hit Dice ===
-@export var hit_die_type: String = "d8"  # d6, d8, d10, d12
-@export var hit_die_max: int = 1
-@export var hit_die_current: int = 1
-
-# === 六维 ===
-@export var ability_str: int = 10
-@export var ability_dex: int = 10
-@export var ability_con: int = 10
-@export var ability_int: int = 10
-@export var ability_wis: int = 10
-@export var ability_cha: int = 10
-
-# === 衍生值 ===
-@export var saving_throw_proficiencies: Array[String] = []
-@export var death_save_rounds_without_healing: int = 0
-@export var death_save_stable: bool = false
-@export var exhaustion_level: int = 0
-@export var has_inspiration: bool = false
-
-# === 技能熟练 ===
-@export var skill_proficiencies: Array[String] = []
-@export var skill_expertise: Array[String] = []
-
-# === 战斗 ===
-@export var weapon_proficiencies: Array[String] = []
-@export var armor_proficiencies: Array[String] = []
-@export var fighting_style: String = ""
-
-# === 职业 ===
-@export var primary_class_id: String = ""
-@export var primary_class_level: int = 1
-@export var subclass_id: String = ""
-@export var class_features: Array[String] = []
-
-# === 种族 ===
-@export var race_id: String = ""
-@export var subrace_id: String = ""
-@export var racial_traits: Array[String] = []
-@export var languages: Array[String] = []
-
-# === 法术 ===
-@export var caster_level: int = 0
-@export var spellcasting_ability: String = "int"
-@export var spell_save_dc: int = 8
-@export var spell_attack_modifier: int = 0
-@export var spell_slots: Dictionary = {
-  "1st": {"max": 0, "current": 0},
-  "2nd": {"max": 0, "current": 0},
-  "3rd": {"max": 0, "current": 0},
-  "4th": {"max": 0, "current": 0},
-  "5th": {"max": 0, "current": 0},
-  "6th": {"max": 0, "current": 0},
-  "7th": {"max": 0, "current": 0},
-  "8th": {"max": 0, "current": 0},
-  "9th": {"max": 0, "current": 0}
-}
-@export var cantrips_known: Array[String] = []
-@export var spells_known: Array[String] = []
-@export var spells_prepared: Array[String] = []
-
-# === 装备 ===
-@export var equipment_main_hand: String = ""
-@export var equipment_off_hand: String = ""
-@export var equipment_armor: String = ""
-@export var equipment_helmet: String = ""
-@export var equipment_boots: String = ""
-@export var equipment_cloak: String = ""
-@export var equipment_ring_1: String = ""
-@export var equipment_ring_2: String = ""
-@export var equipment_amulet: String = ""
-@export var backpack_items: Array[String] = []
-@export var attunements: Array[String] = []
-@export var gold: int = 0
-
-# === 关系 ===
-@export var relationships: Dictionary = {}
-
-# === 条件 ===
-@export var conditions: Array[Dictionary] = []
-
-# === 伤疤 ===
-@export var scars: Array[Dictionary] = []
-
-# === 专长 ===
-@export var feats: Array[String] = []
-
-# === 传承 ===
-@export var inherited_from: String = ""
-@export var inherited_skill: String = ""
-@export var inherited_knowledge_tags: Array[String] = []
-@export var legacy_points: int = 0
-
-# === 冒险日志 ===
-@export var adventures_completed: int = 0
-@export var total_kills: int = 0
-@export var total_damage_dealt: int = 0
-@export var total_damage_taken: int = 0
-@export var critical_hits: int = 0
-@export var critical_fails: int = 0
-@export var memorable_events: Array[Dictionary] = []
-```
-
-### 9.2 种族数据Resource
-
-```gdscript
-# res://scripts/character/race_resource.gd
-class_name RaceResource
-extends Resource
-
-@export var race_id: String = ""
-@export var race_name: String = ""  # Chinese name
-@export var race_name_en: String = ""
-@export var mvp: bool = false
-@export var speed: int = 30
-@export var size: String = "medium"  # small, medium
-@export var ability_increases: Dictionary = {}  # {"str": 2, "dex": 1, ...}
-@export var languages: Array[String] = []
-@export var bonus_language_choice: int = 0
-@export var darkvision_range: int = 0
-@export var traits: Array[Dictionary] = []  # [{id, name, description, mechanical}]
-@export var proficiencies: Array[String] = []
-@export var subraces: Dictionary = {}  # {subrace_id: RaceResource或嵌套}
-```
-
-### 9.3 职业数据Resource
-
-```gdscript
-# res://scripts/character/class_resource.gd
-class_name ClassResource
-extends Resource
-
-@export var class_id: String = ""
-@export var class_name: String = ""
-@export var class_name_en: String = ""
-@export var mvp: bool = false
-@export var hit_die: String = "d8"  # d6, d8, d10, d12
-@export var primary_ability: String = ""
-@export var primary_ability_alt: String = ""
-@export var saving_throw_proficiencies: Array[String] = []
-@export var skill_choices_count: int = 2
-@export var skill_choices_pool: Array[String] = []
-@export var weapon_proficiencies: Array[String] = []
-@export var armor_proficiencies: Array[String] = []
-@export var starting_equipment_choices: Array[Dictionary] = []
-@export var multiclass_requirements: Dictionary = {}  # {str: 13, dex: 13}
-@export var is_caster: bool = false
-@export var caster_type: String = ""  # full, half, warlock
-@export var spellcasting_ability: String = ""
-
-# 每级特性
-@export var level_features: Dictionary = {}  # {1: ["fighting_style", "second_wind"], 2: [...], ...}
-# 每级法术位 (如果是施法者)
-@export var level_spell_slots: Dictionary = {}  # {1: {"1st":2}, 2: {"1st":3}, ...}
-# 每级戏法数
-@export var level_cantrips: Dictionary = {}
-# ASI等级列表
-@export var asi_levels: Array[int] = []
-# 子职业选择等级
-@export var subclass_selection_level: int = 0
-# 子职业列表
-@export var subclasses: Dictionary = {}
-```
-
-### 9.4 Unity事件定义
-
-```gdscript
-# res://scripts/signals/character_signals.gd
-extends Node
-
-## 角色相关信号总线
-signal character_created(character_id: String)
-signal character_leveled_up(character_id: String, old_level: int, new_level: int)
-signal character_died(character_id: String, cause: String, adventure_id: String)
-signal character_retired(character_id: String)
-signal character_inheritance_triggered(from_id: String, to_id: String)
-
-## 升级相关
-signal level_up_asi(character_id: String)
-signal subclass_selection(character_id: String)
-signal unlock_spell_level(character_id: String, spell_level: int)
-
-## 战斗相关
-signal hp_changed(character_id: String, old_hp: int, new_hp: int, max_hp: int)
-signal condition_applied(character_id: String, condition_type: String)
-signal condition_removed(character_id: String, condition_type: String)
-signal death_save_progressed(character_id: String, rounds_without_healing: int)
-
-## 伤疤相关
-signal scar_acquired(character_id: String, scar_id: String)
-signal scar_removed(character_id: String, scar_id: String)
-
-## 关系相关
-signal relationship_changed(character_id: String, target_id: String, old_value: int, new_value: int, reason: String)
-signal relationship_threshold_crossed(character_id: String, target_id: String, threshold: String, direction: String)
-
-## 装备相关
-signal equipment_changed(character_id: String, slot: String, old_item_id: String, new_item_id: String)
-signal attunement_changed(character_id: String, item_id: String, attuned: bool)
-
-## 专长相关
-signal feat_acquired(character_id: String, feat_id: String)
-```
-
-### 9.5 文件组织建议
-
-```
-res://
-├── scripts/
-│   ├── character/
-│   │   ├── character_resource.gd          # CharacterResource类
-│   │   ├── character_manager.gd           # 角色管理器(单例)
-│   │   ├── character_generator.gd         # 角色生成器
-│   │   ├── character_level_up.gd          # 升级处理器
-│   │   ├── race_resource.gd              # RaceResource类
-│   │   ├── class_resource.gd             # ClassResource类
-│   │   ├── ability_calculator.gd         # 属性/衍生值计算器
-│   │   ├── skill_calculator.gd           # 技能调整值计算
-│   │   ├── hp_calculator.gd              # HP计算器
-│   │   ├── ac_calculator.gd              # AC计算器
-│   │   ├── condition_system.gd           # 条件管理系统
-│   │   ├── scar_system.gd                # 伤疤系统
-│   │   ├── relationship_system.gd        # 关系系统
-│   │   ├── inheritance_system.gd         # 传承系统
-│   │   └── feat_system.gd               # 专长系统
-│   ├── signals/
-│   │   └── character_signals.gd          # 角色相关信号总线
-│   └── data/
-│       ├── races/                         # 种族数据JSON/Resource
-│       │   ├── human.json
-│       │   ├── elf.json
-│       │   └── dwarf.json
-│       ├── classes/                       # 职业数据JSON/Resource
-│       │   ├── fighter.json
-│       │   ├── wizard.json
-│       │   └── rogue.json
-│       ├── feats.json                    # 专长数据
-│       ├── scars.json                    # 伤疤池数据
-│       ├── conditions.json               # 条件定义
-│       └── equipment_slots.json          # 装备槽定义
-├── scenes/
-│   ├── character/
-│   │   ├── character_sheet.tscn          # 角色面板场景
-│   │   ├── recruitment_scene.tscn        # 招募场景
-│   │   └── level_up_scene.tscn           # 升级界面场景
-└── assets/
-    └── sprites/
-        └── characters/                   # 角色精灵
-```
-
-### 9.6 推荐数据结构
-
-```gdscript
-# === C# 字典和列表推荐 ===
-
-# 条件active_conditions: Array[Dictionary]
-# 每个条件的Dict结构见section 2.8.3
-
-# 关系数据 (存于角色的relationships字典)
-# relationships: Dictionary = { target_char_id: RelationshipData }
-# RelationshipData = { character_id, character_name, value, history: Array, labels: Array }
-
-# 伤疤数组
-# scars: Array[Dictionary]
-
-# === 常用查找函数 ===
-
-# 属性调整值
-func get_ability_modifier(score: int) -> int:
-    return floori((score - 10) / 2.0)
-
-# 熟练加值
-func get_proficiency_bonus(level: int) -> int:
-    return floori((level - 1) / 4.0) + 2
-
-# 技能加值
-func get_skill_modifier(character: CharacterResource, skill_name: String) -> int:
-    var abilities = {
-        "acrobatics": "dex", "animal_handling": "wis", "arcana": "int",
-        "athletics": "str", "deception": "cha", "history": "int",
-        "insight": "wis", "intimidation": "cha", "investigation": "int",
-        "medicine": "wis", "nature": "int", "perception": "wis",
-        "performance": "cha", "persuasion": "cha", "religion": "int",
-        "sleight_of_hand": "dex", "stealth": "dex", "survival": "wis"
-    }
-    var ability_key = abilities[skill_name]
-    var score = character.get("ability_" + ability_key)
-    var mod = get_ability_modifier(score)
-
-    if skill_name in character.skill_expertise:
-        return mod + character.proficiency_bonus * 2
-    elif skill_name in character.skill_proficiencies:
-        return mod + character.proficiency_bonus
-    else:
-        return mod
-
-# 法术DC
-func get_spell_save_dc(character: CharacterResource) -> int:
-    var ability_mod = get_ability_modifier(
-        character.get("ability_" + character.spellcasting_ability)
-    )
-    return 8 + character.proficiency_bonus + ability_mod
-
-# 法术攻击加值
-func get_spell_attack_modifier(character: CharacterResource) -> int:
-    var ability_mod = get_ability_modifier(
-        character.get("ability_" + character.spellcasting_ability)
-    )
-    return character.proficiency_bonus + ability_mod
-```
-
----
-
-## 10. 测试规格
-
-### 10.1 单元测试用例
+### 9.1 单元测试用例
 
 #### Test Suite: Stat Calculation Pipeline
 
@@ -2658,7 +2304,7 @@ TEST 33: 关系类型条件消失
   Expected: value=4 -> Friendly, 关系类型保留但效果消失 (30天宽限)
 ```
 
-### 10.2 集成测试场景
+### 9.2 集成测试场景
 
 ```
 TEST 34: 完整角色创建流程
@@ -2704,7 +2350,7 @@ TEST 39: 死亡豁免新规则
   Alternative Round 2 (被治疗): rounds_without_healing 重置为0, HP恢复
 ```
 
-### 10.3 边缘情况目录
+### 9.3 边缘情况目录
 
 ```
 === 属性极端值 ===
@@ -2766,7 +2412,7 @@ EDGE 15: 伤疤补偿>惩罚
   -> 对于无黑暗视觉的Human: 新增60尺黑暗视觉
 ```
 
-### 10.4 平衡验证公式 `[CUSTOM]`
+### 9.4 平衡验证公式 `[CUSTOM]`
 
 ```
 === 队伍战斗力指数 (Party Power Index) ===
