@@ -27,6 +27,11 @@
     </EmbeddedResource>
   </ItemGroup>
   <ItemGroup>
+    <None Update="Content\Fonts\NotoSansCJKsc-Regular.ttf">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
     <PackageReference Include="FontStashSharp.MonoGame" Version="1.*" />
     <PackageReference Include="GoRogue" Version="2.6.4" />
     <PackageReference Include="JsonSchema.Net" Version="7.*" />

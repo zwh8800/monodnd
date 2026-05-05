@@ -12,6 +12,10 @@ Content/obj/
 *.user
 *.suo
 
+# Font files (download separately)
+Content/Fonts/*.ttf
+Content/Fonts/*.otf
+
 # OS
 .DS_Store
 Thumbs.db
