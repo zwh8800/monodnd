@@ -13,8 +13,7 @@ Content/obj/
 *.suo
 
 # Font files (download separately)
-Content/Fonts/*.ttf
-Content/Fonts/*.otf
+Content/Fonts/
 
 # OS
 .DS_Store
