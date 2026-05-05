@@ -2,7 +2,6 @@
 
 > **Subsystem**: Map & Exploration
 > **Game**: 《酒馆与命运》(Tavern & Destiny)
-> **Engine**: Unity (C#)
 > **Rules Reference**: DND 5e SRD
 > **Language Policy**: 游戏文本统一采用简体中文，技术标识符使用英文snake_case
 > **Version**: 1.0 — MVP + Phase 2 scope
@@ -782,11 +781,11 @@ CR预算规则:
 │ Layer 0 — Background (背景层)             │  ← 天空/远景/房间外部装饰
 └──────────────────────────────────────────┘
 
-Unity Tilemap Layer Index 对应:
-  Sorting Layer 0 = Background
-  Sorting Layer 1 = Terrain
-  Sorting Layer 2 = Objects
-  (Characters/Effects/UI/Fog 使用独立的SpriteRenderer/Canvas层级)
+渲染层级对应:
+  Layer 0 = Background (背景层)
+  Layer 1 = Terrain (地形层)
+  Layer 2 = Objects (物件层)
+  Characters/Effects/UI/Fog 使用独立渲染层级
 ```
 
 ### 3.3 Tileset选择算法
@@ -805,16 +804,16 @@ Step 2 — Tileset优先级匹配
 
   | theme_tag  | Tileset ID        | 资源路径                                | 优先级 |
   |------------|-------------------|----------------------------------------|--------|
-  | dungeon    | dungeon_basic     | res://assets/tilesets/dungeon_basic.tres    | 1 |
-  | crypt      | dungeon_crypt     | res://assets/tilesets/dungeon_crypt.tres    | 2 |
-  | cave       | cave_natural      | res://assets/tilesets/cave_natural.tres     | 1 |
-  | forest     | forest_temperate  | res://assets/tilesets/forest_temperate.tres | 1 |
-  | swamp      | swamp_murky       | res://assets/tilesets/swamp_murky.tres      | 2 |
-  | town       | town_medieval     | res://assets/tilesets/town_medieval.tres    | 1 |
-  | ruins      | ruins_ancient     | res://assets/tilesets/ruins_ancient.tres    | 1 |
-  | temple     | temple_holy       | res://assets/tilesets/temple_holy.tres      | 2 |
-  | canyon     | canyon_desert     | res://assets/tilesets/canyon_desert.tres    | 2 |
-  | snow       | snow_mountain     | res://assets/tilesets/snow_mountain.tres    | 3 |
+  | dungeon    | dungeon_basic     | assets/tilesets/dungeon_basic.tres    | 1 |
+  | crypt      | dungeon_crypt     | assets/tilesets/dungeon_crypt.tres    | 2 |
+  | cave       | cave_natural      | assets/tilesets/cave_natural.tres     | 1 |
+  | forest     | forest_temperate  | assets/tilesets/forest_temperate.tres | 1 |
+  | swamp      | swamp_murky       | assets/tilesets/swamp_murky.tres      | 2 |
+  | town       | town_medieval     | assets/tilesets/town_medieval.tres    | 1 |
+  | ruins      | ruins_ancient     | assets/tilesets/ruins_ancient.tres    | 1 |
+  | temple     | temple_holy       | assets/tilesets/temple_holy.tres      | 2 |
+  | canyon     | canyon_desert     | assets/tilesets/canyon_desert.tres    | 2 |
+  | snow       | snow_mountain     | assets/tilesets/snow_mountain.tres    | 3 |
 
 Step 3 — 标签匹配
   for each tag in theme_tags:
@@ -822,7 +821,7 @@ Step 3 — 标签匹配
       return tileset_map[tag].path  // 返回第一个匹配
 
 Step 4 — 默认回退
-  return "res://assets/tilesets/dungeon_basic.tres"
+  return "assets/tilesets/dungeon_basic.tres"
 ```
 
 ### 3.4 房间模板系统
@@ -836,7 +835,7 @@ Step 4 — 默认回退
   "node_type": "combat",
   "size": [20, 15],
   "tileset_tags": ["dungeon", "generic"],
-  "tile_grid": "res://data/room_templates/combat_arena.tilemap",
+  "tile_grid": "data/room_templates/combat_arena.tilemap",
   "entry_points": [
     { "position": [10, 0], "direction": "south", "label": "南入口" }
   ],
@@ -1632,12 +1631,12 @@ Algorithm (Recursive Shadow Casting):
   空间复杂度: O(N)
 ```
 
-#### 7.2.2 Unity 简化实现
+#### 7.2.2 简化实现
 
-使用 `Physics2D.Raycast` 的简化实现：
+使用射线投射的简化实现：
 - 从角色位置向vision_range半径内的每个tile中心发射射线
 - 每个tile发射2条射线 (角到角精度)
-- 使用 `Physics2D.Raycast` 检测碰撞
+- 使用射线投射检测碰撞
 - 如果碰撞点在该tile内 → tile可见
 - 如果射线未碰撞 → tile可见
 
@@ -2191,8 +2190,8 @@ Step 8 — 返回完整Room场景数据
   "orientation": "horizontal",
   "door_type": "locked_magical",
   "visual": {
-    "sprite_open": "res://assets/sprites/doors/gate_ancient_open.png",
-    "sprite_closed": "res://assets/sprites/doors/gate_ancient_closed.png",
+    "sprite_open": "assets/sprites/doors/gate_ancient_open.png",
+    "sprite_closed": "assets/sprites/doors/gate_ancient_closed.png",
     "anim_duration": 0.4
   },
   "lock_config": {
@@ -2230,462 +2229,9 @@ Step 8 — 返回完整Room场景数据
 
 ---
 
-## 12. Unity 实现参考
+## 12. 测试规格
 
-### 12.1 Scene/Node 层级
-
-```
-ExplorationScene (Node2D)
-├── RoomManager (Node)
-│   ├── CurrentRoom (Node2D)
-│   │   ├── TileMapLayer_Background (TileMapLayer)   # Layer 0
-│   │   ├── TileMapLayer_Terrain (TileMapLayer)      # Layer 1
-│   │   ├── TileMapLayer_Objects (TileMapLayer)      # Layer 2
-│   │   ├── Characters (Node2D)                       # Layer 3 (Sprite2D实例)
-│   │   │   ├── PartyLeader (CharacterSprite)
-│   │   │   ├── PartyMember2 (CharacterSprite)
-│   │   │   ├── PartyMember3 (CharacterSprite)
-│   │   │   └── PartyMember4 (CharacterSprite)
-│   │   ├── NPCs (Node2D)
-│   │   ├── Enemies (Node2D)
-│   │   ├── Effects (Node2D)                          # Layer 4
-│   │   │   ├── FireParticles (GPUParticles2D)
-│   │   │   └── TrapActivationEffect (AnimatedSprite2D)
-│   │   └── InteractiveObjects (Node2D)              # 交互标签物体
-│   │       ├── PushableObjects[]
-│   │       ├── FlammableObjects[]
-│   │       ├── ClimbableObjects[]
-│   │       ├── BreakableObjects[]
-│   │       ├── ReadableObjects[]
-│   │       ├── FlammableLiquidObjects[]
-│   │       ├── ElectricalObjects[]
-│   │       └── HideableObjects[]
-│   └── RoomPreloader (Node)                          # 异步预加载
-│
-├── ExplorationCamera (Camera2D)                     # Section 3.5
-│
-├── FogOfWarLayer (CanvasLayer)                      # Layer 6 (最顶层)
-│   └── FogTileMap (TileMapLayer)                    # 迷雾tile
-│
-├── UIOverlay (CanvasLayer)                           # Layer 5
-│   ├── Minimap (Control)                            # Section 8
-│   ├── InteractionPrompt (Label)
-│   ├── CharacterNames (Label[])
-│   └── DamageNumbers (Label[])
-│
-├── ExplorationManager (Node)                         # Autoload或场景单例
-│   ├── PathfindController
-│   ├── ActionController
-│   └── TurnManager (探索模式下的非战斗回合)
-│
-├── InteractionManager (Node)                         # Section 6标签处理
-│
-├── TrapManager (Node)                                # Section 10陷阱管理
-│
-├── MapDataManager (Node)                             # 图数据+房间数据
-│
-└── SceneTransitionController (Node)                  # Section 4场景转换
-```
-
-### 12.2 Tilemap Layer Setup (Unity)
-
-```gdscript
-# res://scripts/exploration/room_builder.gd
-class_name RoomBuilder
-extends Node
-
-const TILE_SIZE: int = 32
-const LAYER_BACKGROUND: int = 0
-const LAYER_TERRAIN: int = 1
-const LAYER_OBJECTS: int = 2
-
-var tilemap_background: TileMapLayer
-var tilemap_terrain: TileMapLayer
-var tilemap_objects: TileMapLayer
-
-func setup_tilemap_layers(parent: Node2D) -> void:
-    # Unity使用Tilemap组件
-    tilemap_background = TileMapLayer.new()
-    tilemap_background.name = "Background"
-    parent.add_child(tilemap_background)
-
-    tilemap_terrain = TileMapLayer.new()
-    tilemap_terrain.name = "Terrain"
-    parent.add_child(tilemap_terrain)
-
-    tilemap_objects = TileMapLayer.new()
-    tilemap_objects.name = "Objects"
-    parent.add_child(tilemap_objects)
-
-func set_tileset(theme_tags: Array[String]) -> void:
-    var tileset_path = TilesetSelector.select(theme_tags)
-    var tileset = load(tileset_path) as TileSet
-    tilemap_terrain.tile_set = tileset
-    tilemap_objects.tile_set = tileset
-
-func place_tile(pos: Vector2i, atlas_coords: Vector2i, layer: int = LAYER_TERRAIN) -> void:
-    var target = _get_layer(layer)
-    target.set_cell(pos, 0, atlas_coords)
-```
-
-### 12.3 MapDataManager
-
-```gdscript
-# res://scripts/exploration/map_data_manager.gd
-class_name MapDataManager
-extends Node
-
-## 存储节点图和房间运行时数据
-
-var node_graph: Dictionary = {}          # node_id -> NodeData
-var adjacency: Dictionary = {}           # node_id -> Array[String] (connected nodes)
-var room_instances: Dictionary = {}      # node_id -> PackedScene
-var explored_nodes: Array[String] = []    # 已探索节点ID列表
-var current_node_id: String = ""
-var party_levels: Array[int] = []         # [3, 3, 3, 3]
-
-signal node_entered(node_id: String)
-signal node_exited(node_id: String)
-signal node_unlocked(node_id: String)
-
-func load_blueprint(blueprint: Dictionary) -> void:
-    var nodes = blueprint.get("plot_outline", {}).get("nodes", [])
-    node_graph.clear()
-    adjacency.clear()
-
-    for node_data in nodes:
-        var nid = node_data["node_id"]
-        node_graph[nid] = node_data
-        adjacency[nid] = []
-        for conn in node_data.get("connections", []):
-            adjacency[nid].append(conn["target_node"])
-
-    # 寻找起始节点 (入度为0)
-    var in_degrees = {}
-    for nid in node_graph:
-        in_degrees[nid] = 0
-    for nid in node_graph:
-        for target in adjacency[nid]:
-            in_degrees[target] = in_degrees.get(target, 0) + 1
-
-    for nid in in_degrees:
-        if in_degrees[nid] == 0:
-            current_node_id = nid
-            break
-
-func get_connections(node_id: String) -> Array:
-    return adjacency.get(node_id, [])
-
-func get_node_data(node_id: String) -> Dictionary:
-    return node_graph.get(node_id, {})
-
-func mark_explored(node_id: String) -> void:
-    if node_id not in explored_nodes:
-        explored_nodes.append(node_id)
-
-func enter_node(node_id: String) -> void:
-    var old_id = current_node_id
-    current_node_id = node_id
-    mark_explored(node_id)
-    node_entered.emit(node_id)
-    if old_id:
-        node_exited.emit(old_id)
-```
-
-### 12.4 ExplorationManager
-
-```gdscript
-# res://scripts/exploration/exploration_manager.gd
-class_name ExplorationManager
-extends Node
-
-## 探索模式下的核心管理器
-
-var party_characters: Array[CharacterResource] = []
-var fog_of_war: FogOfWarManager
-var active_searches: Array[Dictionary] = []
-var discovered_hidden: Dictionary = {}  # check_id -> bool
-
-signal exploration_action_performed(action_id: String, character_id: String)
-signal hidden_object_discovered(check_id: String, character_id: String)
-signal trap_triggered(trap_id: String, character_id: String)
-signal environmental_cue_found(cue_id: String, character_id: String)
-
-func perform_search(character: CharacterResource, search_position: Vector2i) -> Array:
-    """执行主动搜索动作"""
-    var results: Array = []
-    var passive_perception = get_passive_perception(character)
-    var active_roll = randi_range(1, 20)  # d20
-    var total = active_roll + get_ability_modifier(character.ability_wis)
-    if "perception" in character.skill_proficiencies:
-        total += character.proficiency_bonus
-
-    # 检查5 tile半径内的隐藏物体
-    var room_data = MapDataManager.get_node_data(MapDataManager.current_node_id)
-    var hidden_checks = room_data.get("exploration_config", {}).get("hidden_checks", [])
-
-    for check in hidden_checks:
-        if check.check_id in discovered_hidden:
-            continue
-        var dc = check.get("detection_dc", 10)
-        if total >= dc:
-            discovered_hidden[check.check_id] = true
-            results.append(check)
-            hidden_object_discovered.emit(check.check_id, character.character_id)
-
-    exploration_action_performed.emit("search", character.character_id)
-    return results
-
-func get_passive_perception(character: CharacterResource) -> int:
-    var base = 10 + get_ability_modifier(character.ability_wis)
-    if "perception" in character.skill_proficiencies:
-        base += character.proficiency_bonus
-    if "perception" in character.skill_expertise:
-        base += character.proficiency_bonus  # 专精额外再加一次
-    return base
-
-func check_passive_detection(character: CharacterResource) -> void:
-    """每帧检查被动察觉"""
-    var pp = get_passive_perception(character)
-    var room_data = MapDataManager.get_node_data(MapDataManager.current_node_id)
-    var hidden_checks = room_data.get("exploration_config", {}).get("hidden_checks", [])
-
-    for check in hidden_checks:
-        if check.check_id in discovered_hidden:
-            continue
-        if check.get("passive_detection_possible", false):
-            var dc = check.get("detection_dc", 99)
-            if pp >= dc:
-                # 半透明揭示
-                emit_hint(check.check_id)
-
-func get_ability_modifier(score: int) -> int:
-    return floori((score - 10) / 2.0)
-```
-
-### 12.5 InteractionManager
-
-```gdscript
-# res://scripts/exploration/interaction_manager.gd
-class_name InteractionManager
-extends Node
-
-## 交互标签系统核心处理器
-
-var tag_handlers: Dictionary = {
-    "Pushable": PushableHandler.new(),
-    "Flammable": FlammableHandler.new(),
-    "Climbable": ClimbableHandler.new(),
-    "Breakable": BreakableHandler.new(),
-    "Readable": ReadableHandler.new(),
-    "Flammable_Liquid": FlammableLiquidHandler.new(),
-    "Electrical": ElectricalHandler.new(),
-    "Hideable": HideableHandler.new()
-}
-
-var active_interactions: Array[Dictionary] = []  # 当前活跃的交互状态
-
-signal interaction_resolved(object_id: String, tag_type: String, result: Dictionary)
-signal fire_spread(from_object_id: String, to_object_id: String)
-signal electricity_conducted(source_id: String, target_ids: Array)
-signal object_destroyed(object_id: String, destroyed_by: String)
-
-func interact(character: CharacterResource, object: InteractionObject) -> Dictionary:
-    """处理角色对物体的交互"""
-    var handler = tag_handlers.get(object.tag_type)
-    if handler:
-        var context = {
-            "character": character,
-            "object": object,
-            "room_objects": get_room_objects()
-        }
-        var result = handler.process_interaction(context)
-        interaction_resolved.emit(object.object_id, object.tag_type, result)
-        return result
-    return {"success": false, "error": "Unknown tag type: " + object.tag_type}
-
-func process_tick(delta: float) -> void:
-    """每帧处理活跃的交互状态 (火焰传播、电击等)"""
-    for interaction in active_interactions:
-        var handler = tag_handlers.get(interaction.tag_type)
-        if handler and handler.has_method("process_tick"):
-            handler.process_tick(interaction, delta)
-```
-
-### 12.6 Signal定义
-
-```gdscript
-# res://scripts/signals/exploration_signals.gd
-extends Node
-
-## 探索系统相关信号总线
-
-# 节点事件
-signal node_entered(node_id: String)
-signal node_exited(node_id: String)
-signal node_graph_validated(success: bool, errors: Array)
-
-# 移动事件
-signal path_calculated(start: Vector2i, end: Vector2i, path: Array)
-signal character_moved(character_id: String, from_pos: Vector2i, to_pos: Vector2i)
-signal movement_blocked(reason: String)
-
-# 探索行动
-signal search_performed(character_id: String, results: Array)
-signal examine_performed(character_id: String, object_id: String, result: Dictionary)
-signal disarmed_trap(character_id: String, trap_id: String, success: bool)
-
-# 发现事件
-signal hidden_object_detected(check_id: String, detection_type: String)
-signal secret_door_found(check_id: String, target_node: String)
-signal environmental_cue_found(cue_id: String, hint_text: String)
-signal trap_detected(trap_id: String, detection_quality: String)  # "passive" / "active" / "hint"
-
-# 交互标签事件
-signal object_pushed(object_id: String, direction: Vector2i, distance: int)
-signal object_ignited(object_id: String, source: String)
-signal object_climbed(object_id: String, character_id: String, height_reached: int)
-signal object_broken(object_id: String, method: String, loot_dropped: Array)
-signal object_read(object_id: String, character_id: String, knowledge_tags_granted: Array)
-signal fire_spread(from_id: String, to_id: String)
-signal electricity_conducted(source_id: String, affected_ids: Array)
-signal character_hid(character_id: String, object_id: String, stealth_result: int)
-signal character_revealed(character_id: String, reason: String)
-
-# 陷阱事件
-signal trap_triggered(trap_id: String, victims: Array)
-signal trap_disarmed(trap_id: String, character_id: String)
-
-# 迷雾/视野事件
-signal tile_revealed(tile: Vector2i, state: String)  # "visible" / "explored"
-signal fog_updated(room_id: String)
-signal light_source_changed(light_id: String, active: bool)
-
-# 战斗触发
-signal combat_triggered(encounter_id: String, enemies: Array, formation: String)
-signal boss_encounter_started(boss_id: String, phases: Array)
-
-# 场景转换
-signal room_transition_requested(target_node: String, transition_type: String)
-signal transition_started(from_node: String, to_node: String, type: String)
-signal transition_completed(new_node: String)
-
-# 小地图
-signal minimap_node_discovered(node_id: String, node_type: String)
-signal minimap_node_visited(node_id: String)
-```
-
-### 12.7 文件组织
-
-```
-res://
-├── scripts/
-│   ├── exploration/
-│   │   ├── exploration_manager.gd           # 探索核心管理器
-│   │   ├── map_data_manager.gd             # 图数据+房间数据
-│   │   ├── node_graph_generator.gd         # 节点图生成算法
-│   │   ├── room_builder.gd                 # 房间TileMap构建器
-│   │   ├── room_template_loader.gd         # 房间模板加载器
-│   │   ├── room_preloader.gd              # 房间预加载管理器
-│   │   ├── tileset_selector.gd             # Tileset选择器
-│   │   ├── camera_controller.gd            # 探索相机
-│   │   │
-│   │   ├── movement/
-│   │   │   ├── astar_pathfinder.gd         # A*寻路
-│   │   │   ├── click_movement_controller.gd # 点击移动控制器
-│   │   │   └── terrain_cost_calculator.gd  # 地形成本计算
-│   │   │
-│   │   ├── fog_of_war/
-│   │   │   ├── fog_manager.gd              # 迷雾管理器
-│   │   │   ├── line_of_sight.gd            # 视线计算
-│   │   │   ├── light_source_manager.gd     # 光源管理
-│   │   │   └── darkvision_handler.gd       # 黑暗视觉处理
-│   │   │
-│   │   ├── interaction/
-│   │   │   ├── interaction_manager.gd      # 交互管理器
-│   │   │   ├── interaction_object.gd       # 交互物体基类
-│   │   │   ├── handlers/
-│   │   │   │   ├── pushable_handler.gd
-│   │   │   │   ├── flammable_handler.gd
-│   │   │   │   ├── climbable_handler.gd
-│   │   │   │   ├── breakable_handler.gd
-│   │   │   │   ├── readable_handler.gd
-│   │   │   │   ├── flammable_liquid_handler.gd
-│   │   │   │   ├── electrical_handler.gd
-│   │   │   │   └── hideable_handler.gd
-│   │   │   └── tag_resolver.gd             # 标签分配/解析
-│   │   │
-│   │   ├── encounter/
-│   │   │   ├── encounter_manager.gd        # 遭遇管理器
-│   │   │   ├── cr_budget_calculator.gd     # CR预算计算
-│   │   │   ├── enemy_composer.gd           # 敌人组合生成
-│   │   │   └── formation_placer.gd         # 阵型放置
-│   │   │
-│   │   ├── traps/
-│   │   │   ├── trap_manager.gd             # 陷阱管理器
-│   │   │   ├── trap_data.gd               # 陷阱数据Resource
-│   │   │   └── trap_trigger_sequence.gd   # 陷阱触发序列
-│   │   │
-│   │   ├── hidden_objects/
-│   │   │   ├── hidden_object_manager.gd    # 隐藏物体管理
-│   │   │   └── perception_system.gd        # 感知系统(链接角色系统)
-│   │   │
-│   │   ├── minimap/
-│   │   │   ├── minimap_renderer.gd         # 小地图渲染
-│   │   │   └── full_map_view.gd            # 全屏地图视图
-│   │   │
-│   │   └── transitions/
-│   │       ├── scene_transition_controller.gd # 场景转换控制器
-│   │       └── transition_effects.gd         # 转换特效
-│   │
-│   └── signals/
-│       └── exploration_signals.gd          # 探索相关信号总线
-│
-├── scenes/
-│   ├── exploration/
-│   │   ├── exploration_scene.tscn          # 探索主场景
-│   │   ├── room_template_scene.tscn        # 房间模板场景
-│   │   ├── minimap.tscn                    # 小地图UI
-│   │   └── full_map_view.tscn              # 全屏地图UI
-│
-├── data/
-│   ├── room_templates/                     # 房间模板数据
-│   │   ├── combat_arena.tilemap
-│   │   ├── combat_ambush.tilemap
-│   │   ├── combat_corridor.tilemap
-│   │   ├── dialogue_chamber.tilemap
-│   │   ├── merchant_camp.tilemap
-│   │   ├── rest_grotto.tilemap
-│   │   └── boss_throne.tilemap
-│   ├── tilesets/                           # Tileset资源
-│   │   ├── dungeon_basic.tres
-│   │   ├── forest_temperate.tres
-│   │   └── town_medieval.tres
-│   ├── enemies/                            # 敌人数据
-│   │   └── enemy_database.json
-│   ├── traps/                              # 陷阱定义
-│   │   └── trap_definitions.json
-│   ├── interaction_tags/                   # 交互标签物体预制体
-│   │   └── tag_templates.json
-│   └── themes/                             # 主题配置
-│       └── theme_definitions.json
-│
-└── assets/
-    ├── sprites/
-    │   ├── doors/
-    │   ├── interactive_objects/
-    │   └── environment/
-    ├── tilesets/
-    └── effects/
-        ├── fire_particles.tres
-        └── explosion_vfx.tscn
-```
-
----
-
-## 13. 测试规格
-
-### 13.1 单元测试
+### 12.1 单元测试
 
 #### Test Suite: 图连通性验证
 
@@ -2791,7 +2337,7 @@ TEST 22: 推倒碰撞
   Expected: 敌人DEX豁免DC 13, 失败受2d6钝击并推后1格
 ```
 
-### 13.2 集成测试
+### 12.2 集成测试
 
 #### Test Suite: 完整房间转换流程
 
@@ -2854,7 +2400,7 @@ TEST 31: 解锁然后通过门
   Expected: 成功 → 门打开 → 可通行
 ```
 
-### 13.3 边界情况
+### 12.3 边界情况
 
 ```
 TEST 32: 单个最小房间
@@ -2886,7 +2432,7 @@ TEST 38: 极限CR (Deadly+1)
   Expected: 警告"CR超过队伍等级+4", 但根据规则允许(Deadly by design)
 ```
 
-### 13.4 平衡验证
+### 12.4 平衡验证
 
 ```
 TEST 39: CR预算计算 (Easy, Lv3×4)
@@ -2916,4 +2462,4 @@ TEST 42: 遭遇频率
 *作者: 酒馆与命运 开发团队*
 *状态: 初始设计阶段, 与GDD-v1.0对齐*
 
-*下一步: 基于此TDD实现 Unity prototype，优先完成MVP范围的7个房间模板和基础探索流程*
+*下一步: 基于此TDD实现原型，优先完成MVP范围的7个房间模板和基础探索流程*

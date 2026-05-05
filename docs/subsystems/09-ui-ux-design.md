@@ -2,7 +2,6 @@
 
 > **Subsystem**: UI/UX Design
 > **Game**: 《酒馆与命运》(Tavern & Destiny)
-> **Engine**: Unity (C#)
 > **Visual Style**: SFC/FF6 Pixel Art
 > **Language Policy**: 游戏文本统一采用简体中文，技术标识符使用英文snake_case
 > **Version**: 1.0 — MVP + Full Game scope
@@ -53,9 +52,9 @@
 
 | 原则 | 说明 | 实施要求 |
 |------|------|----------|
-| **像素完美** | 所有UI元素对齐像素网格，无亚像素偏移 | Unity中使用Snap对齐坐标，Canvas设为Pixel Perfect |
+| **像素完美** | 所有UI元素对齐像素网格，无亚像素偏移 | 使用像素对齐，确保UI元素对齐像素网格 |
 | **可读性优先** | 文字在任何背景下清晰可读 | 所有文字带1px深色描边或背景板 |
-| **响应式缩放** | 支持1280×720到2560×1440 | Unity Canvas Scaler设为Scale With Screen Size |
+| **响应式缩放** | 支持1280×720到2560×1440 | 采用响应式缩放策略，基准分辨率1280×720 |
 | **怀旧但功能** | SFC美学不牺牲现代UX | 保留hover提示、快捷键、工具提示 |
 | **信息层级** | 重要信息突出，次要信息弱化 | 使用颜色/大小/动画区分层级 |
 | **一致性** | 所有屏幕共享同一套UI组件库 | 统一Theme Resource |
@@ -67,7 +66,7 @@
 | 设计基准分辨率 | 1280×720 (16:9) | 所有UI元素基于此分辨率设计 |
 | 最小支持分辨率 | 1280×720 | 低于此分辨率不保证显示 |
 | 最大支持分辨率 | 2560×1440 | 2×缩放，像素完美 |
-| 缩放策略 | Unity Canvas Scaler: Scale With Screen Size | 参考分辨率1280×720自适应缩放 |
+| 缩放策略 | 响应式缩放: 基准分辨率1280×720自适应缩放 | 参考分辨率1280×720自适应缩放 |
 | 缩放因子选项 | 0.8×, 1.0×, 1.2× | 玩家可在设置中调整 |
 | 像素对齐 | 所有坐标取整到整数像素 | 避免模糊 |
 
@@ -1838,298 +1837,9 @@ HP条变化动画 (0.5s):
 
 ---
 
-## 15. Unity 实现参考
+## 15. 测试规格
 
-### 15.1 Control节点层级
-
-```
-Game (Node)
-├── ScreenManager (Node)                    # 屏幕状态机
-│   ├── TitleScreen (Control)
-│   ├── TavernScreen (Control)
-│   ├── AdventureScreen (Control)
-│   ├── CombatScreen (Control)
-│   └── SettlementScreen (Control)
-│
-├── OverlayManager (Node)                   # 覆盖层管理
-│   ├── RecruitmentOverlay (Control)
-│   ├── QuestBoardOverlay (Control)
-│   ├── CharacterSheetOverlay (Control)
-│   ├── ShopOverlay (Control)
-│   ├── DialogueOverlay (Control)
-│   ├── EventOverlay (Control)
-│   └── SettingsOverlay (Control)
-│
-├── HUD (CanvasLayer)                       # 始终可见的HUD
-│   ├── TopBar (HBoxContainer)
-│   │   ├── GoldDisplay (Label)
-│   │   ├── TavernLevel (Label)
-│   │   └── ReputationBar (ProgressBar)
-│   └── BottomBar (HBoxContainer)
-│       └── ActionButtons[]
-│
-├── ThemeManager (Node)                     # 统一主题
-│   └── PixelArtTheme (Theme)
-│       ├── default_font (FontFile)
-│       ├── Panel styles
-│       ├── Button styles
-│       └── Label styles
-│
-└── TransitionManager (Node)                # 转换动画
-    └── TransitionLayer (CanvasLayer)
-        └── FadeRect (ColorRect)
-```
-
-### 15.2 Theme Resource
-
-```gdscript
-# res://resources/ui/pixel_art_theme.tres
-# 统一的像素艺术主题
-
-[resource]
-default_font = "res://assets/fonts/pixel_font_8x8.tres"
-default_font_size = 12
-
-# Panel (窗口)
-Panel/styles/panel = SubResource("panel_style")
-
-# Button
-Button/styles/normal = SubResource("button_normal")
-Button/styles/hover = SubResource("button_hover")
-Button/styles/pressed = SubResource("button_pressed")
-Button/styles/disabled = SubResource("button_disabled")
-
-# Label
-Label/colors/font_color = Color(0.94, 0.9, 0.82, 1)  # #f0e6d2
-Label/colors/font_shadow_color = Color(0, 0, 0, 0.5)
-
-# ProgressBar
-ProgressBar/styles/fg = SubResource("progress_fg")
-ProgressBar/styles/bg = SubResource("progress_bg")
-```
-
-### 15.3 屏幕管理器
-
-```gdscript
-# res://scripts/ui/screen_manager.gd
-class_name ScreenManager
-extends Node
-
-enum Screen {
-    TITLE,
-    TAVERN,
-    ADVENTURE,
-    COMBAT,
-    SETTLEMENT
-}
-
-var current_screen: Screen = Screen.TITLE
-var screens: Dictionary = {}
-
-signal screen_changed(from: Screen, to: Screen)
-
-func _ready() -> void:
-    _register_screens()
-
-func _register_screens() -> void:
-    screens[Screen.TITLE] = $TitleScreen
-    screens[Screen.TAVERN] = $TavernScreen
-    screens[Screen.ADVENTURE] = $AdventureScreen
-    screens[Screen.COMBAT] = $CombatScreen
-    screens[Screen.SETTLEMENT] = $SettlementScreen
-
-func change_screen(to: Screen, transition: String = "fade_black") -> void:
-    var from = current_screen
-    screens[from].visible = false
-    screens[to].visible = true
-    current_screen = to
-    screen_changed.emit(from, to)
-
-func get_current_screen() -> Screen:
-    return current_screen
-```
-
-### 15.4 覆盖层管理器
-
-```gdscript
-# res://scripts/ui/overlay_manager.gd
-class_name OverlayManager
-extends Node
-
-var overlay_stack: Array[Control] = []
-
-signal overlay_opened(overlay_name: String)
-signal overlay_closed(overlay_name: String)
-
-func open_overlay(overlay: Control) -> void:
-    if overlay_stack.size() > 0:
-        overlay_stack.back().visible = false
-    overlay_stack.append(overlay)
-    overlay.visible = true
-    overlay_opened.emit(overlay.name)
-
-func close_overlay() -> void:
-    if overlay_stack.is_empty():
-        return
-    var overlay = overlay_stack.pop_back()
-    overlay.visible = false
-    overlay_closed.emit(overlay.name)
-    if overlay_stack.size() > 0:
-        overlay_stack.back().visible = true
-
-func close_all() -> void:
-    while overlay_stack.size() > 0:
-        close_overlay()
-
-func is_overlay_open() -> bool:
-    return overlay_stack.size() > 0
-```
-
-### 15.5 信号定义
-
-```gdscript
-# res://scripts/signals/ui_signals.gd
-extends Node
-
-## 屏幕转换
-signal screen_transition_started(from: String, to: String)
-signal screen_transition_completed(screen_name: String)
-
-## 覆盖层
-signal overlay_opened(overlay_name: String)
-signal overlay_closed(overlay_name: String)
-
-## 角色选择
-signal character_selected(character_id: String)
-signal character_deselected(character_id: String)
-
-## 物品交互
-signal item_equipped(item_id: String, slot: String)
-signal item_unequipped(item_id: String, slot: String)
-signal item_inspected(item_id: String)
-
-## 商店
-signal item_purchased(item_id: String, price: int)
-signal item_sold(item_id: String, price: int)
-signal item_repaired(item_id: String, cost: int)
-signal item_crafted(recipe_id: String)
-
-## 对话
-signal dialogue_choice_made(choice_id: String)
-signal dialogue_check_performed(skill: String, dc: int, roll: int, success: bool)
-
-## 战斗UI
-signal action_selected(action_type: String, action_id: String)
-signal target_selected(target_id: String)
-signal turn_ended()
-signal reaction_accepted(reaction_type: String)
-
-## 设置
-signal setting_changed(setting_name: String, value: Variant)
-```
-
-### 15.6 文件组织
-
-```
-res://
-├── scripts/
-│   └── ui/
-│       ├── screen_manager.gd              # 屏幕状态机
-│       ├── overlay_manager.gd             # 覆盖层管理
-│       ├── transition_manager.gd          # 转换动画
-│       ├── theme_manager.gd               # 主题管理
-│       │
-│       ├── screens/
-│       │   ├── title_screen.gd
-│       │   ├── tavern_screen.gd
-│       │   ├── adventure_screen.gd
-│       │   ├── combat_screen.gd
-│       │   └── settlement_screen.gd
-│       │
-│       ├── overlays/
-│       │   ├── recruitment_overlay.gd
-│       │   ├── quest_board_overlay.gd
-│       │   ├── character_sheet_overlay.gd
-│       │   ├── shop_overlay.gd
-│       │   ├── dialogue_overlay.gd
-│       │   ├── event_overlay.gd
-│       │   └── settings_overlay.gd
-│       │
-│       ├── components/
-│       │   ├── pixel_button.gd
-│       │   ├── pixel_panel.gd
-│       │   ├── pixel_progress_bar.gd
-│       │   ├── item_tooltip.gd
-│       │   ├── character_card.gd
-│       │   ├── dice_roller.gd
-│       │   ├── damage_popup.gd
-│       │   ├── initiative_bar.gd
-│       │   ├── combat_log.gd
-│       │   ├── minimap.gd
-│       │   └── hp_bar.gd
-│       │
-│       └── signals/
-│           └── ui_signals.gd
-│
-├── scenes/
-│   └── ui/
-│       ├── screens/
-│       │   ├── title_screen.tscn
-│       │   ├── tavern_screen.tscn
-│       │   ├── adventure_screen.tscn
-│       │   ├── combat_screen.tscn
-│       │   └── settlement_screen.tscn
-│       │
-│       ├── overlays/
-│       │   ├── recruitment_overlay.tscn
-│       │   ├── quest_board_overlay.tscn
-│       │   ├── character_sheet_overlay.tscn
-│       │   ├── shop_overlay.tscn
-│       │   ├── dialogue_overlay.tscn
-│       │   ├── event_overlay.tscn
-│       │   └── settings_overlay.tscn
-│       │
-│       └── components/
-│           ├── pixel_button.tscn
-│           ├── pixel_panel.tscn
-│           ├── item_tooltip.tscn
-│           ├── character_card.tscn
-│           ├── dice_roller.tscn
-│           ├── damage_popup.tscn
-│           ├── initiative_bar.tscn
-│           ├── combat_log.tscn
-│           ├── minimap.tscn
-│           └── hp_bar.tscn
-│
-├── resources/
-│   └── ui/
-│       ├── pixel_art_theme.tres            # 统一主题
-│       ├── fonts/
-│       │   ├── pixel_font_8x8.tres
-│       │   └── pixel_font_cjk_16x16.tres
-│       └── colors/
-│           └── palette.tres                # 调色板资源
-│
-└── assets/
-    └── ui/
-        ├── icons/
-        │   ├── items/                      # 16×16 物品图标
-        │   ├── conditions/                 # 16×16 条件图标
-        │   ├── skills/                     # 24×24 技能图标
-        │   └── buttons/                    # 16×16 按钮图标
-        ├── portraits/                      # 32×32 角色头像
-        ├── frames/
-        │   ├── window_frame.png            # 窗口边框
-        │   └── button_frame.png            # 按钮边框
-        └── dice/
-            ├── d20_1.png ... d20_6.png     # 骰子面
-```
-
----
-
-## 16. 测试规格
-
-### 16.1 输入映射完整性测试
+### 15.1 输入映射完整性测试
 
 ```
 TEST 1: 所有操作在所有模式下都有映射
@@ -2145,7 +1855,7 @@ TEST 3: 手柄输入
   方法: 模拟手柄输入, 检查响应
 ```
 
-### 16.2 屏幕转换覆盖测试
+### 15.2 屏幕转换覆盖测试
 
 ```
 TEST 4: 所有有效转换都能正常执行
@@ -2161,7 +1871,7 @@ TEST 6: 转换动画完整性
   方法: 执行每个转换, 检查动画
 ```
 
-### 16.3 UI状态机验证
+### 15.3 UI状态机验证
 
 ```
 TEST 7: 所有状态可达
@@ -2177,7 +1887,7 @@ TEST 9: 覆盖层栈正确性
   方法: 打开多个覆盖层, 逐个关闭, 检查顺序
 ```
 
-### 16.4 响应式缩放测试
+### 15.4 响应式缩放测试
 
 ```
 TEST 10: 1280×720 显示正确
@@ -2193,7 +1903,7 @@ TEST 12: 2560×1440 显示正确
   方法: 检查无亚像素偏移
 ```
 
-### 16.5 性能测试
+### 15.5 性能测试
 
 ```
 TEST 13: 60fps 战斗UI
