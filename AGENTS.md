@@ -131,7 +131,7 @@ When delegating code generation to `deep` or `unspecified-high`, inject this con
 - 不使用 #pragma warning disable
 - 不使用 dynamic
 - 不硬编码路径
-- 不写中文注释 (代码注释用英文)
+- XML 文档注释（`/// <summary>`）和行内解释性注释（`//`）使用简体中文
 
 ## 验证
 - 生成的代码必须通过 dotnet build
@@ -242,7 +242,7 @@ After all registered: `ServiceLocator.FinalizeRegistration()` — locks the regi
 - ❌ Unity API (`MonoBehaviour`, `GameObject`, `Instantiate`, `Transform`) — use Nez equivalents
 - ❌ Hardcoded paths (e.g., `"Content/textures/x.png"`) — use `ContentManager.Load`
 - ❌ Hardcoded numeric values in code — put in JSON config or named constants
-- ❌ Chinese comments in code — code comments must be English
+- ❌ Missing XML doc comments on public API — all public/protected symbols must have `/// <summary>` in 简体中文
 - ❌ LLM deciding numeric values, battle outcomes, or story branching — program controls these
 - ❌ LLM output bypassing JSON Schema validation — all LLM output must pass Schema check
 - ❌ Submitting code that fails `dotnet build`
