@@ -1,5 +1,7 @@
+using FontStashSharp;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using Microsoft.Xna.Framework.Input;
 using DndGame.Core;
 using DndGame.Systems.Combat;
 using DndGame.Systems.Character;
@@ -7,7 +9,7 @@ using DndGame.Systems.Character;
 namespace DndGame.Scenes;
 
 /// <summary>
-/// 战斗场景，管理回合制战斗流程、UI 渲染和玩家输入。
+/// 战斗场景 —— 演示战斗系统（FSM + ActionResolver + AI）。
 /// </summary>
 public class CombatScene : Scene
 {
@@ -16,13 +18,26 @@ public class CombatScene : Scene
     private ConditionSystem? _conditions;
     private AISystem? _ai;
     private Texture2D? _pixelTexture;
-    private readonly List<CombatLogEntry> _log = new();
+    private DynamicSpriteFont? _font;
+    private DynamicSpriteFont? _fontSmall;
+    private readonly List<string> _log = new();
+    private KeyboardState _prevKeyState;
 
-    private record CombatLogEntry(string Message);
+    private class DummyCombatant : ICombatant
+    {
+        public string CombatantId { get; set; } = "";
+        public int ArmorClass { get; set; } = 10;
+        public int MaxHp { get; set; } = 20;
+        public int CurrentHp { get; set; } = 20;
+        public int TempHp { get; set; }
+        public int ProficiencyBonus { get; set; } = 2;
+        public bool IsConcentrating { get; set; }
+        private readonly Dictionary<Ability, int> _mods = new();
+        public void SetMod(Ability a, int v) => _mods[a] = v;
+        public int GetAbilityModifier(Ability a) => _mods.TryGetValue(a, out var v) ? v : 0;
+        public ResistanceType GetResistance(DamageType t) => ResistanceType.Normal;
+    }
 
-    /// <summary>
-    /// 初始化战斗场景。
-    /// </summary>
     public override void Initialize()
     {
         _fsm = new CombatFSM();
@@ -30,41 +45,63 @@ public class CombatScene : Scene
         _conditions = new ConditionSystem();
         _ai = new AISystem();
 
-        // 创建单像素纹理
         _pixelTexture = new Texture2D(Game.GraphicsDevice, 1, 1);
         _pixelTexture.SetData(new[] { Color.White });
 
-        // 注册 FSM 转换
+        if (ServiceLocator.TryGet<IFontService>(out var fontService))
+        {
+            _font = fontService!.GetFont(20);
+            _fontSmall = fontService.GetFont(14);
+        }
+
         SetupFSM();
+        _log.Add("战斗开始！按 Space 进行攻击");
 
         base.Initialize();
     }
 
-    /// <summary>
-    /// 绘制战斗 UI：回合指示器、HP 条、战斗日志。
-    /// </summary>
+    public override void Update(GameTime gameTime)
+    {
+        var state = Keyboard.GetState();
+
+        if (state.IsKeyDown(Keys.Space) && _prevKeyState.IsKeyUp(Keys.Space))
+        {
+            SimulateCombatRound();
+        }
+
+        if (state.IsKeyDown(Keys.T) && _prevKeyState.IsKeyUp(Keys.T))
+            GameRoot.Instance.StartSceneTransition(new TavernScene());
+
+        if (state.IsKeyDown(Keys.A) && _prevKeyState.IsKeyUp(Keys.A))
+            GameRoot.Instance.StartSceneTransition(new AdventureScene());
+
+        _prevKeyState = state;
+        base.Update(gameTime);
+    }
+
     public override void Draw(GameTime gameTime)
     {
-        if (_pixelTexture == null || _fsm == null) return;
+        if (_pixelTexture == null || _fsm == null || _font == null) return;
 
         var sb = Game.SpriteBatch;
         sb.Begin(samplerState: SamplerState.PointClamp);
 
-        // 绘制背景
         sb.Draw(_pixelTexture, new Rectangle(0, 0, GameRoot.DESIGN_WIDTH, GameRoot.DESIGN_HEIGHT),
             new Color(20, 20, 40));
 
-        // 绘制状态指示
-        DrawText(sb, $"战斗状态: {_fsm.CurrentState}", 10, 10, Color.White);
+        _font.DrawText(sb, "战斗演示", new Vector2(10, 10), new Color(255, 215, 0));
+        _fontSmall!.DrawText(sb, $"状态: {_fsm.CurrentState}", new Vector2(10, 40), Color.White);
+        _fontSmall.DrawText(sb, "Space 攻击 | A 冒险地图 | T 酒馆", new Vector2(10, 70), Color.LightGray);
 
-        // 绘制战斗日志
-        for (int i = 0; i < Math.Min(_log.Count, 10); i++)
+        var logY = 100;
+        var startIndex = Math.Max(0, _log.Count - 15);
+        for (int i = startIndex; i < _log.Count; i++)
         {
-            DrawText(sb, _log[^(i + 1)].Message, 10, 40 + i * 20, Color.LightGray);
+            _fontSmall.DrawText(sb, _log[i], new Vector2(10, logY), Color.White);
+            logY += 20;
         }
 
         sb.End();
-
         base.Draw(gameTime);
     }
 
@@ -74,11 +111,46 @@ public class CombatScene : Scene
         base.End();
     }
 
+    private void SimulateCombatRound()
+    {
+        if (_fsm == null || _resolver == null) return;
+
+        if (_fsm.CurrentState == CombatState.Initialization)
+        {
+            _fsm.Transition(CombatState.RollInitiative);
+            _log.Add(">> 先攻检定完成");
+            _fsm.Transition(CombatState.RoundStart);
+            _log.Add(">> 回合开始");
+            _fsm.Transition(CombatState.SimultaneousSelection);
+            _fsm.Transition(CombatState.ActionPhase);
+            _log.Add(">> 行动阶段");
+            return;
+        }
+
+        var attacker = new DummyCombatant { CombatantId = "战士", ArmorClass = 15, CurrentHp = 20, MaxHp = 20 };
+        attacker.SetMod(Ability.Str, 3);
+        var target = new DummyCombatant { CombatantId = "哥布林", ArmorClass = 10, CurrentHp = 10, MaxHp = 10 };
+
+        var weapon = new WeaponData { Name = "长剑", DamageDice = "1d8", DamageType = DamageType.Slashing, ScalingAbility = Ability.Str };
+        var result = _resolver.ResolveAttack(attacker, target, weapon);
+
+        foreach (var entry in result.LogEntries)
+            _log.Add(entry);
+
+        if (target.CurrentHp <= 0)
+        {
+            _log.Add(">> 哥布林被击败！");
+            _fsm.Transition(CombatState.TurnEnd);
+            _fsm.Transition(CombatState.RoundEnd);
+            _fsm.Transition(CombatState.Victory);
+            _log.Add(">> 战斗胜利！按 T 返回酒馆");
+        }
+    }
+
     private void SetupFSM()
     {
         if (_fsm == null) return;
 
-        // 注册基本转换路径
         _fsm.RegisterGuard(CombatState.Initialization, CombatState.RollInitiative, () => true);
         _fsm.RegisterGuard(CombatState.RollInitiative, CombatState.RoundStart, () => true);
         _fsm.RegisterGuard(CombatState.RoundStart, CombatState.SimultaneousSelection, () => true);
@@ -95,11 +167,5 @@ public class CombatScene : Scene
         _fsm.RegisterGuard(CombatState.RoundEnd, CombatState.RollInitiative, () => true);
         _fsm.RegisterGuard(CombatState.RoundEnd, CombatState.Victory, () => true);
         _fsm.RegisterGuard(CombatState.RoundEnd, CombatState.Defeat, () => true);
-    }
-
-    private static void DrawText(SpriteBatch sb, string text, int x, int y, Color color)
-    {
-        // 简单文本绘制 — 使用单像素模拟（后续集成 FontStashSharp）
-        // 当前仅占位，实际需要字体支持
     }
 }
