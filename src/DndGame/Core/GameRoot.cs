@@ -1,5 +1,6 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using DndGame.UI;
 
 namespace DndGame.Core;
 
@@ -33,6 +34,12 @@ public class GameRoot : Game
     /// 待切换的下一个场景，在下一帧更新循环开始时生效。
     /// </summary>
     private Scene? _nextScene;
+
+    /// <summary>
+    /// Myra UI 管理器，负责 Desktop 生命周期和字体加载。
+    /// 在 Initialize 中初始化，在 Draw 中场景绘制之后渲染 UI 层。
+    /// </summary>
+    private readonly UIManager _uiManager;
 
     /// <summary>
     /// 全局单例访问器。如果游戏尚未初始化则抛出异常。
@@ -76,6 +83,9 @@ public class GameRoot : Game
             SynchronizeWithVerticalRetrace = true
         };
 
+        // 创建 UI 管理器实例
+        _uiManager = new UIManager();
+
         // 设置内容管线的根目录
         Content.RootDirectory = "Content";
         // 显示鼠标光标
@@ -97,9 +107,16 @@ public class GameRoot : Game
 
     /// <summary>
     /// 初始化游戏系统。在构造函数之后、加载内容之前调用。
+    /// 按依赖顺序注册所有全局服务到 ServiceLocator。
     /// </summary>
     protected override void Initialize()
     {
+        // 注册核心服务（IEventBus、IGameStateManager 等）
+        ServiceRegistration.RegisterAll();
+
+        // 初始化 Myra UI 管理器
+        _uiManager.Initialize(this);
+
         base.Initialize();
     }
 
@@ -110,6 +127,17 @@ public class GameRoot : Game
     protected override void LoadContent()
     {
         _spriteBatch = new SpriteBatch(GraphicsDevice);
+
+        // 加载中文字体文件
+        var fontPath = Path.Combine(AppContext.BaseDirectory, "Content", "Fonts", "NotoSansCJKsc-Regular.ttf");
+        if (File.Exists(fontPath))
+        {
+            _uiManager.LoadFont(fontPath);
+        }
+
+        // 应用像素主题（需在创建任何 UI 控件之前）
+        PixelTheme.Apply(_uiManager.Desktop);
+
         base.LoadContent();
     }
 
@@ -149,6 +177,8 @@ public class GameRoot : Game
         GraphicsDevice.Clear(Color.Black);
         // 绘制当前场景内容
         _currentScene?.Draw(gameTime);
+        // 绘制 Myra UI 层（必须在场景之后，确保 UI 在顶层）
+        _uiManager.Render();
         base.Draw(gameTime);
     }
 
