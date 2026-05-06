@@ -245,7 +245,7 @@ When review catches these patterns, handle as follows:
 - **Data-driven** — game values in JSON/SQLite, never hardcoded in C#
 - **Nez conventions**: `scene.CreateEntity("name")` not `new Entity()`, `AddComponent()` for composition, `Core.StartSceneTransition()` for scene changes
 - **Test naming**: `MethodName_Scenario_ExpectedResult` with AAA pattern
-- **Git commits**: `type(scope): description` — types: feat/fix/refactor/docs/test/chore, scopes: combat/character/tavern/adventure/settlement/gateway/ui/map/data/save/build
+- **Git commits**: `type(scope): 中文描述` — types: feat/fix/refactor/docs/test/chore, scopes: combat/character/tavern/adventure/settlement/gateway/ui/map/data/save/build. 描述部分使用简体中文（除 `type(scope):` 前缀外）
 
 ## SERVICE INITIALIZATION ORDER
 
@@ -373,6 +373,10 @@ Branch lifecycle: create branch → develop + verify → PR to dev → review pa
 - AI code MUST pass `dotnet build` + `dotnet test` before commit — no exceptions
 - One commit = one thing — never mix unrelated changes
 - Commit messages AI-generated, developer-reviewed
+- Commit message 格式：`type(scope): 简体中文描述` — 前缀 `type(scope):` 使用英文，描述部分必须使用简体中文
+  - ✅ `feat(combat): 实现骰子系统`
+  - ✅ `fix(test): 修复暴击测试的不稳定性`
+  - ❌ `feat(combat): implement dice roller system`（描述应为中文）
 
 ## COMMANDS
 
