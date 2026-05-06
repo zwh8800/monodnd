@@ -369,6 +369,7 @@ When review catches these patterns, handle as follows:
 - **Nez conventions**: `scene.CreateEntity("name")` not `new Entity()`, `AddComponent()` for composition, `Core.StartSceneTransition()` for scene changes
 - **Test naming**: `MethodName_Scenario_ExpectedResult` with AAA pattern
 - **Git commits**: `type(scope): 中文描述` — types: feat/fix/refactor/docs/test/chore, scopes: combat/character/tavern/adventure/settlement/gateway/ui/map/data/save/build. 描述部分使用简体中文（除 `type(scope):` 前缀外）
+- **文档语言**: 所有文档（.md 文件）必须使用简体中文编写，包括设计文档、技术文档、注释说明等
 
 ## SERVICE INITIALIZATION ORDER
 
