@@ -85,11 +85,13 @@ public static class PixelTheme
 
     private static void ConfigureDesktop(Stylesheet stylesheet, Desktop desktop)
     {
+        // 不设置 Desktop 背景，由场景自己绘制背景
+        // 避免半透明背景覆盖在场景文字上导致变暗
         if (stylesheet.DesktopStyle != null)
         {
-            stylesheet.DesktopStyle.Background = new SolidBrush(WindowBg);
+            stylesheet.DesktopStyle.Background = null;
         }
-        desktop.Background = new SolidBrush(WindowBg);
+        desktop.Background = null;
     }
 
     private static void ConfigureWindowStyle(Stylesheet stylesheet)
