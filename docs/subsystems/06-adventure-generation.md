@@ -2132,67 +2132,20 @@ DM Agent上下文构建 (2000 token预算):
 
 ### 10.1 世界状态数据模型
 
-```json
-{
-  "world_state_version": 1,
-  "tavern_level": 3,
-  "tavern_reputation": 15,
+> **权威定义**: 世界状态的完整 JSON Schema 定义见 [failure-growth.md §9.1](../subsystems/08-failure-growth.md)。本节仅列出与本系统直接相关的关键字段说明，不应独立定义数据模型。
 
-  "world_events": [
-    {
-      "event_id": "we_001",
-      "type": "ancient_awakening",
-      "description": "有人在远山中发现了一座被遗忘的古代神庙",
-      "affected_regions": ["foothills", "ancient_forest"],
-      "active": true,
-      "created_at": "2026-05-01"
-    }
-  ],
+本系统通过 `world_state_hooks` 机制消费和变更世界状态。关键交互字段：
 
-  "active_factions": [
-    {
-      "faction_id": "fac_001",
-      "name": "黑曜石商会",
-      "relation_to_party": "neutral",
-      "relation_value": 0,
-      "active_in_regions": ["foothills", "town"],
-      "known_secrets": []
-    }
-  ],
-
-  "region_states": {
-    "foothills": {
-      "status": "normal",
-      "threat_level": 2,
-      "known_locations": ["ancient_temple", "bandit_camp"],
-      "completed_adventures": ["adv_001", "adv_002"]
-    },
-    "ancient_forest": {
-      "status": "normal",
-      "threat_level": 1,
-      "known_locations": ["elf_ruins"],
-      "completed_adventures": []
-    }
-  },
-
-  "completed_adventures": [
-    {
-      "adventure_id": "adv_001_cellar_clear",
-      "title": "地窖清剿",
-      "outcome": "success",
-      "world_changes_applied": ["酒馆获得新的地下室空间"]
-    }
-  ],
-
-  "pending_world_changes": [],
-
-  "global_flags": {
-    "ancient_temple_discovered": true,
-    "shadow_seal_status": "intact",
-    "black_obsidian_guild_angry": false
-  }
-}
 ```
+核心变更路径:
+  region_states.status → adventure 成功/失败时通过 hooks 写入
+  region_states.threat_level → 影响未来冒险难度
+  active_factions.relation_value → 势力关系变化
+  world_events → 新事件触发
+  global_flags → 全局标记设置
+```
+
+> **重要**: `region_states.status` 的合法值（safe/threatened/fallen/liberated/destroyed）、`active_factions` 的结构、`world_events` 的 Schema 等，均以 failure-growth.md §9.1 为准。本节中的示例代码仅供理解 hooks 机制，不作为数据契约。
 
 ### 10.2 世界状态变更流程
 
@@ -2277,11 +2230,9 @@ Step 4: 记录变更历史
 
 ┌─────────────────────────────────────────────────┐
 │ Step 1: 计算经验值                                │
-│  · 每个击杀: (怪物CR / 角色等级) × 100 XP        │
-│  · 完成冒险: 基础XP × 难度系数                    │
-│    - 短冒险: 300 × (Easy=0.8/Normal=1.0/Hard=1.3)│
-│    - 中冒险: 1500 × 系数                         │
-│    - 长冒险: 5000 × 系数                         │
+│  · 参照 failure-growth.md §2.2 完整XP计算模型      │
+│  · 按遭遇难度计算基准XP × 参与度乘数 × 目标奖励   │
+│  · 速度奖励 × 完成奖励                            │
 │  · 分配: 每个角色独立获取全额XP（不分摊）          │
 ├─────────────────────────────────────────────────┤
 │ Step 2: 生成战利品                                │
@@ -2295,11 +2246,12 @@ Step 4: 记录变更历史
 │  · 做出与对方性格一致的选择 → +1关系              │
 │  · 未能治疗倒地队友 → -1关系                      │
 ├─────────────────────────────────────────────────┤
-│ Step 4: 提升酒馆声望                              │
-│  · 短冒险成功: +1声望                             │
-│  · 中冒险成功: +3声望                             │
-│  · 长冒险成功: +5声望                             │
-│  · 完美通关(无死亡): 额外+1声望                   │
+│ Step 4: 更新声望                                  │
+│  · 参照 failure-growth.md §10.1 声望系统            │
+│  · 短冒险成功: +5声望                               │
+│  · 中冒险成功: +10声望                              │
+│  · 长冒险成功: +15声望                              │
+│  · 完美通关(无死亡): 额外+5声望                     │
 ├─────────────────────────────────────────────────┤
 │ Step 5: 应用世界状态变更                          │
 │  · 执行所有pending的world_state_changes           │
