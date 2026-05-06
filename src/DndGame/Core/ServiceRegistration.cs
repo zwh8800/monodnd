@@ -15,19 +15,14 @@ public static class ServiceRegistration
     /// </summary>
     public static void RegisterAll()
     {
-        // 第 0 步：事件总线 —— 所有系统间解耦通信的基础
         ServiceLocator.Register<IEventBus>(new EventBus());
-
-        // 第 1 步：游戏状态管理器 —— 场景标识与跨场景数据传递
         ServiceLocator.Register<IGameStateManager>(new GameStateManager());
 
-        // ---- 以下服务将在后续 Sprint 中注册 ----
-        // 第 2 步：IDataPersistence —— SQLite + JSON 数据持久化
-        // 第 3 步：ILLMGateway —— LLM 请求入口
-        // 第 4 步：IWorldStateManager —— 世界状态追踪
-        // 第 5 步：IAudioManager —— BGM/SFX 管理
-        // 第 6 步：IResourceCache —— 预加载资源缓存
+        // 字体服务 —— 所有场景共享的 FontStashSharp 字体
+        var fontPath = Path.Combine(AppContext.BaseDirectory, "Content", "Fonts", "NotoSansCJKsc-Regular.ttf");
+        ServiceLocator.Register<IFontService>(new FontService(fontPath));
 
-        // 注意：FinalizeRegistration() 暂不调用，等待所有服务就绪后在 Sprint 7 冻结
+        // ---- 以下服务将在后续 Sprint 中注册 ----
+        // ILLMGateway, IDataPersistence, IWorldStateManager, IAudioManager, IResourceCache
     }
 }
