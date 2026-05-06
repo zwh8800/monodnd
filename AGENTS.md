@@ -121,6 +121,129 @@ Sisyphus decomposes:
 Verify: dotnet build → dotnet test → review → merge
 ```
 
+## CLAUDE CODE GAME STUDIOS REFERENCE
+
+**关键文档位置：** 项目根目录下的Claude Code Game Studios框架
+
+### 核心文档
+
+| 文档 | 位置 | 用途 |
+|------|------|------|
+| **项目概述** | `CCGS-README.md` | 49个代理、72个技能、12个钩子、11个规则、39个模板 |
+| **主配置** | `CLAUDE.md` | 技术栈、项目结构、协调规则、协作协议 |
+| **工作流程** | `docs/WORKFLOW-GUIDE.md` | 7阶段流水线，从概念到发布 |
+| **协作原则** | `docs/COLLABORATIVE-DESIGN-PRINCIPLE.md` | 用户驱动协作，非自主执行 |
+| **测试框架** | `CCGS Skill Testing Framework/README.md` | 技能和代理的质量保证 |
+| **设计标准** | `design/CLAUDE.md` | GDD、UX规范、快速规范标准 |
+
+### 代理分层系统（49个代理）
+
+```
+Tier 1 — 导演 (Opus模型)
+  creative-director    technical-director    producer
+
+Tier 2 — 部门主管 (Sonnet模型)
+  game-designer        lead-programmer       art-director
+  audio-director       narrative-director    qa-lead
+  release-manager      localization-lead
+
+Tier 3 — 专家 (Sonnet/Haiku模型)
+  gameplay-programmer  engine-programmer     ai-programmer
+  network-programmer   tools-programmer      ui-programmer
+  systems-designer     level-designer        economy-designer
+  technical-artist     sound-designer        writer
+  world-builder        ux-designer           prototyper
+  performance-analyst  devops-engineer       analytics-engineer
+  security-engineer    qa-tester             accessibility-specialist
+  live-ops-designer    community-manager
+```
+
+**引擎专家：**
+- **Godot 4**: `godot-specialist` (GDScript, Shaders, GDExtension)
+- **Unity**: `unity-specialist` (DOTS/ECS, Shaders/VFX, Addressables, UI Toolkit)
+- **Unreal Engine 5**: `unreal-specialist` (GAS, Blueprints, Replication, UMG/CommonUI)
+
+### 技能分类（72个斜杠命令）
+
+**入门和导航：** `/start` `/help` `/project-stage-detect` `/setup-engine` `/adopt`
+
+**游戏设计：** `/brainstorm` `/map-systems` `/design-system` `/quick-design` `/review-all-gdds` `/propagate-design-change`
+
+**架构：** `/create-architecture` `/architecture-decision` `/architecture-review` `/create-control-manifest`
+
+**故事和冲刺：** `/create-epics` `/create-stories` `/dev-story` `/sprint-plan` `/sprint-status` `/story-readiness` `/story-done` `/estimate`
+
+**评论和分析：** `/design-review` `/code-review` `/balance-check` `/content-audit` `/scope-check` `/perf-profile` `/tech-debt` `/gate-check` `/consistency-check`
+
+**QA和测试：** `/qa-plan` `/smoke-check` `/soak-test` `/regression-suite` `/test-setup` `/test-helpers` `/test-evidence-review` `/test-flakiness` `/skill-test` `/skill-improve`
+
+**生产：** `/milestone-review` `/retrospective` `/bug-report` `/bug-triage` `/reverse-document` `/playtest-report`
+
+**发布：** `/release-checklist` `/launch-checklist` `/changelog` `/patch-notes` `/hotfix`
+
+**创意和内容：** `/prototype` `/onboard` `/localize`
+
+**团队编排：** `/team-combat` `/team-narrative` `/team-ui` `/team-release` `/team-polish` `/team-audio` `/team-level` `/team-live-ops` `/team-qa`
+
+### 7阶段工作流程
+
+```
+Phase 1: Concept         — 从"没有想法"到结构化游戏概念文档
+Phase 2: Systems Design  — 创建所有设计文档（GDD）
+Phase 3: Technical Setup — 关键技术决策，架构决策记录（ADR）
+Phase 4: Pre-Production  — UX规范，原型化，故事创建，冲刺规划
+Phase 5: Production      — 核心生产循环，按冲刺工作
+Phase 6: Polish          — 性能、平衡、无障碍、音频、视觉打磨
+Phase 7: Release         — 发布准备，协调发布，发布后支持
+```
+
+**每个阶段都有门控检查：** `/gate-check concept`, `/gate-check systems-design`, 等
+
+### 协作原则（关键摘要）
+
+**核心哲学：** 用户驱动的协作，而非自主执行
+
+**协作模式：** 问题 → 选项 → 决策 → 起草 → 批准
+
+1. **提问** - 代理在提出解决方案前先问问题
+2. **呈现选项** - 代理展示2-4个选项及其优缺点
+3. **用户决策** - 用户始终做出最终决定
+4. **起草** - 代理在最终确定前展示工作
+5. **批准** - 没有用户签字，什么都不会写入
+
+**设计哲学：**
+- **MDA框架** - 机制、动态、美学分析
+- **自我决定理论** - 自主性、能力感、关联性
+- **心流状态设计** - 挑战-技能平衡
+- **Bartle玩家类型** - 受众定位和验证
+- **验证驱动开发** - 测试先行，然后实现
+
+### 测试框架（CCGS Skill Testing Framework）
+
+**关键文件：**
+- `catalog.yaml` - 所有72个技能和49个代理的主注册表
+- `quality-rubric.md` - 类别特定的通过/失败指标
+- `skills/` - 技能的行为规范文件
+- `agents/` - 代理的行为规范文件
+
+**测试命令：**
+- `/skill-test static [skill-name]` - 检查一个技能（7项检查）
+- `/skill-test spec [skill-name]` - 根据书面规范评估技能
+- `/skill-test category [skill-name]` - 根据类别指标评估技能
+- `/skill-test audit` - 查看完整覆盖情况
+- `/skill-improve [skill-name]` - 测试 → 诊断 → 提出修复 → 重新测试循环
+
+### 对OpenCode的借鉴意义
+
+1. **代理分层结构** - 三层代理组织可用于管理不同角色的代理
+2. **技能分类系统** - 72个技能的分类方法可用于组织功能
+3. **钩子验证机制** - 12个钩子可用于实现自动化验证
+4. **路径范围规则** - 基于文件路径的规则执行机制
+5. **协作协议** - 用户驱动的协作模式
+6. **工作流程门控** - 阶段门控检查机制
+7. **模板系统** - 文档模板可标准化输出
+8. **测试框架** - 技能和代理的测试方法
+
 ## DEEP AGENT SYSTEM PROMPT
 
 When delegating code generation to `deep` or `unspecified-high`, inject this context. **All items are mandatory — omissions cause the most common AI errors.**
