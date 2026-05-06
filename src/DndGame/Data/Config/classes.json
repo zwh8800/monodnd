@@ -1,0 +1,47 @@
+[
+  {
+    "class_id": "fighter",
+    "name": "战士",
+    "hit_die": 10,
+    "primary_ability": "str",
+    "saving_throw_proficiencies": ["str", "con"],
+    "skill_choices": 2,
+    "features_per_level": {
+      "1": ["战斗风格", "第二风"],
+      "2": ["行动如涌"],
+      "3": ["精准打击"],
+      "4": ["属性提升"],
+      "5": ["额外攻击"]
+    }
+  },
+  {
+    "class_id": "wizard",
+    "name": "法师",
+    "hit_die": 6,
+    "primary_ability": "int",
+    "saving_throw_proficiencies": ["int", "wis"],
+    "skill_choices": 2,
+    "features_per_level": {
+      "1": ["施法", "奥术恢复"],
+      "2": ["塑能学派"],
+      "3": ["法术升级"],
+      "4": ["属性提升"],
+      "5": ["法术升级"]
+    }
+  },
+  {
+    "class_id": "rogue",
+    "name": "盗贼",
+    "hit_die": 8,
+    "primary_ability": "dex",
+    "saving_throw_proficiencies": ["dex", "int"],
+    "skill_choices": 4,
+    "features_per_level": {
+      "1": ["偷袭", "盗贼暗语", "专精"],
+      "2": ["灵巧动作"],
+      "3": ["盗贼本能"],
+      "4": ["属性提升"],
+      "5": ["反射闪避"]
+    }
+  }
+]
