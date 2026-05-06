@@ -49,12 +49,18 @@ public static class PixelTheme
     public static readonly Color ButtonPressedText = new(208, 208, 224);
 
     // ── 文字颜色 ──
-    /// <summary>主文本：暖白色</summary>
-    public static readonly Color PrimaryText = new(240, 230, 210);
+    /// <summary>主文本：纯白色</summary>
+    public static readonly Color PrimaryText = Color.White;
+
+    /// <summary>次要文本：亮灰色</summary>
+    public static readonly Color SecondaryText = new(200, 200, 200);
+
+    /// <summary>提示文本：中灰色</summary>
+    public static readonly Color HintText = new(160, 160, 160);
 
     // ── 功能颜色 ──
-    /// <summary>金币/贵重物品色</summary>
-    public static readonly Color Gold = new(255, 215, 0);
+    /// <summary>金币/贵重物品色：亮金色</summary>
+    public static readonly Color Gold = new(255, 230, 100);
 
     /// <summary>伤害数值色</summary>
     public static readonly Color DamageRed = new(255, 68, 68);

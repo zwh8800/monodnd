@@ -53,21 +53,21 @@ public class MainMenuScene : Scene
             var titleSize = font.MeasureString(title);
             font.DrawText(sb, title,
                 new Vector2((GameRoot.DESIGN_WIDTH - titleSize.X) / 2, 200),
-                new Color(255, 215, 0));
+                Color.White);
 
             var font24 = fontService.GetFont(24);
             var subtitle = "按 Enter 进入酒馆";
             var subSize = font24.MeasureString(subtitle);
             font24.DrawText(sb, subtitle,
                 new Vector2((GameRoot.DESIGN_WIDTH - subSize.X) / 2, 400),
-                new Color(200, 200, 200));
+                new Color(224, 224, 224));
 
             var font16 = fontService.GetFont(16);
             var phase = "Phase 1 MVP — 战斗/角色/地图/酒馆";
             var phaseSize = font16.MeasureString(phase);
             font16.DrawText(sb, phase,
                 new Vector2((GameRoot.DESIGN_WIDTH - phaseSize.X) / 2, 500),
-                new Color(120, 120, 150));
+                new Color(160, 160, 160));
         }
 
         sb.End();

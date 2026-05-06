@@ -186,7 +186,7 @@ public class TavernScene : Scene
         }
         else
         {
-            _fontSmall.DrawText(sb, "先招募队员再出发", new Vector2(100, 220), new Color(150, 150, 150));
+            _fontSmall.DrawText(sb, "先招募队员再出发", new Vector2(100, 220), PixelTheme.HintText);
         }
     }
 
@@ -200,10 +200,10 @@ public class TavernScene : Scene
         var y = 100;
         foreach (var charData in _recruitment.AvailableCharacters)
         {
-            var vm = new CharacterPanelViewModel(charData);
-            _fontSmall.DrawText(sb, $"{vm.Name} - {vm.Race} {vm.Level}级", new Vector2(120, y), PixelTheme.PrimaryText);
-            _fontSmall.DrawText(sb, $"HP:{vm.FormatHP()} AC:{vm.AC}", new Vector2(400, y), Color.Gray);
-            y += 30;
+             var vm = new CharacterPanelViewModel(charData);
+             _fontSmall.DrawText(sb, $"{vm.Name} - {vm.Race} {vm.Level}级", new Vector2(120, y), PixelTheme.PrimaryText);
+             _fontSmall.DrawText(sb, $"HP:{vm.FormatHP()} AC:{vm.AC}", new Vector2(400, y), PixelTheme.SecondaryText);
+             y += 30;
         }
 
         _fontSmall.DrawText(sb, $"队伍: {_recruitment.Party.Count}/{RecruitmentManager.MaxPartySize}", new Vector2(100, y + 20), PixelTheme.PrimaryText);
@@ -219,9 +219,9 @@ public class TavernScene : Scene
         var y = 100;
         foreach (var adventure in _questBoard.Adventures)
         {
-            _fontSmall.DrawText(sb, $"{adventure.Title} (Lv{adventure.RecommendedLevel})", new Vector2(120, y), PixelTheme.PrimaryText);
-            _fontSmall.DrawText(sb, adventure.Description, new Vector2(120, y + 20), Color.Gray);
-            y += 50;
+             _fontSmall.DrawText(sb, $"{adventure.Title} (Lv{adventure.RecommendedLevel})", new Vector2(120, y), PixelTheme.PrimaryText);
+             _fontSmall.DrawText(sb, adventure.Description, new Vector2(120, y + 20), PixelTheme.SecondaryText);
+             y += 50;
         }
     }
 
@@ -235,16 +235,16 @@ public class TavernScene : Scene
         var y = 100;
         foreach (var charData in _recruitment.Party)
         {
-            var vm = new CharacterPanelViewModel(charData);
-            _fontSmall.DrawText(sb, $"{vm.Name} - {vm.Race} {vm.Level}级", new Vector2(120, y), PixelTheme.PrimaryText);
-            _fontSmall.DrawText(sb, $"HP:{vm.FormatHP()} AC:{vm.AC}", new Vector2(400, y), Color.Gray);
-            _fontSmall.DrawText(sb, vm.FormatAbility(Ability.Str), new Vector2(550, y), Color.LightGray);
-            y += 40;
+             var vm = new CharacterPanelViewModel(charData);
+             _fontSmall.DrawText(sb, $"{vm.Name} - {vm.Race} {vm.Level}级", new Vector2(120, y), PixelTheme.PrimaryText);
+             _fontSmall.DrawText(sb, $"HP:{vm.FormatHP()} AC:{vm.AC}", new Vector2(400, y), PixelTheme.SecondaryText);
+             _fontSmall.DrawText(sb, vm.FormatAbility(Ability.Str), new Vector2(550, y), PixelTheme.SecondaryText);
+             y += 40;
         }
 
         if (_recruitment.Party.Count == 0)
         {
-            _fontSmall.DrawText(sb, "队伍为空，请先招募队员", new Vector2(120, y + 20), new Color(150, 150, 150));
+            _fontSmall.DrawText(sb, "队伍为空，请先招募队员", new Vector2(120, y + 20), PixelTheme.HintText);
         }
     }
 }
