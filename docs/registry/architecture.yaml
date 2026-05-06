@@ -30,7 +30,7 @@
 #   Superseded entries:     Grep pattern="status: superseded"
 
 version: 1
-last_updated: ""
+last_updated: "2026-05-06"
 
 # ─── STATE OWNERSHIP ─────────────────────────────────────────────────────────
 # Who is the authoritative owner of each piece of shared game state.
@@ -71,7 +71,67 @@ state_ownership: []
 #
 # pattern options: signal | direct_call | event_bus | shared_resource | rpc | none
 
-interfaces: []
+interfaces:
+  - contract: cross_system_event_communication
+    status: active
+    pattern: event_bus
+    producer: any_system
+    consumers:
+      - all_systems
+    adr: docs/architecture/adr-0003-event-bus.md
+    signal_signature: "IEventBus.Subscribe<T>/Publish<T>/Unsubscribe<T> (Snapshot-then-Invoke)"
+    referenced_by:
+      - docs/architecture/adr-0003-event-bus.md
+      - docs/architecture/adr-0004-llm-integration.md
+    added: 2026-05-06
+    revised: ""
+
+  - contract: global_service_access
+    status: active
+    pattern: direct_call
+    producer: service_locator
+    consumers:
+      - all_systems
+      - all_scenes
+    adr: docs/architecture/adr-0002-service-locator.md
+    signal_signature: "ServiceLocator.Register<T>/Get<T>/TryGet<T> (freeze after FinalizeRegistration)"
+    referenced_by:
+      - docs/architecture/adr-0002-service-locator.md
+      - docs/architecture/adr-0003-event-bus.md
+    added: 2026-05-06
+    revised: ""
+
+  - contract: data_persistence
+    status: active
+    pattern: direct_call
+    producer: data_persistence_system
+    consumers:
+      - character_system
+      - combat_system
+      - tavern_system
+      - adventure_system
+    adr: docs/architecture/adr-0005-data-driven-design.md
+    signal_signature: "IDataPersistence.LoadConfig<T>/Save<T>/Load<T>/Query<T>"
+    referenced_by:
+      - docs/architecture/adr-0005-data-driven-design.md
+    added: 2026-05-06
+    revised: ""
+
+  - contract: llm_narrative_generation
+    status: active
+    pattern: direct_call
+    producer: llm_gateway
+    consumers:
+      - adventure_system
+      - combat_system
+      - tavern_system
+      - dialogue_system
+    adr: docs/architecture/adr-0004-llm-integration.md
+    signal_signature: "ILLMGateway.CallAgent<TAgent, TResponse>(AgentRequest) -> Task<TResponse>"
+    referenced_by:
+      - docs/architecture/adr-0004-llm-integration.md
+    added: 2026-05-06
+    revised: ""
 
 # Example:
 #
@@ -131,7 +191,75 @@ performance_budgets: []
 # Register an API decision when the choice is non-obvious and other ADRs might
 # make a different choice for the same purpose without knowing this was decided.
 
-api_decisions: []
+api_decisions:
+  - purpose: game_framework
+    status: active
+    api: MonoGame 3.8.5+ / C# 12 / .NET 8
+    not: "Godot 4.x / Unity 6 / GameMaker / Pygame（详细对比见 adr-0000）"
+    adr: docs/architecture/adr-0000-engine-selection.md
+    reason: "AI-First 范式下编译期类型安全 + 零跨域混淆 + 代码即场景是最优组合"
+    referenced_by:
+      - docs/architecture/adr-0000-engine-selection.md
+      - docs/architecture/adr-0001-ecs-architecture.md
+    added: 2026-05-06
+    revised: ""
+
+  - purpose: ecs_architecture
+    status: active
+    api: 自定义 Scene/Entity/Component/SceneComponent（src/DndGame/Core/）
+    not: Nez 框架（过度设计，AI 训练数据不足）
+    adr: docs/architecture/adr-0001-ecs-architecture.md
+    reason: "415 行自定义 ECS 满足所有需求；零外部依赖；AI 可完全理解；API 面与 Nez 行为兼容"
+    referenced_by:
+      - docs/architecture/adr-0001-ecs-architecture.md
+    added: 2026-05-06
+    revised: ""
+
+  - purpose: http_client
+    status: active
+    api: System.Net.Http.HttpClient（.NET 标准库）
+    not: UnityWebRequest / Godot HTTPRequest
+    adr: docs/architecture/adr-0000-engine-selection.md
+    reason: ".NET 标准库，零第三方依赖，async/await 原生支持"
+    referenced_by:
+      - docs/architecture/adr-0000-engine-selection.md
+      - docs/architecture/adr-0004-llm-integration.md
+    added: 2026-05-06
+    revised: ""
+
+  - purpose: json_serialization
+    status: active
+    api: System.Text.Json（.NET 标准库）
+    not: Newtonsoft.Json / Godot JSON
+    adr: docs/architecture/adr-0000-engine-selection.md
+    reason: ".NET 高性能 JSON 库，支持 record 类型和 snake_case 映射"
+    referenced_by:
+      - docs/architecture/adr-0000-engine-selection.md
+      - docs/architecture/adr-0005-data-driven-design.md
+    added: 2026-05-06
+    revised: ""
+
+  - purpose: sqlite_orm
+    status: active
+    api: sqlite-net（NuGet 包）
+    not: Microsoft.Data.Sqlite（底层 ADO.NET）/ Entity Framework Core（过度设计）
+    adr: docs/architecture/adr-0005-data-driven-design.md
+    reason: "轻量 ORM，PCL 兼容，支持异步查询，适合游戏存档场景"
+    referenced_by:
+      - docs/architecture/adr-0005-data-driven-design.md
+    added: 2026-05-06
+    revised: ""
+
+  - purpose: json_schema_validation
+    status: active
+    api: JsonSchema.Net（NuGet 包）
+    not: 自定义验证逻辑
+    adr: docs/architecture/adr-0004-llm-integration.md
+    reason: "标准 JSON Schema 验证，支持 Draft 2020-12，用于验证 LLM 输出"
+    referenced_by:
+      - docs/architecture/adr-0004-llm-integration.md
+    added: 2026-05-06
+    revised: ""
 
 # Example:
 #
@@ -157,7 +285,41 @@ api_decisions: []
 # Register a pattern when an ADR explicitly bans it AND other ADRs might
 # unknowingly use it (i.e., it's a tempting but wrong approach for this project).
 
-forbidden_patterns: []
+forbidden_patterns:
+  - pattern: hardcoded_game_numerics
+    status: active
+    description: "C# 代码中禁止出现魔法数字（如 return 10;）。所有游戏数值必须从 JSON 配置文件加载或使用命名常量。"
+    why: "硬编码数值使 AI 修改时容易引入逻辑错误，且无法通过 JSON Schema 独立验证。违反数据驱动设计原则。"
+    adr: docs/architecture/adr-0005-data-driven-design.md
+    added: 2026-05-06
+
+  - pattern: llm_deciding_mechanics
+    status: active
+    description: "LLM 不能决定任何机械结果：伤害数值、检定 DC、战利品掉落、故事分支条件、设施状态变更——这些全部由程序控制。"
+    why: "LLM 输出不可控和不一致。允许 LLM 决策数值意味着放弃游戏平衡和可测试性。"
+    adr: docs/architecture/adr-0004-llm-integration.md
+    added: 2026-05-06
+
+  - pattern: direct_cross_system_reference
+    status: active
+    description: "系统间禁止直接引用对方的具体类（如 CombatEngine 不能有 CharacterSystem 的 using）。所有跨系统通信必须通过 IEventBus。"
+    why: "直接引用产生强耦合，违反模块化架构原则。使单元测试无法隔离，也增加 AI 生成代码的出错风险。"
+    adr: docs/architecture/adr-0003-event-bus.md
+    added: 2026-05-06
+
+  - pattern: ms_dependency_injection_container
+    status: active
+    description: "不使用 Microsoft.Extensions.DependencyInjection 或其他 DI 容器替代 ServiceLocator。"
+    why: "MonoGame 的 Game 由框架实例化，无构造函数注入入口。MS DI 的核心优势在此项目中无法发挥，反而增加外部依赖和 AI 的 API 混淆风险。"
+    adr: docs/architecture/adr-0002-service-locator.md
+    added: 2026-05-06
+
+  - pattern: unity_api_in_codebase
+    status: active
+    description: "代码库中不允许出现 Unity API 调用：MonoBehaviour、GameObject、Start()/Update() 约定、Transform、Instantiate 等。"
+    why: "MonoGame 与 Unity 无 API 交集。任何 Unity API 的出现说明 AI 产生了跨域混淆——即使在 Godot C# 中也很常见。"
+    adr: docs/architecture/adr-0000-engine-selection.md
+    added: 2026-05-06
 
 # Example:
 #
