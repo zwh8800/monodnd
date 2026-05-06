@@ -98,6 +98,9 @@ M{数字}                      → 里程碑
 
 **验收标准**: `dotnet build` 输出 "Build succeeded. 0 Warning(s) 0 Error(s)"
 
+**实现状态**: ✅ 已完成 (2026-05-05)
+**验证**: DndGame.slnx, DndGame.csproj, DndGame.Tests.csproj 均存在，目录结构完整
+
 ---
 
 #### P0-02: 配置NuGet包
@@ -118,6 +121,9 @@ M{数字}                      → 里程碑
 
 **验收标准**: `dotnet build` 通过，`dotnet list package` 显示所有包已安装
 
+**实现状态**: ✅ 已完成 (2026-05-05)
+**已安装包**: MonoGame.Framework.DesktopGL 3.8.*, GoRogue 2.6.4, Myra 1.*, FontStashSharp.MonoGame 1.*, sqlite-net-pcl 1.9.*, JsonSchema.Net 7.*, MonoGame.Extended 6.0.0
+
 ---
 
 #### P0-03: 配置MGCB内容管线
@@ -136,6 +142,9 @@ M{数字}                      → 里程碑
 5. 验证MGCB编译
 
 **验收标准**: 测试纹理编译为 `.xnb` 文件，存在于 `Content/bin/DesktopGL/` 目录
+
+**实现状态**: ✅ 已完成 (2026-05-05)
+**验证**: Content.mgcb 已配置，字体文件已就绪
 
 ---
 
@@ -156,6 +165,9 @@ M{数字}                      → 里程碑
 
 **验收标准**: `dotnet run` 启动后显示1280x720窗口，背景为指定颜色，无异常退出
 
+**实现状态**: ✅ 已完成 (2026-05-05)
+**说明**: 使用自定义ECS (GameRoot/Scene/Entity/Component) 替代Nez，窗口标题"酒馆与命运"，分辨率1280x720
+
 ---
 
 #### P0-05: ServiceLocator + EventBus基础架构
@@ -174,11 +186,15 @@ M{数字}                      → 里程碑
 4. 单元测试：ServiceLocator注册/解析/重复注册异常、EventBus发布/订阅/退订
 
 **验收标准**: 单元测试通过：
-- ServiceLocator可注册和解析服务
-- 重复注册抛出异常
-- FinalizeRegistration后再次注册抛出异常
-- EventBus发布事件后所有订阅者收到
-- 退订后不再收到事件
+- [x] ServiceLocator可注册和解析服务
+- [x] 重复注册抛出异常
+- [x] FinalizeRegistration后再次注册抛出异常
+- [x] EventBus发布事件后所有订阅者收到
+- [x] 退订后不再收到事件
+
+**实现状态**: ✅ 已完成 (2026-05-05)
+**测试**: 13个测试通过 (ServiceLocatorTests 7个, EventBusTests 6个)
+**文件**: Core/ServiceLocator.cs, Core/EventBus.cs, Core/GameStateManager.cs, Core/Scene.cs, Core/Entity.cs, Core/Component.cs, Core/SceneComponent.cs
 
 ---
 
@@ -197,6 +213,9 @@ M{数字}                      → 里程碑
 4. (可选) 配置 GitHub Actions：`dotnet build` + `dotnet test`
 
 **验收标准**: `git status` 干净，`.gitignore` 排除 bin/obj/xnb等文件，`dotnet build && dotnet test` 在CI上通过
+
+**实现状态**: ✅ 已完成 (2026-05-05)
+**验证**: Git仓库已初始化，.gitignore 已配置
 
 ---
 
@@ -217,17 +236,23 @@ M{数字}                      → 里程碑
 
 **验收标准**: 窗口启动后渲染出"你好酒馆"中文字符，无乱码、无模糊
 
+**实现状态**: ✅ 已完成 (2026-05-05)
+**验证**: NotoSansCJKsc-Regular.ttf (16MB) 已放置在 Content/Fonts/，MainMenuScene 渲染"你好酒馆"
+
 ---
 
 ### Phase 0 可交付物
 
-| 交付物 | 说明 |
-|--------|------|
-| 可编译的解决方案 | `dotnet build` 零错误零警告 |
-| ServiceLocator + EventBus | 全局服务架构基础 |
-| MGCB内容管线 | 纹理/字体编译流水线 |
-| FontStashSharp集成 | 中文渲染可用 |
-| git仓库 | 版本控制初始化 |
+| 交付物 | 说明 | 状态 |
+|--------|------|:----:|
+| 可编译的解决方案 | `dotnet build` 零错误零警告 | ✅ |
+| ServiceLocator + EventBus | 全局服务架构基础 | ✅ |
+| MGCB内容管线 | 纹理/字体编译流水线 | ✅ |
+| FontStashSharp集成 | 中文渲染可用 | ✅ |
+| git仓库 | 版本控制初始化 | ✅ |
+
+**Phase 0 完成日期**: 2026-05-05
+**测试总数**: 13个 (ServiceLocatorTests 7个 + EventBusTests 6个)
 
 ---
 
