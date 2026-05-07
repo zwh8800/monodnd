@@ -10,3 +10,16 @@
 - Files changed: 4 (01-character-system.md, 06-adventure-generation.md, 07-tavern-system.md, design/pillars.md)
 - Recommended next: 重新运行 /review-all-gdds 验证 → /gate-check → /create-architecture
 - Report: docs/gdd-cross-review-2026-05-06.md
+
+---
+
+## Session Extract — /map-systems 2026-05-08 → 系统索引创建
+- Task: Systems decomposition
+- Status: Systems index created
+- File: design/gdd/systems-index.md
+- Systems identified: 26 (8 categories, 19 MVP, 4 VS, 3 Alpha)
+- Review mode: lean (default)
+- Review gates: TD-SYSTEM-BOUNDARY skipped (lean), PR-SCOPE skipped (lean), CD-SYSTEMS skipped (lean)
+- High-risk: 角色系统 (11 dependents — bottleneck), LLM网关 (technical), 冒险生成 (technical/scope), 战斗系统 (design/complexity)
+- Next: Design individual system GDDs — start with 骰子系统 (design order #2)
+- Dependency layers: Foundation (5) → Core (5) → Feature1 (7) → Feature2 (2) → Feature3 (6) → Presentation (1)
