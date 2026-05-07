@@ -43,7 +43,30 @@ last_updated: "2026-05-06"
 # interface: how other systems access this state (read-only property, method call,
 #   signal, shared resource, etc.) — this is the contract other ADRs depend on.
 
-state_ownership: []
+state_ownership:
+  - state: combat_battle_state
+    status: active
+    owner_system: combat-system
+    adr: docs/architecture/adr-0006-combat-engine-architecture.md
+    description: "战斗运行时状态：当前轮数、先攻列表、参战者状态、FSM 活跃状态"
+    interface: "CombatEngine.CurrentRound / CombatEngine.CurrentState / CombatEngine.GetCombatants() — read-only 查询方法，仅 combat-system 写入"
+    write_access: combat-system-only
+    referenced_by:
+      - docs/architecture/adr-0006-combat-engine-architecture.md
+    added: 2026-05-07
+    revised: ""
+
+  - state: combat_condition_tracking
+    status: active
+    owner_system: combat-system
+    adr: docs/architecture/adr-0006-combat-engine-architecture.md
+    description: "战斗中所有参战者的条件状态：14 种条件（目盲/恐慌/中毒等）的施加、持续时间、移除判定"
+    interface: "ConditionTracker（CombatEngine 内部子模块）— 外部通过 IEventBus 的 ConditionApplied 事件通知"
+    write_access: combat-system-only
+    referenced_by:
+      - docs/architecture/adr-0006-combat-engine-architecture.md
+    added: 2026-05-07
+    revised: ""
 
 # Example:
 #
@@ -133,6 +156,38 @@ interfaces:
     added: 2026-05-06
     revised: ""
 
+  - contract: damage_event
+    status: active
+    pattern: event_bus
+    producer: combat-system
+    consumers:
+      - llm_gateway
+      - character_system
+      - ui_system
+    adr: docs/architecture/adr-0006-combat-engine-architecture.md
+    signal_signature: "DamageDealt(string TargetId, string SourceId, int Amount, DamageType Type, bool IsCritical) — 通过 IEventBus.Publish"
+    referenced_by:
+      - docs/architecture/adr-0006-combat-engine-architecture.md
+    added: 2026-05-07
+    revised: ""
+
+  - contract: combat_lifecycle
+    status: active
+    pattern: event_bus
+    producer: combat-system
+    consumers:
+      - adventure_system
+      - settlement_system
+      - tavern_system
+      - ui_system
+      - llm_gateway
+    adr: docs/architecture/adr-0006-combat-engine-architecture.md
+    signal_signature: "CombatStarted(string CombatId) / CombatEnded(string CombatId, CombatResult Result, List<string> Survivors, List<string> Casualties) — 通过 IEventBus.Publish"
+    referenced_by:
+      - docs/architecture/adr-0006-combat-engine-architecture.md
+    added: 2026-05-07
+    revised: ""
+
 # Example:
 #
 # interfaces:
@@ -160,7 +215,16 @@ interfaces:
 # Register a budget when an ADR explicitly claims a frame time allocation.
 # The registry lets /architecture-review verify the total doesn't exceed the target.
 
-performance_budgets: []
+performance_budgets:
+  - system: combat-engine
+    status: active
+    budget_ms: 1.0
+    adr: docs/architecture/adr-0006-combat-engine-architecture.md
+    notes: "包含 FSM 推进/骰子/伤害计算/条件追踪/AI 决策，< 20 战斗实体场景"
+    referenced_by:
+      - docs/architecture/adr-0006-combat-engine-architecture.md
+    added: 2026-05-07
+    revised: ""
 
 # Example:
 #
@@ -259,6 +323,17 @@ api_decisions:
     referenced_by:
       - docs/architecture/adr-0004-llm-integration.md
     added: 2026-05-06
+    revised: ""
+
+  - purpose: dice_roller
+    status: active
+    api: 静态 DiceRoller 类（纯 C#，System.Random）
+    not: 外部骰子库 / MonoGame Random 封装
+    adr: docs/architecture/adr-0006-combat-engine-architecture.md
+    reason: "纯函数独立工具类，零外部依赖，接受可注入 Random 实例（测试可重现）。支持 d20 基础骰、优势/劣势、暴击取最大值、骰子表达式解析（2d6+3）"
+    referenced_by:
+      - docs/architecture/adr-0006-combat-engine-architecture.md
+    added: 2026-05-07
     revised: ""
 
 # Example:
