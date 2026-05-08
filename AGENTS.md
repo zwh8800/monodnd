@@ -1,7 +1,7 @@
 # PROJECT KNOWLEDGE BASE
 
-**Generated:** 2026-05-05
-**Commit:** 22c2bdd
+**Generated:** 2026-05-08
+**Commit:** b44b0e2
 **Branch:** master
 
 Roguelike DND 5e pixel-art RPG ("酒馆与命运 / Tavern & Destiny") — MonoGame 3.8.5+ / C# 12 / .NET 8. Pre-implementation: **Phase 0 complete** — Core infrastructure implemented (11 C# files), design docs finalized (26 MD files, 30k+ lines). AI-First (Vibe Coding) paradigm: Sisyphus orchestrates, AI generates all code, `dotnet build` is the quality gate.
@@ -536,7 +536,7 @@ dotnet add package Nez --version 2.*
 - **Custom ECS**: Uses hand-rolled Scene/Entity/Component system in Core/, NOT Nez. Nez NuGet package NOT in csproj despite docs referencing Nez conventions. Update docs OR add Nez dependency.
 - **GoRogue version mismatch**: csproj has 2.6.4, docs specify 3.*. Lock to 2.6.4 and update docs.
 - **Game1.cs is dead code**: Program.cs creates GameRoot directly; Game1.cs never instantiated. Remove or repurpose.
-- **ServiceLocator not wired**: GameRoot.Initialize() is empty; service registration pipeline missing. Implement 7-step init before adding Systems.
+- **ServiceLocator partially wired**: GameRoot.Initialize() calls ServiceRegistration.RegisterAll() (registers IEventBus, IGameStateManager, IFontService). Remaining 4 services (IDataPersistence, ILLMGateway, IWorldStateManager, IAudioManager, IResourceCache) not yet registered. FinalizeRegistration() never called.
 - **Missing NuGet packages**: Nez (not installed), MonoGame.Extended.Tiled (not installed), .editorconfig (missing), Directory.Build.props (missing).
 - **Chinese game text**: All player-facing strings (UI, narrative, items, dialogue) are 简体中文. Technical identifiers (code, JSON keys, enums) are English. FontStashSharp + NotoSansCJKsc used.
 - **DND 5e SRD baseline**: Game uses DND 5e SRD rules with documented deviations — see GDD §5.3-5.4 and subsystems/04-combat-system.md.
