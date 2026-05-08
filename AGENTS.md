@@ -67,7 +67,7 @@ DndGame.slnx                       # Solution (new .NET 9 format, not .sln)
 | Documentation index | `docs/AGENTS.md` |
 | Implemented Core classes | `src/DndGame/Core/` (8 files) |
 | Tests for Core patterns | `tests/DndGame.Tests/Unit/` (2 files) |
-| All subsystem designs | `docs/subsystems/` (9 files, all design phase) |
+| All subsystem designs | `design/gdd/` (9 files, all design phase) |
 
 ## AGENT DELEGATION
 
