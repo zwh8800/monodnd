@@ -1,0 +1,1 @@
+../../docs/subsystems/01-character-system.md

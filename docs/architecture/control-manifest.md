@@ -1,0 +1,1 @@
+../technical/03-vibe-coding-conventions.md

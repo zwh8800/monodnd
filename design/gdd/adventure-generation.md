@@ -1,0 +1,1 @@
+../../docs/subsystems/06-adventure-generation.md

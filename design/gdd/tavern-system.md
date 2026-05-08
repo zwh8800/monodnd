@@ -1,0 +1,1 @@
+../../docs/subsystems/07-tavern-system.md
