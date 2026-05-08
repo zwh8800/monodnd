@@ -13,7 +13,7 @@ Proposed
 | **Engine** | MonoGame 3.8.5+ |
 | **Domain** | Core（根决策，影响所有系统） |
 | **Knowledge Risk** | LOW — MonoGame API 自 XNA 时代（2006）以来高度稳定，LLM 训练数据充分覆盖 |
-| **References Consulted** | `docs/technical/01-engine-selection.md`（完整对比分析，9 引擎评估）、`docs/technical/02-overall-architecture.md`、`docs/GDD-v1.md` |
+| **References Consulted** | `docs/technical/01-engine-selection.md`（完整对比分析，9 引擎评估）、`docs/technical/02-overall-architecture.md`、`design/gdd/GDD-v1.md` |
 | **Post-Cutoff APIs Used** | None — 所有核心 API（`SpriteBatch`、`ContentManager`、`Game` 基类）均在 LLM 训练截止日期前稳定 |
 | **Verification Required** | `dotnet build` zero errors/warnings；跨平台编译通过（Windows/macOS/Linux）；`dotnet test` 全绿 |
 
@@ -231,7 +231,7 @@ N/A — 这是根基决策，项目从零开始基于此技术栈构建。已有
 ## Related Decisions
 - `docs/technical/01-engine-selection.md` — 完整的 9 引擎对比分析（853 行），此 ADR 的详细背景
 - `docs/technical/02-overall-architecture.md` — 基于此决策的整体架构设计
-- `docs/GDD-v1.md` — 游戏设计规范，定义此 ADR 需满足的功能需求
-- `docs/subsystems/02-llm-integration.md` — LLM 集成架构，依赖 HttpClient + System.Text.Json
-- `docs/subsystems/04-combat-system.md` — 战斗引擎，依赖 GoRogue FOV/A*
+- `design/gdd/GDD-v1.md` — 游戏设计规范，定义此 ADR 需满足的功能需求
+- `design/gdd/02-llm-integration.md` — LLM 集成架构，依赖 HttpClient + System.Text.Json
+- `design/gdd/04-combat-system.md` — 战斗引擎，依赖 GoRogue FOV/A*
 - 待创建：ADR-0001（ECS 架构选型）、ADR-0002（服务注册模式）、ADR-0003（跨系统通信）、ADR-0004（LLM 集成架构）、ADR-0005（数据持久化方案）

@@ -200,10 +200,10 @@ Design order principle: Combine dependency sort + priority tier. Independent sys
 
 | System | Risk Type | Risk Description | Mitigation |
 |--------|-----------|-----------------|------------|
-| **角色系统** | Design / Dependency | 🔴 11个系统依赖——数据模型不稳定将导致下游11个系统全部返工。DND 5e属性/职业/种族/法术位覆盖面广，设计复杂度高。 | 最优先设计，最稳锁定。参考现有 `docs/subsystems/01-character-system.md` 但需按GDD模板重写。设计冻结后3轮review再允许下游系统开工。 |
-| **LLM集成网关** | Technical | 四Agent管线+Schema验证+Token预算+离线降级——技术链路最长，涉及外部API集成和Schema验证不稳定性。 | 参考 `docs/subsystems/02-llm-integration.md`（4213行详细设计）。早期原型验证Schema验证重试机制和离线降级。 |
+| **角色系统** | Design / Dependency | 🔴 11个系统依赖——数据模型不稳定将导致下游11个系统全部返工。DND 5e属性/职业/种族/法术位覆盖面广，设计复杂度高。 | 最优先设计，最稳锁定。参考现有 `design/gdd/01-character-system.md` 但需按GDD模板重写。设计冻结后3轮review再允许下游系统开工。 |
+| **LLM集成网关** | Technical | 四Agent管线+Schema验证+Token预算+离线降级——技术链路最长，涉及外部API集成和Schema验证不稳定性。 | 参考 `design/gdd/02-llm-integration.md`（4213行详细设计）。早期原型验证Schema验证重试机制和离线降级。 |
 | **冒险生成系统** | Technical / Scope | 三层管线（LLM→程序化→实时叙事）是项目最核心的技术设计，涉及LLM输出的不确定性转化为可玩地图。 | 分层设计，每层独立单元测试。先实现手工模板管线（无LLM依赖），再接入LLM。 |
-| **战斗系统** | Design / Complexity | DND 5e规则体系庞大（14种条件、FSM状态机、6项节奏优化偏差），设计容易失控。 | 参考 `docs/subsystems/04-combat-system.md`（2400行）。MVP限定3职业+1敌人类型+简化条件池，逐层扩展。 |
+| **战斗系统** | Design / Complexity | DND 5e规则体系庞大（14种条件、FSM状态机、6项节奏优化偏差），设计容易失控。 | 参考 `design/gdd/04-combat-system.md`（2400行）。MVP限定3职业+1敌人类型+简化条件池，逐层扩展。 |
 
 ---
 
@@ -240,13 +240,13 @@ The following existing documents contain detailed subsystem designs. They will b
 
 | Existing Doc | Lines | Covers System(s) | Action |
 |-------------|-------|-----------------|--------|
-| `docs/subsystems/01-character-system.md` | 2461 | #6 角色系统 | Reference during GDD authoring |
-| `docs/subsystems/02-llm-integration.md` | 4213 | #10 LLM网关 | Reference during GDD authoring |
-| `docs/subsystems/03-items-equipment.md` | 2362 | #7 物品装备系统 | Reference during GDD authoring |
-| `docs/subsystems/04-combat-system.md` | 2400 | #13 战斗系统 | Reference during GDD authoring |
-| `docs/subsystems/05-map-exploration.md` | 2465 | #12 地图探索系统 | Reference during GDD authoring |
-| `docs/subsystems/06-adventure-generation.md` | 2766 | #14 冒险生成系统 | Reference during GDD authoring |
-| `docs/subsystems/07-tavern-system.md` | 2190 | #16 酒馆系统 | Reference during GDD authoring |
-| `docs/subsystems/08-failure-growth.md` | 2284 | #17 失败与成长系统 | Reference during GDD authoring |
-| `docs/subsystems/09-ui-ux-design.md` | 1927 | #19 UI系统 | Reference during GDD authoring |
-| `docs/GDD-v1.md` | 1029 | Game design canon | Authoritative reference |
+| `design/gdd/01-character-system.md` | 2461 | #6 角色系统 | Reference during GDD authoring |
+| `design/gdd/02-llm-integration.md` | 4213 | #10 LLM网关 | Reference during GDD authoring |
+| `design/gdd/03-items-equipment.md` | 2362 | #7 物品装备系统 | Reference during GDD authoring |
+| `design/gdd/04-combat-system.md` | 2400 | #13 战斗系统 | Reference during GDD authoring |
+| `design/gdd/05-map-exploration.md` | 2465 | #12 地图探索系统 | Reference during GDD authoring |
+| `design/gdd/06-adventure-generation.md` | 2766 | #14 冒险生成系统 | Reference during GDD authoring |
+| `design/gdd/07-tavern-system.md` | 2190 | #16 酒馆系统 | Reference during GDD authoring |
+| `design/gdd/08-failure-growth.md` | 2284 | #17 失败与成长系统 | Reference during GDD authoring |
+| `design/gdd/09-ui-ux-design.md` | 1927 | #19 UI系统 | Reference during GDD authoring |
+| `design/gdd/GDD-v1.md` | 1029 | Game design canon | Authoritative reference |

@@ -61,9 +61,9 @@ DndGame.slnx                       # Solution (new .NET 9 format, not .sln)
 | Coding rules / forbidden ops | `docs/technical/03-vibe-coding-conventions.md` |
 | Setup / commands / NuGet | `docs/technical/04-dev-environment-setup.md` |
 | Task IDs / milestones | `docs/technical/05-implementation-plan.md` |
-| Combat rules / DND deviations | `docs/subsystems/04-combat-system.md` |
-| LLM Gateway / 4 Agents / Schema | `docs/subsystems/02-llm-integration.md` |
-| Game design canon | `docs/GDD-v1.md` |
+| Combat rules / DND deviations | `design/gdd/04-combat-system.md` |
+| LLM Gateway / 4 Agents / Schema | `design/gdd/02-llm-integration.md` |
+| Game design canon | `design/gdd/GDD-v1.md` |
 | Documentation index | `docs/AGENTS.md` |
 | Implemented Core classes | `src/DndGame/Core/` (8 files) |
 | Tests for Core patterns | `tests/DndGame.Tests/Unit/` (2 files) |

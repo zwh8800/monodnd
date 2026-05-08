@@ -114,7 +114,7 @@
 | 神殿 | 复活角色/移除诅咒 | 声誉分 ≥ 80（Phase 2） |
 | 英雄之壁 | 查看/生成角色传记 | 完成1次冒险（Phase 2） |
 
-> **v1.1修订：** 原使用"声望 Lv.X"为表述错误——酒馆有等级系统（Lv1-10）和声誉分系统（0-100分）两套独立的进度体系。此处统一为声誉分制以避免混淆。详见 `docs/subsystems/07-tavern-system.md` 和 `docs/subsystems/08-failure-growth.md`。
+> **v1.1修订：** 原使用"声望 Lv.X"为表述错误——酒馆有等级系统（Lv1-10）和声誉分系统（0-100分）两套独立的进度体系。此处统一为声誉分制以避免混淆。详见 `design/gdd/07-tavern-system.md` 和 `design/gdd/08-failure-growth.md`。
 
 ### 3.3 角色招募与管理
 

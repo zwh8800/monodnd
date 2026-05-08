@@ -13,7 +13,7 @@ Proposed
 | **Engine** | MonoGame 3.8.5+ |
 | **Domain** | Core（数据架构原则，影响所有子系统的数值管理和持久化） |
 | **Knowledge Risk** | LOW — 基于 .NET 标准库 `System.Text.Json` + `sqlite-net` NuGet 包 |
-| **References Consulted** | `docs/technical/02-overall-architecture.md` §1.1（⑤数据驱动设计）、§1.4（DataPersistence 服务）；`docs/subsystems/01-character-system.md`、`docs/subsystems/03-items-equipment.md`；`docs/GDD-v1.md` |
+| **References Consulted** | `docs/technical/02-overall-architecture.md` §1.1（⑤数据驱动设计）、§1.4（DataPersistence 服务）；`design/gdd/01-character-system.md`、`design/gdd/03-items-equipment.md`；`design/gdd/GDD-v1.md` |
 | **Post-Cutoff APIs Used** | None — `System.Text.Json` (since .NET Core 3.0) 稳定；sqlite-net 社区维护 |
 | **Verification Required** | JSON 配置加载成功（类型反序列化无异常）；SQLite 读写通过；`dotnet test` 覆盖 |
 
@@ -338,5 +338,5 @@ N/A — Phase 0 已完成 Core 基础设施。DataPersistence 服务尚未实现
 - ADR-0002 — ServiceLocator（DataPersistence 第 2 优先级服务）
 - ADR-0004 — LLM 皮肤层（Schema 文件、模板文件存储在 Data/ 目录）
 - `docs/technical/02-overall-architecture.md` §1.4 — DataPersistence 服务定义
-- `docs/subsystems/01-character-system.md` — 角色数据模型设计
-- `docs/subsystems/03-items-equipment.md` — 物品/装备数据模型设计
+- `design/gdd/01-character-system.md` — 角色数据模型设计
+- `design/gdd/03-items-equipment.md` — 物品/装备数据模型设计

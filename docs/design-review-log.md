@@ -2,7 +2,7 @@
 
 ## 评审 #1 — 2026-05-08 — 裁决: NEEDS REVISION（已修订为 APPROVED）
 **范围信号:** L（大型修订）
-**文档:** `docs/GDD-v1.md` v1.0
+**文档:** `design/gdd/GDD-v1.md` v1.0
 **模式:** full（全深度评审）
 **咨询专家:** game-designer, systems-designer, economy-designer, narrative-director, qa-lead, ux-designer, creative-director（7位）
 **发现:** 阻塞 10 条 | 建议修订 8 条 | 次要建议 6 条

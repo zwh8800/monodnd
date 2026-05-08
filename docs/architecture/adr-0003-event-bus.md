@@ -13,7 +13,7 @@ Proposed
 | **Engine** | MonoGame 3.8.5+ |
 | **Domain** | Core（系统间解耦通信基础架构） |
 | **Knowledge Risk** | LOW — 纯 C# 实现，基于 `Delegate.Combine`/`Delegate.Remove`，无外部 API |
-| **References Consulted** | `src/DndGame/Core/EventBus.cs`（136 行）；`docs/technical/02-overall-architecture.md` §1.2、§1.4；`docs/subsystems/02-llm-integration.md`、`docs/subsystems/04-combat-system.md` |
+| **References Consulted** | `src/DndGame/Core/EventBus.cs`（136 行）；`docs/technical/02-overall-architecture.md` §1.2、§1.4；`design/gdd/02-llm-integration.md`、`design/gdd/04-combat-system.md` |
 | **Post-Cutoff APIs Used** | None |
 | **Verification Required** | `dotnet build` zero errors；8 个 EventBus 测试全绿；Snapshot-then-Invoke 无死锁 |
 
