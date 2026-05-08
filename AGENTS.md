@@ -354,6 +354,10 @@ When review catches these patterns, handle as follows:
 | AI hardcoded a numeric value | Ask AI to explain source → extract to named constant or JSON config |
 | AI forgot `await` / used `async void` | Mark compile warning → change to `async Task` → verify call chain handles async correctly |
 
+## 语言规则
+
+**与用户对话时必须使用中文回复。** 所有用户交互、解释说明、问题确认等均使用简体中文。代码、技术标识符、Git commit 前缀保持英文。
+
 ## CONVENTIONS
 
 *Only deviations from standard C# / .NET patterns are listed.*
