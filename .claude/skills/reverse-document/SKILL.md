@@ -180,7 +180,7 @@ verified-by: [User name]
 After writing, suggest next steps:
 
 ```
-✅ Written to design/gdd/combat-system.md
+✅ Written to design/gdd/04-combat-system.md
 
 FOLLOW-UP RECOMMENDED:
 1. Run /balance-check on combat formulas (exponential scaling concern)

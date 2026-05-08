@@ -35,7 +35,7 @@ None. Balance check is a read-only analysis skill; no gates are invoked.
 
 **Fixture:**
 - `assets/data/combat-balance.json` exists with 6 stat values
-- `design/gdd/combat-system.md` contains formulas for all 6 stats with ±10% tolerance
+- `design/gdd/04-combat-system.md` contains formulas for all 6 stats with ±10% tolerance
 - All 6 values fall within tolerance
 
 **Input:** `/balance-check`
@@ -61,7 +61,7 @@ None. Balance check is a read-only analysis skill; no gates are invoked.
 
 **Fixture:**
 - `assets/data/combat-balance.json` has `player_damage_base: 140`
-- `design/gdd/combat-system.md` formula specifies `player_damage_base = 100` (±10%)
+- `design/gdd/04-combat-system.md` formula specifies `player_damage_base = 100` (±10%)
 - All other stats are within tolerance
 
 **Input:** `/balance-check`
@@ -108,7 +108,7 @@ None. Balance check is a read-only analysis skill; no gates are invoked.
 
 **Fixture:**
 - `assets/data/combat-balance.json` contains a stat `legacy_armor_mult: 1.5`
-- `design/gdd/combat-system.md` has no formula for `legacy_armor_mult`
+- `design/gdd/04-combat-system.md` has no formula for `legacy_armor_mult`
 - All other stats have formula definitions and pass validation
 
 **Input:** `/balance-check`

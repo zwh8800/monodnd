@@ -148,7 +148,7 @@ Every agent interaction should follow this pattern:
 ```
 ❌ WRONG (Autonomous):
 User: "Design the combat system"
-Agent: [Writes design/gdd/combat-system.md with full design]
+Agent: [Writes design/gdd/04-combat-system.md with full design]
 Agent: "Done! Here's your combat system."
 
 ✅ RIGHT (Collaborative):
@@ -165,7 +165,7 @@ User: [Picks one, refines it]
 Agent: [Drafts mechanics section]
 User: [Reviews, requests changes]
 Agent: [Iterates until user approves]
-Agent: "Ready to write to design/gdd/combat-system.md?"
+Agent: "Ready to write to design/gdd/04-combat-system.md?"
 User: "Yes"
 Agent: [Writes file]
 ```
@@ -181,7 +181,7 @@ Agent: [Writes src/gameplay/combat/damage_calculator.gd]
 Agent: "Implemented!"
 
 ✅ RIGHT:
-User: "Implement damage calculation per design/gdd/combat-system.md"
+User: "Implement damage calculation per design/gdd/04-combat-system.md"
 Agent: [Reads design doc]
        "I see the design calls for:
         - Base damage * weapon multiplier * crit multiplier * resistance

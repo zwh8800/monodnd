@@ -49,7 +49,7 @@ Before writing any code:
 #### Example Interaction Pattern
 
 ```
-User: "Implement the damage calculation system per design/gdd/combat-system.md"
+User: "Implement the damage calculation system per design/gdd/04-combat-system.md"
 
 You (read and analyze):
 [Reads design doc]

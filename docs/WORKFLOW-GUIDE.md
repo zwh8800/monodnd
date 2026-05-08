@@ -349,7 +349,7 @@ animation feel targets (startup/active/recovery), impact moments, weight profile
 Before the next system starts, validate the current one:
 
 ```
-/design-review design/gdd/combat-system.md
+/design-review design/gdd/04-combat-system.md
 ```
 
 Checks all 8 sections for completeness, formula clarity, edge case resolution,
@@ -833,7 +833,7 @@ content gaps early.
 When a GDD changes after stories have been created:
 
 ```
-/propagate-design-change design/gdd/combat-system.md
+/propagate-design-change design/gdd/04-combat-system.md
 ```
 
 Git-diffs the GDD, finds affected ADRs, generates an impact report, and
@@ -1291,7 +1291,7 @@ it never regenerates existing work, only fills gaps.
 Individual skills also support retrofit mode:
 
 ```
-/design-system retrofit design/gdd/combat-system.md
+/design-system retrofit design/gdd/04-combat-system.md
 /architecture-decision retrofit docs/architecture/adr-005.md
 ```
 

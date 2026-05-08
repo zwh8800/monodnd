@@ -13,7 +13,7 @@ When a GDD changes, architectural decisions written against it may no longer be
 valid. This skill finds every affected ADR, compares what the ADR assumed against
 what the GDD now says, and guides the user through resolution.
 
-**Usage:** `/propagate-design-change design/gdd/combat-system.md`
+**Usage:** `/propagate-design-change design/gdd/04-combat-system.md`
 
 ---
 

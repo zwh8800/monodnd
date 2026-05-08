@@ -4,7 +4,7 @@
 
 **Starting State:**
 - `design/gdd/inventory-system.md` — complete
-- `design/gdd/combat-system.md` — complete
+- `design/gdd/04-combat-system.md` — complete
 - `design/player-journey.md` — complete (6-phase arc defined)
 - No UX specs yet
 - `design/ux/` directory does not exist
@@ -28,7 +28,7 @@
 > Starting HUD design. Loading context...
 >
 > - `design/player-journey.md` read — key states: Calm Exploration, Tension (threat detected), Crisis (low HP/stamina), Combat
-> - `design/gdd/combat-system.md` — HUD needs: HP bar, stamina bar, active ability cooldowns (up to 3), damage numbers
+> - `design/gdd/04-combat-system.md` — HUD needs: HP bar, stamina bar, active ability cooldowns (up to 3), damage numbers
 > - `design/gdd/inventory-system.md` — HUD needs: quick slots (4 slots), active item indicator
 >
 > **HUD Philosophy question:** What is the player's primary attention focus during play?
