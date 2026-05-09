@@ -23,3 +23,14 @@
 - High-risk: 角色系统 (11 dependents — bottleneck), LLM网关 (technical), 冒险生成 (technical/scope), 战斗系统 (design/complexity)
 - Next: Design individual system GDDs — start with 骰子系统 (design order #2)
 - Dependency layers: Foundation (5) → Core (5) → Feature1 (7) → Feature2 (2) → Feature3 (6) → Presentation (1)
+
+---
+
+## Session Extract — /review-all-gdds 2026-05-09
+- Verdict: CONCERNS (原始 FAIL → 13/18 阻断已解决)
+- GDDs reviewed: 9 system GDDs (14 files total inc. meta-docs)
+- Flagged for revision: 01-character-system, 04-combat-system, 06-adventure-generation, 07-tavern-system, 08-failure-growth, GDD-v1, entities.yaml
+- Resolved (13): 疲乏Lv3(GDD版)、背包公式(slot)、酒馆解锁(等级)、法术位恢复(一半)、条件所有权(char权威)、结算管线(failure-growth权威)、金币→XP(已删除)、先攻范围(已修正)、GDScript(迁移路线图)、材料经济(已标注)、Lv4真空(已标注)、过期路径(已修复)、条件笔误(已修正)
+- Remaining (5): DEX独大、Pillar 3 MVP缺失、战斗认知过载、酒馆身份脱节、3个缺失GDD(条件效果/世界状态/敌人AI)
+- Recommended next: 逐个解决5个剩余阻断 → 重新运行 /review-all-gdds 验证
+- Report: design/gdd/gdd-cross-review-2026-05-09.md

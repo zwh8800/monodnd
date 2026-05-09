@@ -25,8 +25,8 @@
 #   Sections: entities | items | formulas | constants
 #   Each entry: name, status, source, referenced_by[], attributes{}, added, revised
 
-version: 3
-last_updated: "2026-05-09 (修复版: 先攻/传承点/死亡豁免/卖价公式对齐)"
+version: 4
+last_updated: "2026-05-09 (/review-all-gdds 裁决: 疲乏Lv3采纳GDD版本、先攻公式范围修正、背包公式确认)"
 
 # ─── ENTITIES ────────────────────────────────────────────────────────────────
 # Named game-world objects: enemies, NPCs, bosses.
@@ -520,10 +520,10 @@ entities:
       - design/gdd/08-failure-growth.md
     levels: 3
     effect_l1: 属性检定劣势
-    effect_l2: 速度减半, hp_max减半
-    effect_l3: 速度=0, hp_max=1, 攻击劣势
-    notes: 本游戏简化为3级(标准5e为6级)
-    added: "2026-05-09"
+    effect_l2: 速度减半
+    effect_l3: 攻击骰和豁免劣势; HP最大值减半
+    notes: 本游戏简化为3级(标准5e为6级)。2026-05-09 /review-all-gdds 裁决: 采纳GDD版本(温和版)，entities.yaml旧版(hp_max=1)废弃。
+    revised: "2026-05-09"
 
 
 # ─── ITEMS ───────────────────────────────────────────────────────────────────
@@ -1064,10 +1064,11 @@ formulas:
         symbol: other
         type: int
         description: Alert专长(+5), 装备加值
-    output_range: [-5, 35]
+    output_range: [-4, 35]
     rules: "每轮重骰先攻(偏离标准5e)"
-    notes: "已确认: combat-system §1.3 已修正为'每轮重骰先攻', 与 GDD-v1.md §5.4 一致。修复日期 2026-05-09"
+    notes: "已确认: combat-system §1.3 已修正为'每轮重骰先攻', 与 GDD-v1.md §5.4 一致。2026-05-09 修复范围下限 -5→-4(d20最低1+DEX_mod最低-5)。"
     added: "2026-05-09"
+    revised: "2026-05-09"
 
   - name: spell_save_dc_formula
     status: active
