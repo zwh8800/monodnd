@@ -4,7 +4,7 @@
 **评审范围**: 14 个文件（9 个系统 GDD + 5 个元文档）
 **注册表基线**: `design/registry/entities.yaml` v3 (1,650 行)
 **评审方式**: full（一致性 + 设计理论 + 场景走查）
-**裁决状态**: 进行中 — 13/18 阻断已解决，5 个待处理
+**裁决状态**: 完成 — 17/18 阻断已解决，1 个放弃（世界状态），0 个待处理
 
 ---
 
@@ -29,7 +29,7 @@
 | H3 | Pillar 3 MVP 缺失 | ✅ RESOLVED | MVP 英雄之壁简化为'冒险日志墙'：每次冒险后自动记录名称/结局/存活角色/摘要 |
 | H4 | 战斗认知过载 | ✅ RESOLVED | 中级系统被动化：抗性/专注/优劣势自动计算，UI透明化 |
 | H7 | 酒馆身份脱节 | ✅ RESOLVED | 叙事优先：场景交互替代菜单UI；行商/冒险者酒桌/归来事件营造'经营感' |
-| A1-A4 | 3个缺失 GDD | 🔴 PENDING | 条件效果/世界状态/敌人AI 需撰写 |
+| A1-A4 | 3个缺失 GDD | ✅ 2/3 RESOLVED | 条件效果(#8): 10-condition-effects-system.md; 敌人AI(#11): 11-enemy-ai-system.md; 世界状态(#9): ~~ABANDONED~~ |
 
 ---
 
@@ -254,14 +254,14 @@ Scenarios walked: 4
 | `09-ui-ux-design.md` | 0 | 2 | — |
 | `design/pillars.md` | — | 1 | 离线叙事价值量化 |
 | `entities.yaml` | 2 (B1, E1) | 2 | 疲乏 Lv3；先攻公式范围 |
-| `systems-index.md` | 3 (A1, A3, A4) | 0 | 补充条件效果/世界状态/敌人AI 的 GDD |
+| `systems-index.md` | 3 (A1, A3, A4) | 0 | ~~已解决~~: 条件效果→Designed, 敌人AI→Designed, 世界状态→放弃 |
 
 ---
 
-## Verdict: CONCERNS (原始 FAIL → 17/18 阻断已解决)
+## Verdict: CONCERNS (原始 FAIL → 17/18 阻断已解决，1 放弃)
 
 **原始**: FAIL — 18 个阻断 + 30 个警告
-**当前**: CONCERNS — **仅剩 1 个阻断** (3 个缺失 GDD) + 30 个警告
+**当前**: CONCERNS — 0 个阻断待处理 + 30 个警告（1 个阻断被放弃: 世界状态 GDD #9）
 
 ### 已解决阻断 (17/18)
 
@@ -285,8 +285,14 @@ Scenarios walked: 4
 | H7: 酒馆身份 | 叙事优先(场景交互替代菜单UI) | `07-tavern-system.md` |
 | S1-S3: 结算管线 | failure-growth 单一权威 | `04-combat-system.md`, `06-adventure-generation.md` |
 
-### 仅剩阻断 (1/18)
+### 阻断解决明细（含 A1-A4 拆分）
 
-| Issue | Category | Required Work |
-|-------|----------|--------------|
-| A1-A4: 缺失 GDD (3个) | 完整性 | 条件效果(#8)、世界状态(#9)、敌人AI(#11) 需 `/design-system` 撰写 |
+| Issue | Status | Detail |
+|-------|:------:|--------|
+| A1: 条件效果 GDD 缺失 (#8) | ✅ DONE | `10-condition-effects-system.md` (274行, 12节) |
+| A3: 世界状态 GDD 缺失 (#9) | ~~SKIPPED~~ | 用户放弃——MVP中冒险日志墙 + 失败成长的hooks已覆盖核心需求 |
+| A4: 敌人AI GDD 缺失 (#11) | ✅ DONE | `11-enemy-ai-system.md` (153行, 11节) |
+
+### 剩余警告 (30个)
+
+30 个警告性问题已在各处标注或添加调优待办——不阻断架构推进，但建议在 Phase 2 实现前审阅。
