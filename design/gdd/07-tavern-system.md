@@ -730,7 +730,7 @@ NPC对话由 **DM Agent** 实时生成。每个NPC关联一个 `dialogue_tree_id
 price = base_value × rarity_multiplier × condition_adjuster × tavern_reputation_discount
 
 rarity_multiplier:
-  common: ×1, uncommon: ×5, rare: ×50, very_rare: ×500, legendary: ×5000, artifact: ×50000
+  common: ×1, uncommon: ×3, rare: ×10, very_rare: ×30, legendary: ×100, artifact: ×500
 
 tavern_reputation_discount (酒馆声望折扣):
   Lv1-2: ×1.25 (新手加价)
@@ -742,7 +742,7 @@ tavern_reputation_discount (酒馆声望折扣):
 
 **回收价 (Player → Shop)**:
 ```
-sell_price = base_value × rarity_multiplier × 0.5 × condition_adjuster × tavern_reputation_discount
+sell_price = base_value × rarity_multiplier × 0.3 × condition_adjuster × tavern_reputation_discount
 ```
 
 ### 5.3 商店库存刷新机制
@@ -812,7 +812,7 @@ Step 6: 返回完整库存
 | 物品 | 数量 | 单价 (GP) |
 |------|:---:|:---------:|
 | 治疗药水 (2d4+2) | 3 | 50 |
-| 高级治疗药水 (4d4+4) | 1 | 250 |
+| 高级治疗药水 (4d4+4) | 1 | 150 |
 | 解毒剂 | 2 | 40 |
 | 炼金火油 (1d4 火/轮) | 1 | 75 |
 | 强酸瓶 (2d6 酸) | 1 | 50 |
@@ -2068,7 +2068,7 @@ TEST 8: 卖价计算
 
 TEST 9: 回收价计算
   输入: Uncommon 皮甲 (base_value=10), worn(60%), 酒馆 Lv3
-  预期: sell_price = 10 × 5 × 0.5 × 0.65 × 1.10 = 17 (取整)
+  预期: sell_price = 10 × 3 × 0.3 × 0.65 × 1.10 = 6 (取整)
 
 TEST 10: 商店库存刷新
   输入: 铁匠铺, 酒馆 Lv3

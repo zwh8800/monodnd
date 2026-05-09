@@ -163,7 +163,7 @@
   "encounter_id": "enc_goblin_ambush_01",
   "encounter_config": {
     "difficulty": "medium",
-    "cr_budget": 3.0,
+    "cr_budget": 1.5,
     "enemies": [
       { "template_id": "goblin_warrior", "count": 3, "cr": 0.25 },
       { "template_id": "goblin_shaman", "count": 1, "cr": 0.5 }

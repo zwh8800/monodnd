@@ -37,7 +37,7 @@
 
 | 系统 | DND 5e原版 | 本游戏调整 | 原因 | GDD引用 |
 |------|-----------|-----------|------|---------|
-| 先攻 | 整场战斗固定顺序 | **整场战斗固定顺序**（标准5e） | 保持策略深度 | §5.4 |
+| 先攻 | 整场战斗固定顺序 | **每轮重骰先攻**（偏离标准5e） | 增加战斗节奏感，避免固定排位的单调 | §5.4 |
 | 暴击 | 自然20=伤害骰翻倍 | **自然20=伤害骰取最大值** | 更爽更快结算 | §5.4 |
 | 死亡 | 3次失败=死亡 | **双轨制：3轮无治疗=死亡（主要）+ 死亡失败累积3次=死亡（次要）** | 有层次的风险递进，兼顾紧迫感与救援窗口 | §8.3, §14.3 |
 | 疲劳 | 6级渐进 | **3级（正常/疲乏/力竭）** | 减少管理负担 | §5.3 |
@@ -89,7 +89,7 @@
 - **顺序回合制**：每个角色按先攻顺序依次行动（标准DND 5e）
 - **分段移动**：移动点数可在回合内分段使用（移动→行动→移动）
 - **中断式反应**：反应不占用回合阶段，在满足触发条件时随时中断当前回合执行（见反应中断表）
-- **固定先攻**：战斗开始时骰一次先攻，整场战斗固定顺序，不重复骰
+- **每轮重骰先攻**：每轮开始时所有参与者重新骰先攻，按新结果排序行动顺序
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -394,7 +394,7 @@ public class CombatContext
 
 ---
 
-## 3. 先攻系统 `[SRD-FULL]`
+## 3. 先攻系统 `[SRD-MODIFIED]`
 
 ### 3.1 先攻检定公式
 
@@ -402,7 +402,7 @@ public class CombatContext
 先攻检定 = d20 + DEX调整值 + 其他加值
 
 其中:
-  - d20: 在战斗开始时骰一次，整场战斗固定
+  - d20: 每轮开始时重新骰一次，按新结果重新排序
   - DEX调整值: floor((DEX - 10) / 2)
   - 其他加值:
     - Alert专长: +5
@@ -410,25 +410,35 @@ public class CombatContext
     - 某些装备附魔: 如"疾风之" (+3)
 ```
 
-### 3.2 固定先攻规则 `[SRD-FULL]`
+### 3.2 每轮重骰先攻规则 `[SRD-MODIFIED]`
 
-**规则**：采用标准DND 5e固定先攻——战斗开始时所有参与者骰一次先攻，整场战斗保持此顺序不变。
+**规则**：每轮开始时所有参与者重新骰一次先攻，按新结果重新排序行动顺序。此规则偏离标准DND 5e（标准5e为整场战斗固定顺序）。
 
 ```
-固定先攻流程:
+每轮重骰先攻流程:
 
-  1. INITIALIZATION 完成后进入 ROLL_INITIATIVE
+  1. INITIALIZATION 完成后进入 ROLL_INITIATIVE（仅第1轮）
   2. 所有参与者骰 d20 + DEX_mod + bonuses
   3. 按结果从高到低排序
   4. 平局处理（见§3.3）
-  5. 确定先攻顺序，整场战斗固定不变
+  5. 确定先攻顺序，本轮使用
   6. 进入 ROUND_START
 
+  每轮循环:
+    - ROUND_END 后检查战斗是否结束
+    - 若未结束，重新进入 ROLL_INITIATIVE
+    - 所有参与者重新骰 d20 + DEX_mod + bonuses
+    - 按新结果重新排序，进入下一轮 ROUND_START
+
   设计理由:
-    - 策略可预测性：玩家知道行动顺序后可据此制定战术
-    - 减少等待时间：无需每轮重新排序
-    - 符合标准5e规则，玩家无需额外学习
-    - 便于DEX优化构筑发挥价值
+    - 增加不确定性：每轮行动顺序变化，防止固定战术
+    - 提升战斗节奏感：DEX高的角色有更多机会先行动
+    - 避免"固定排位"的单调感
+    - 鼓励灵活应变，而非依赖预设战术
+
+  注意事项:
+    - 反应（Reaction）的触发时机仍按当前轮的先攻顺序判定
+    - 持续效果（如Concentration）的持续时间按轮次计数，与先攻顺序无关
 ```
 
 ### 3.3 平局处理规则 `[CUSTOM]`
@@ -690,7 +700,7 @@ public class CombatContext
 示例1: 基础近战攻击
   角色: Lv3 Fighter, STR 16(+3), 熟练长剑, PB=2
   武器: 长剑 (1d8 slashing)
-  目标: AC 14 的哥布林
+  目标: AC 15 的哥布林
 
   攻击检定 = d20 + 3(STR) + 2(PB) = d20 + 5
   需要: d20 + 5 ≥ 14 → d20 ≥ 9
@@ -1578,6 +1588,99 @@ AI决策流程 (每回合):
 }
 ```
 
+#### Goblin Shaman (哥布林萨满) `[SRD-MODIFIED]`
+
+```json
+{
+  "id": "monster_goblin_shaman",
+  "name": "哥布林萨满",
+  "name_en": "Goblin Shaman",
+  "type": "humanoid",
+  "size": "small",
+  "cr": 0.5,
+  "xp": 100,
+
+  "abilities": {
+    "str": 8, "dex": 14, "con": 10,
+    "int": 10, "wis": 12, "cha": 10
+  },
+
+  "hp": { "max": 13, "current": 13 },
+  "ac": 13,
+  "ac_formula": "13 (leather armor)",
+  "speed": 30,
+
+  "proficiency_bonus": 2,
+  "senses": { "darkvision": 60 },
+  "languages": ["common", "goblin"],
+
+  "skills": {
+    "stealth": 6,
+    "religion": 2
+  },
+
+  "attacks": [
+    {
+      "name": "匕首",
+      "type": "melee",
+      "weapon": "dagger",
+      "attack_bonus": 4,
+      "damage": "1d4+2 piercing",
+      "reach": 5
+    }
+  ],
+
+  "spellcasting": {
+    "ability": "wisdom",
+    "spell_save_dc": 11,
+    "spell_attack_bonus": 3,
+    "slots": {
+      "1": 1
+    },
+    "cantrips": [
+      {
+        "name": "圣火术",
+        "name_en": "Sacred Flame",
+        "casting_time": "action",
+        "range_ft": 60,
+        "effect": "目标 DC 11 DEX豁免, 失败则 1d8 光耀伤害",
+        "damage": "1d8 radiant"
+      }
+    ],
+    "level_1": [
+      {
+        "name": "燃烧之手",
+        "name_en": "Burning Hands",
+        "casting_time": "action",
+        "range_ft": 15,
+        "area": "15ft cone",
+        "effect": "范围内所有生物 DC 11 DEX豁免, 失败则 3d6 火焰伤害, 成功减半",
+        "damage": "3d6 fire"
+      }
+    ]
+  },
+
+  "traits": [
+    {
+      "id": "nimble_escape",
+      "name": "灵巧逃脱",
+      "description": "可以用附赠动作执行撤离或躲藏动作"
+    }
+  ],
+
+  "behavior": {
+    "type": "caster",
+    "target_preference": "highest_threat",
+    "position_strategy": "stay_behind_frontline",
+    "special_tactics": [
+      "cast_burning_hands_on_clustered_enemies",
+      "maintain_distance_from_melee",
+      "flee_if_hp_below_5"
+    ]
+  }
+}
+```
+
 #### Skeleton (骷髅) `[SRD-FULL]`
 
 ```json
@@ -1695,6 +1798,13 @@ AI决策流程 (每回合):
   }
 }
 ```
+
+> **📋 补充敌人定义**: 以下敌人类型在冒险生成（06-adventure-generation.md）和地图探索（05-map-exploration.md）中被引用，但未在本章定义详细 stat block：
+> 
+> - **goblin_boss** (CR 1): 完整 stat block 定义在 `06-adventure-generation.md` §6.5
+> - **goblin_shaman** (CR 0.5): 完整 stat block 已在本章 §11.4 定义（Goblin Shaman）
+> - **goblin_warrior** (CR 0.25): 与本章 §11.4 的 goblin (CR 0.25) stat block 通用
+> - **goblin_commoner** (NPC): ⚠️ 仅在 `05-map-exploration.md` 的 NPC 列表中被引用，无 stat block 定义
 
 ### 11.5 MVP Boss完整数据
 
@@ -2646,11 +2756,12 @@ TEST 34: 完整战斗轮模拟
     5. 验证胜利/失败条件
 
 TEST 35: 顺序回合制验证
-  Given: 3玩家，按先攻顺序为盗贼(18)→法师(15)→战士(11)
+  Given: 3玩家，第1轮先攻顺序为盗贼(18)→法师(15)→战士(11)
   流程:
-    1. 骰先攻确定固定顺序
+    1. 第1轮骰先攻确定顺序
     2. 验证盗贼先行动，然后法师，最后战士
-    3. 验证顺序整场战斗不变
+    3. 进入第2轮，重新骰先攻（假设新顺序为法师(19)→战士(14)→盗贼(12)）
+    4. 验证第2轮按新顺序执行
 
 TEST 36: 分段移动验证
   Given: 战士速度30尺
@@ -2900,7 +3011,7 @@ TEST 45: 遭遇CR预算
 
 | 参数 | 当前值 | 安全范围 | 影响面 |
 |------|:------:|:--------:|--------|
-| **先攻重骰** | 每场战斗1次 | 每轮/每场 | 战术可预测性 |
+| **先攻重骰** | 每轮 | 每轮/每场 | 战术可预测性 |
 | **暴击规则** | 伤害骰最大值 | 最大值/双骰 | 暴击爽感 |
 | **死亡豁免轮数** | 3轮 | 2-4轮 | 死亡紧迫感 |
 | **0HP+伤害** | 2次死亡失败 | 1-3次 | 死亡残酷度 |
@@ -2911,7 +3022,6 @@ TEST 45: 遭遇CR预算
 | **Boss传奇动作** | 无 | 0-3次/轮 | Boss战难度 |
 | **AI难度默认** | Normal | Easy-Hard | 敌人战术水平 |
 | **同时选择倒计时** | 已移除 | N/A | N/A |
-| **每轮重骰先攻** | 已移除 | N/A | N/A |
 
 ---
 

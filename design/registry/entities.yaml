@@ -25,8 +25,8 @@
 #   Sections: entities | items | formulas | constants
 #   Each entry: name, status, source, referenced_by[], attributes{}, added, revised
 
-version: 2
-last_updated: "2026-05-09"
+version: 3
+last_updated: "2026-05-09 (修复版: 先攻/传承点/死亡豁免/卖价公式对齐)"
 
 # ─── ENTITIES ────────────────────────────────────────────────────────────────
 # Named game-world objects: enemies, NPCs, bosses.
@@ -338,6 +338,45 @@ entities:
         damage: 1d6+2
         type: slashing
     multiattack: 弯刀×2
+    added: "2026-05-09"
+
+  - name: goblin_shaman
+    status: active
+    source: design/gdd/04-combat-system.md
+    referenced_by:
+      - design/gdd/04-combat-system.md
+      - design/gdd/06-adventure-generation.md
+      - design/gdd/05-map-exploration.md
+    cr: 0.5
+    xp: 100
+    hp: 13
+    ac: 13
+    speed_ft: 30
+    creature_type: humanoid
+    size: small
+    attributes:
+      str: 8
+      dex: 14
+      con: 10
+      int: 10
+      wis: 12
+      cha: 10
+    attacks:
+      - name: 匕首
+        bonus: "+4"
+        damage: 1d4+2
+        type: piercing
+    spells:
+      cantrips:
+        - name: 圣火术
+          effect: "DC 11 DEX豁免, 1d8 光耀"
+      level_1:
+        - name: 燃烧之手
+          effect: "15ft锥形, DC 11 DEX豁免, 3d6 火焰(成功减半)"
+    traits:
+      - Nimble Escape
+    senses: darkvision 60ft
+    notes: "goblin_shaman 的 stat block 已在 combat-system.md §11.4 中完整定义。修复日期 2026-05-09"
     added: "2026-05-09"
 
 
@@ -1026,8 +1065,8 @@ formulas:
         type: int
         description: Alert专长(+5), 装备加值
     output_range: [-5, 35]
-    rules: "整场战斗固定先攻顺序(标准5e规则)"
-    notes: "⚠️ 已确认: combat-system §1.3 为准(固定先攻), character-system §1.4 说'每轮重骰'已废弃"
+    rules: "每轮重骰先攻(偏离标准5e)"
+    notes: "已确认: combat-system §1.3 已修正为'每轮重骰先攻', 与 GDD-v1.md §5.4 一致。修复日期 2026-05-09"
     added: "2026-05-09"
 
   - name: spell_save_dc_formula
@@ -1133,7 +1172,7 @@ formulas:
         type: int
         range: [0, 3]
     output_range: alive / dead
-    notes: "非标准5e: 标准5e为3成功/3失败独立计数; 本游戏3轮无治疗即死亡"
+    notes: "双轨机制: ①3轮无治疗=死亡(主要); ②HP=0时受伤death_failures+2, ≥3=死亡(次要)。无d20死亡豁免骰。修复日期 2026-05-09"
     added: "2026-05-09"
 
   # ── 技能/探索公式 ──────────────────────────────────────────────────────
@@ -1262,7 +1301,7 @@ formulas:
       - "Lv11-15: +3"
       - "Lv16-20: +4"
     output_range: [0, 4300]
-    notes: "⚠️ 已确认: 以 character-system §1.7 的 floor(xp/1000) 为准, failure-growth §7.6 原写 floor(xp/500) 已废弃"
+    notes: "已确认: 以 failure-growth §7.6 的 floor(xp/500) 为准, character-system 原写 floor(xp/1000) 已废弃。修复日期 2026-05-09"
     added: "2026-05-09"
 
   # ── 经济公式 ────────────────────────────────────────────────────────────
@@ -1305,7 +1344,7 @@ formulas:
           damaged: 0.35
           broken: 0.05
     output_range: [0, 500000]
-    notes: "⚠️ 注意: 08-failure-growth.md §11.1 使用不同卖价公式(base×0.5×reputation_mult), 以本条目为准"
+    notes: "已对齐: 08-failure-growth.md §11.1 和 07-tavern-system.md 的卖价公式已统一为 0.3 基准乘数。修复日期 2026-05-09"
     added: "2026-05-09"
 
   - name: repair_cost_formula

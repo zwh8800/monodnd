@@ -85,7 +85,7 @@
 | 参数 | 当前值 | 安全范围 | 影响面 |
 |------|:------:|:--------:|--------|
 | 伤疤生成概率(重度) | 5% | 2-10% | 伤疤频率 |
-| 传承点公式 | floor(xp/1000) | floor(xp/500~2000) | 遗产价值 |
+| 传承点公式 | floor(xp/500) | floor(xp/250~1000) | 遗产价值 |
 | 世界状态挂钩数 | 1-2 | 1-4 | 世界演进深度 |
 
 ---
@@ -816,24 +816,41 @@ Step 1: 角色 HP 降至 0
   │ 发出信号: character_unconscious(character_id)     │
   └───────────────────────┬─────────────────────────┘
                           ▼
-Step 2: 死亡豁免倒计时
+Step 2: 死亡豁免倒计时 (双轨制)
   ┌─────────────────────────────────────────────────┐
   │ 每轮开始时:                                      │
   │   death_save_rounds_without_healing += 1         │
   │                                                   │
   │ 如果有治疗 (HP > 0):                             │
   │   death_save_rounds_without_healing = 0          │
+  │   death_failures = 0                             │
   │   状态恢复: 移除 Unconscious                      │
   │                                                   │
+  │ 如果角色HP=0时受到任何伤害:                       │
+  │   death_failures += 2                            │
+  │   (标准5e的"0HP受伤=直接死亡"改为累积失败制)       │
+  │                                                   │
+  │ 如果DC 10医疗检定成功 (WIS/Medicine):            │
+  │   角色稳定 (Stabilized)                          │
+  │   death_save_rounds_without_healing 停止增加      │
+  │   death_failures 停止增加                        │
+  │   (但角色仍保持Unconscious直到被治疗)             │
+  │                                                   │
   │ 发出信号: death_save_progressed(character_id,     │
-  │                                  rounds)          │
+  │                                  rounds, failures)│
   └───────────────────────┬─────────────────────────┘
                           ▼
 Step 3: 判定死亡
   ┌─────────────────────────────────────────────────┐
-  │ IF death_save_rounds_without_healing >= 3:       │
+  │ IF death_failures >= 3:                          │
+  │   角色立即永久死亡 (无需等待3轮)                  │
+  │   status = "dead"                                │
+  │   cause = "death_failures_maxed"                 │
+  │                                                   │
+  │ ELSE IF death_save_rounds_without_healing >= 3:  │
   │   角色永久死亡                                   │
   │   status = "dead"                                │
+  │   cause = "rounds_without_healing"               │
   │                                                   │
   │   发出信号: character_died(character_id,          │
   │                            cause, adventure_id)   │
@@ -1604,9 +1621,24 @@ User:
 
 **物品出售价格修正**:
 ```
-sell_price = base_value × 0.5 × reputation_multiplier
+sell_price = base_value × rarity_multiplier × 0.3 × condition_adjuster × reputation_multiplier
 
-reputation_multiplier:
+rarity_multiplier (与 items-equipment.md §12.2 统一):
+  common:     ×1
+  uncommon:   ×3
+  rare:       ×10
+  very_rare:  ×30
+  legendary:  ×100
+  artifact:   ×500
+
+condition_adjuster (与 items-equipment.md §12.2 统一):
+  pristine: ×1.0
+  good:     ×0.9
+  worn:     ×0.65
+  damaged:  ×0.35
+  broken:   ×0.05
+
+reputation_multiplier (本系统特有):
   Novice (0-19):   ×0.8
   Known (20-39):   ×1.0
   Respected (40-59): ×1.1
@@ -1983,8 +2015,8 @@ TEST 14: 严重程度筛选
 
 ```
 TEST 15: 物品出售价格
-  Input: base_value=100, reputation="known"
-  Expected: 100 × 0.5 × 1.0 = 50
+  Input: base_value=100, rarity="common", condition="pristine", reputation="known"
+  Expected: 100 × 1 × 0.3 × 1.0 × 1.0 = 30
 
 TEST 16: 修复成本
   Input: condition_level=2, item_level=3
