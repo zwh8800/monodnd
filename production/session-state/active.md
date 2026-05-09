@@ -26,7 +26,12 @@
 
 ---
 
-## Session Extract — /review-all-gdds 2026-05-09
+## Session Extract — /design-system 条件效果系统 2026-05-09
+- Task: Designing condition-effects-system GDD (system #8)
+- Status: Complete — all 12 sections written
+- File: design/gdd/10-condition-effects-system.md
+- Registry: 15 condition entries tagged for authority migration
+- Systems index: #8 status updated to "Designed"
 - Verdict: CONCERNS (原始 FAIL → 13/18 阻断已解决)
 - GDDs reviewed: 9 system GDDs (14 files total inc. meta-docs)
 - Flagged for revision: 01-character-system, 04-combat-system, 06-adventure-generation, 07-tavern-system, 08-failure-growth, GDD-v1, entities.yaml

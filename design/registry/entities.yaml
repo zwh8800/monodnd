@@ -381,11 +381,14 @@ entities:
 
 
   # ── 条件系统 (14种 DND 5e 条件 + 疲乏) ────────────────────────────────
+  # > 2026-05-09: 权威源迁移至 design/gdd/10-condition-effects-system.md
+  #   (/review-all-gdds 裁决 D1 — 消除 character/combat GDD 的重复定义)
 
   - name: condition_blinded
     status: active
-    source: design/gdd/01-character-system.md
+    source: design/gdd/10-condition-effects-system.md
     referenced_by:
+      - design/gdd/10-condition-effects-system.md
       - design/gdd/01-character-system.md
       - design/gdd/04-combat-system.md
       - design/gdd/09-ui-ux-design.md
@@ -513,8 +516,9 @@ entities:
 
   - name: condition_exhaustion
     status: active
-    source: design/gdd/04-combat-system.md
+    source: design/gdd/10-condition-effects-system.md
     referenced_by:
+      - design/gdd/10-condition-effects-system.md
       - design/gdd/04-combat-system.md
       - design/gdd/01-character-system.md
       - design/gdd/08-failure-growth.md
