@@ -15,154 +15,1597 @@
 #   - When a new GDD references an existing entry, append its path to
 #     referenced_by. Do not create a duplicate entry.
 #
-# WRITTEN BY: /design-system (Phase 5 — after GDD sections are approved)
-#             /consistency-check (when resolving conflicts)
-# READ BY:    /design-system (Phase 2 — before authoring begins, and after
-#               Section C/D writes to conflict-check new entities/formulas)
+# WRITTEN BY: /consistency-check (2026-05-09 — 从已有 9 个 GDD 批量提取)
+# READ BY:    /design-system (Phase 2 — before authoring begins)
 #             /consistency-check (primary input — grep-first, GDD-second)
 #             /review-all-gdds (Phase 1 — baseline for Phase 2 checks)
 #             /architecture-review (data structure and interface validation)
-#
-# SEARCH PATTERNS (for skills using Grep):
-#   All entity names:        Grep pattern="^  - name:" path="design/registry/entities.yaml"
-#   Specific entity:         Grep pattern="  - name: goblin" path="design/registry/entities.yaml"
-#   All items:               Grep pattern="^  - name:" path="design/registry/entities.yaml" (items section)
-#   What combat.md owns:     Grep pattern="source: design/gdd/combat.md"
-#   What inventory.md uses:  Grep pattern="referenced_by.*inventory"
-#   All gold values:          Grep pattern="value_gold:"
-#   Deprecated entries:      Grep pattern="status: deprecated"
 #
 # FORMAT: YAML. Consistent indentation is critical for grep reliability.
 #   Sections: entities | items | formulas | constants
 #   Each entry: name, status, source, referenced_by[], attributes{}, added, revised
 
-version: 1
-last_updated: ""
+version: 2
+last_updated: "2026-05-09"
 
 # ─── ENTITIES ────────────────────────────────────────────────────────────────
-# Named game-world objects: enemies, NPCs, characters, factions, bosses.
-# Register an entity here when it appears in more than one GDD — e.g., an
-# enemy defined in combat.md that also drops items listed in inventory.md.
-#
+# Named game-world objects: enemies, NPCs, bosses.
 # Required fields: name, status, source, referenced_by, added
 # Attribute fields: any key stats that could appear in another GDD
-#   (health, damage, drops, faction, etc.)
 
-entities: []
+entities:
 
-# Example (remove when first real entry is added):
-#
-# entities:
-#   - name: goblin
-#     status: active              # active | deprecated
-#     source: design/gdd/combat.md
-#     referenced_by:
-#       - design/gdd/combat.md
-#       - design/gdd/inventory.md
-#     health: 40
-#     damage: 8
-#     drops:
-#       - item: goblin_arm        # must match an entry in items section
-#         qty: 1
-#         drop_rate: 0.8          # 0.0–1.0
-#     added: 2026-03-26
-#     revised: ""
+  # ── 敌人 (Enemies) ──────────────────────────────────────────────────────
+
+  - name: goblin
+    status: active
+    source: design/gdd/04-combat-system.md
+    referenced_by:
+      - design/gdd/04-combat-system.md
+      - design/gdd/06-adventure-generation.md
+      - design/gdd/05-map-exploration.md
+    cr: 0.25
+    xp: 50
+    hp: 7
+    ac: 15
+    speed_ft: 30
+    creature_type: humanoid
+    size: small
+    alignment: neutral_evil
+    attributes:
+      str: 8
+      dex: 14
+      con: 10
+      int: 10
+      wis: 8
+      cha: 8
+    attacks:
+      - name: 弯刀
+        bonus: "+4"
+        damage: 1d6+2
+        type: slashing
+      - name: 短弓
+        bonus: "+4"
+        damage: 1d6+2
+        type: piercing
+        range_ft: "80/320"
+    traits:
+      - Nimble Escape
+    senses: darkvision 60ft
+    added: "2026-05-09"
+
+  - name: skeleton
+    status: active
+    source: design/gdd/04-combat-system.md
+    referenced_by:
+      - design/gdd/04-combat-system.md
+      - design/gdd/06-adventure-generation.md
+      - design/gdd/05-map-exploration.md
+    cr: 0.25
+    xp: 50
+    hp: 13
+    ac: 13
+    speed_ft: 30
+    creature_type: undead
+    size: medium
+    alignment: lawful_evil
+    attributes:
+      str: 10
+      dex: 14
+      con: 15
+      int: 6
+      wis: 8
+      cha: 5
+    attacks:
+      - name: 短剑
+        bonus: "+4"
+        damage: 1d6+2
+        type: piercing
+      - name: 短弓
+        bonus: "+4"
+        damage: 1d6+2
+        type: piercing
+        range_ft: "80/320"
+    damage_vulnerabilities:
+      - bludgeoning
+    damage_immunities:
+      - poison
+    condition_immunities:
+      - exhausted
+      - poisoned
+    senses: darkvision 60ft
+    added: "2026-05-09"
+
+  - name: bandit
+    status: active
+    source: design/gdd/04-combat-system.md
+    referenced_by:
+      - design/gdd/04-combat-system.md
+      - design/gdd/06-adventure-generation.md
+    cr: 0.125
+    xp: 25
+    hp: 11
+    ac: 12
+    speed_ft: 30
+    creature_type: humanoid
+    size: medium
+    alignment: non-lawful
+    attributes:
+      str: 11
+      dex: 12
+      con: 12
+      int: 10
+      wis: 10
+      cha: 10
+    attacks:
+      - name: 弯刀
+        bonus: "+3"
+        damage: 1d6+1
+        type: slashing
+      - name: 轻弩
+        bonus: "+3"
+        damage: 1d8+1
+        type: piercing
+        range_ft: "80/320"
+    behavior: flee_if_outnumbered
+    added: "2026-05-09"
+
+  - name: troll
+    status: active
+    source: design/gdd/04-combat-system.md
+    referenced_by:
+      - design/gdd/04-combat-system.md
+      - design/gdd/06-adventure-generation.md
+      - design/gdd/08-failure-growth.md
+    cr: 5
+    xp: 1800
+    hp: 84
+    ac: 15
+    speed_ft: 30
+    creature_type: giant
+    size: large
+    alignment: chaotic_evil
+    attributes:
+      str: 18
+      dex: 13
+      con: 20
+      int: 7
+      wis: 9
+      cha: 7
+    attacks:
+      - name: 爪击
+        bonus: "+7"
+        damage: 2d6+4
+        type: slashing
+      - name: 咬击
+        bonus: "+7"
+        damage: 1d6+4
+        type: piercing
+    multiattack: 爪击×2 + 咬击×1
+    traits:
+      - Regeneration (10 HP/round, 抑制: fire/acid)
+      - Keen Smell
+    boss_phases: 2
+    senses: darkvision 60ft
+    added: "2026-05-09"
+
+  - name: wolf
+    status: active
+    source: design/gdd/06-adventure-generation.md
+    referenced_by:
+      - design/gdd/06-adventure-generation.md
+      - design/gdd/04-combat-system.md
+      - design/gdd/05-map-exploration.md
+    cr: 0.25
+    xp: 50
+    hp: 11
+    ac: 13
+    speed_ft: 40
+    creature_type: beast
+    size: medium
+    alignment: unaligned
+    attributes:
+      str: 12
+      dex: 15
+      con: 12
+      int: 3
+      wis: 12
+      cha: 6
+    attacks:
+      - name: 咬击
+        bonus: "+4"
+        damage: 2d4+2
+        type: piercing
+    traits:
+      - Pack Tactics
+      - Keen Hearing and Smell
+    added: "2026-05-09"
+
+  - name: kobold
+    status: active
+    source: design/gdd/06-adventure-generation.md
+    referenced_by:
+      - design/gdd/06-adventure-generation.md
+      - design/gdd/04-combat-system.md
+    cr: 0.125
+    xp: 25
+    hp: 5
+    ac: 12
+    speed_ft: 30
+    creature_type: humanoid
+    size: small
+    alignment: lawful_evil
+    attributes:
+      str: 7
+      dex: 15
+      con: 9
+      int: 8
+      wis: 7
+      cha: 8
+    attacks:
+      - name: 匕首
+        bonus: "+4"
+        damage: 1d4+2
+        type: piercing
+      - name: 投石索
+        bonus: "+4"
+        damage: 1d4+2
+        type: bludgeoning
+        range_ft: "30/120"
+    traits:
+      - Sunlight Sensitivity
+      - Pack Tactics
+    senses: darkvision 60ft
+    added: "2026-05-09"
+
+  # ── Boss 实体 ──────────────────────────────────────────────────────────
+
+  - name: goblin_boss
+    status: active
+    source: design/gdd/06-adventure-generation.md
+    referenced_by:
+      - design/gdd/06-adventure-generation.md
+      - design/gdd/05-map-exploration.md
+      - design/gdd/04-combat-system.md
+    cr: 1
+    xp: 200
+    hp: 21
+    ac: 17
+    speed_ft: 30
+    creature_type: humanoid
+    size: small
+    boss_phases: 2
+    attacks:
+      - name: 弯刀
+        bonus: "+4"
+        damage: 1d6+2
+        type: slashing
+      - name: 标枪
+        bonus: "+4"
+        damage: 1d6+2
+        type: piercing
+        range_ft: "30/120"
+    multiattack: 弯刀×2 + 标枪×1
+    phase1: 召唤哥布林
+    phase2: 困兽之斗
+    reaction: Redirect Attack
+    added: "2026-05-09"
+
+  - name: skeleton_champion
+    status: active
+    source: design/gdd/06-adventure-generation.md
+    referenced_by:
+      - design/gdd/06-adventure-generation.md
+      - design/gdd/04-combat-system.md
+    cr: 2
+    xp: 450
+    hp: 32
+    ac: 15
+    creature_type: undead
+    size: medium
+    boss_phases: 2
+    attacks:
+      - name: 长剑
+        bonus: "+4"
+        damage: 1d8+2
+        type: slashing
+    multiattack: 长剑×2
+    damage_vulnerabilities:
+      - bludgeoning
+    damage_immunities:
+      - poison
+    phases: 亡灵守卫→亡灵狂怒
+    added: "2026-05-09"
+
+  - name: bandit_leader
+    status: active
+    source: design/gdd/06-adventure-generation.md
+    referenced_by:
+      - design/gdd/06-adventure-generation.md
+      - design/gdd/04-combat-system.md
+      - design/gdd/03-items-equipment.md
+    cr: 2
+    xp: 450
+    hp: 36
+    ac: 15
+    creature_type: humanoid
+    size: medium
+    traits:
+      - Rallying Cry
+    attacks:
+      - name: 弯刀
+        bonus: "+4"
+        damage: 1d6+2
+        type: slashing
+    multiattack: 弯刀×2
+    added: "2026-05-09"
+
+
+  # ── 条件系统 (14种 DND 5e 条件 + 疲乏) ────────────────────────────────
+
+  - name: condition_blinded
+    status: active
+    source: design/gdd/01-character-system.md
+    referenced_by:
+      - design/gdd/01-character-system.md
+      - design/gdd/04-combat-system.md
+      - design/gdd/09-ui-ux-design.md
+    effects: 攻击劣势, 被攻击优势, 感知(视觉)自动失败
+    added: "2026-05-09"
+
+  - name: condition_charmed
+    status: active
+    source: design/gdd/01-character-system.md
+    referenced_by:
+      - design/gdd/01-character-system.md
+      - design/gdd/04-combat-system.md
+    effects: 不能攻击魅惑者, 魅惑者社交检定优势
+    added: "2026-05-09"
+
+  - name: condition_deafened
+    status: active
+    source: design/gdd/01-character-system.md
+    referenced_by:
+      - design/gdd/01-character-system.md
+      - design/gdd/04-combat-system.md
+    effects: 感知(听觉)自动失败
+    added: "2026-05-09"
+
+  - name: condition_frightened
+    status: active
+    source: design/gdd/01-character-system.md
+    referenced_by:
+      - design/gdd/01-character-system.md
+      - design/gdd/04-combat-system.md
+    effects: 属性/攻击劣势, 不能主动靠近恐惧源
+    added: "2026-05-09"
+
+  - name: condition_grappled
+    status: active
+    source: design/gdd/01-character-system.md
+    referenced_by:
+      - design/gdd/01-character-system.md
+      - design/gdd/04-combat-system.md
+    effects: 速度=0, 逃脱DC=擒抱者运动检定
+    added: "2026-05-09"
+
+  - name: condition_incapacitated
+    status: active
+    source: design/gdd/01-character-system.md
+    referenced_by:
+      - design/gdd/01-character-system.md
+      - design/gdd/04-combat-system.md
+    effects: 不能执行行动或反应
+    added: "2026-05-09"
+
+  - name: condition_invisible
+    status: active
+    source: design/gdd/01-character-system.md
+    referenced_by:
+      - design/gdd/01-character-system.md
+      - design/gdd/04-combat-system.md
+    effects: 攻击优势, 被攻击劣势
+    added: "2026-05-09"
+
+  - name: condition_paralyzed
+    status: active
+    source: design/gdd/01-character-system.md
+    referenced_by:
+      - design/gdd/01-character-system.md
+      - design/gdd/04-combat-system.md
+    effects: 失能+不能移动/说话, 力敏豁免自动失败, 5尺内攻击自动暴击
+    added: "2026-05-09"
+
+  - name: condition_petrified
+    status: active
+    source: design/gdd/01-character-system.md
+    referenced_by:
+      - design/gdd/01-character-system.md
+      - design/gdd/04-combat-system.md
+    effects: 失能+不能感知, 力敏豁免劣势, 伤害抗性
+    added: "2026-05-09"
+
+  - name: condition_poisoned
+    status: active
+    source: design/gdd/01-character-system.md
+    referenced_by:
+      - design/gdd/01-character-system.md
+      - design/gdd/04-combat-system.md
+      - design/gdd/03-items-equipment.md
+    effects: 属性/攻击劣势
+    added: "2026-05-09"
+
+  - name: condition_prone
+    status: active
+    source: design/gdd/01-character-system.md
+    referenced_by:
+      - design/gdd/01-character-system.md
+      - design/gdd/04-combat-system.md
+    effects: 只能匍匐移动, 5尺外攻击劣势, 5尺内攻击优势
+    added: "2026-05-09"
+
+  - name: condition_restrained
+    status: active
+    source: design/gdd/01-character-system.md
+    referenced_by:
+      - design/gdd/01-character-system.md
+      - design/gdd/04-combat-system.md
+    effects: 速度=0, 攻击劣势, 被攻击优势, 敏豁免劣势
+    added: "2026-05-09"
+
+  - name: condition_stunned
+    status: active
+    source: design/gdd/01-character-system.md
+    referenced_by:
+      - design/gdd/01-character-system.md
+      - design/gdd/04-combat-system.md
+    effects: 失能+不能移动, 力敏豁免自动失败, 被攻击优势
+    added: "2026-05-09"
+
+  - name: condition_unconscious
+    status: active
+    source: design/gdd/01-character-system.md
+    referenced_by:
+      - design/gdd/01-character-system.md
+      - design/gdd/04-combat-system.md
+      - design/gdd/08-failure-growth.md
+    effects: 失能+倒地+不能感知, 力敏豁免自动失败, 5尺内攻击暴击
+    added: "2026-05-09"
+
+  - name: condition_exhaustion
+    status: active
+    source: design/gdd/04-combat-system.md
+    referenced_by:
+      - design/gdd/04-combat-system.md
+      - design/gdd/01-character-system.md
+      - design/gdd/08-failure-growth.md
+    levels: 3
+    effect_l1: 属性检定劣势
+    effect_l2: 速度减半, hp_max减半
+    effect_l3: 速度=0, hp_max=1, 攻击劣势
+    notes: 本游戏简化为3级(标准5e为6级)
+    added: "2026-05-09"
 
 
 # ─── ITEMS ───────────────────────────────────────────────────────────────────
-# Named collectables, equipment, consumables, crafting materials, currency.
+# Named collectables, equipment, consumables, materials.
 # Register an item when its name or value appears in more than one GDD.
-#
 # Required fields: name, status, source, referenced_by, added
-# Attribute fields: value_gold, weight, stackable, category, and any stat
-#   modifiers that another system (e.g., economy, crafting) might reference.
+# Attribute fields: value_gp, weight_lb, stackable, category, and any stat
+#   modifiers that another system might reference.
 
-items: []
+items:
 
-# Example:
-#
-# items:
-#   - name: goblin_arm
-#     status: active
-#     source: design/gdd/combat.md   # drop defined in combat GDD
-#     referenced_by:
-#       - design/gdd/combat.md
-#       - design/gdd/inventory.md    # inventory GDD lists its weight/stack rules
-#       - design/gdd/economy.md      # economy GDD references its sell price
-#     value_gold: 5
-#     weight: 1
-#     stackable: true
-#     category: crafting_material
-#     added: 2026-03-26
-#     revised: ""
+  # ── 武器 ────────────────────────────────────────────────────────────────
+
+  - name: item_longsword
+    status: active
+    source: design/gdd/03-items-equipment.md
+    referenced_by:
+      - design/gdd/03-items-equipment.md
+      - design/gdd/04-combat-system.md
+    category: martial_melee
+    value_gp: 15
+    damage: "1d8 斩击 (versatile 1d10)"
+    properties: [versatile]
+    added: "2026-05-09"
+
+  - name: item_shortsword
+    status: active
+    source: design/gdd/03-items-equipment.md
+    referenced_by:
+      - design/gdd/03-items-equipment.md
+      - design/gdd/04-combat-system.md
+      - design/gdd/06-adventure-generation.md
+    category: martial_melee
+    value_gp: 10
+    damage: "1d6 穿刺"
+    properties: [finesse, light]
+    added: "2026-05-09"
+
+  - name: item_scimitar
+    status: active
+    source: design/gdd/03-items-equipment.md
+    referenced_by:
+      - design/gdd/03-items-equipment.md
+      - design/gdd/04-combat-system.md
+      - design/gdd/06-adventure-generation.md
+    category: martial_melee
+    value_gp: 25
+    damage: "1d6 斩击"
+    properties: [finesse, light]
+    added: "2026-05-09"
+
+  - name: item_shortbow
+    status: active
+    source: design/gdd/03-items-equipment.md
+    referenced_by:
+      - design/gdd/03-items-equipment.md
+      - design/gdd/04-combat-system.md
+      - design/gdd/06-adventure-generation.md
+    category: simple_ranged
+    value_gp: 25
+    damage: "1d6 穿刺"
+    properties: [ammunition, two_handed]
+    range_ft: "80/320"
+    added: "2026-05-09"
+
+  - name: item_dagger
+    status: active
+    source: design/gdd/03-items-equipment.md
+    referenced_by:
+      - design/gdd/03-items-equipment.md
+      - design/gdd/06-adventure-generation.md
+      - design/gdd/07-tavern-system.md
+    category: simple_melee
+    value_gp: 2
+    damage: "1d4 穿刺"
+    properties: [finesse, light, thrown]
+    range_ft: "20/60"
+    added: "2026-05-09"
+
+  - name: item_handaxe
+    status: active
+    source: design/gdd/03-items-equipment.md
+    referenced_by:
+      - design/gdd/03-items-equipment.md
+      - design/gdd/01-character-system.md
+      - design/gdd/07-tavern-system.md
+    category: simple_melee
+    value_gp: 5
+    damage: "1d6 斩击"
+    properties: [light, thrown]
+    range_ft: "20/60"
+    added: "2026-05-09"
+
+  - name: item_rapier
+    status: active
+    source: design/gdd/03-items-equipment.md
+    referenced_by:
+      - design/gdd/03-items-equipment.md
+      - design/gdd/04-combat-system.md
+      - design/gdd/01-character-system.md
+    category: martial_melee
+    value_gp: 25
+    damage: "1d8 穿刺"
+    properties: [finesse]
+    added: "2026-05-09"
+
+  - name: item_light_crossbow
+    status: active
+    source: design/gdd/03-items-equipment.md
+    referenced_by:
+      - design/gdd/03-items-equipment.md
+      - design/gdd/04-combat-system.md
+      - design/gdd/06-adventure-generation.md
+    category: simple_ranged
+    value_gp: 25
+    damage: "1d8 穿刺"
+    properties: [ammunition, loading, two_handed]
+    range_ft: "80/320"
+    added: "2026-05-09"
+
+  - name: item_greataxe
+    status: active
+    source: design/gdd/03-items-equipment.md
+    referenced_by:
+      - design/gdd/03-items-equipment.md
+      - design/gdd/07-tavern-system.md
+    category: martial_melee
+    value_gp: 30
+    damage: "1d12 斩击"
+    properties: [heavy, two_handed]
+    added: "2026-05-09"
+
+  - name: item_pike
+    status: active
+    source: design/gdd/03-items-equipment.md
+    referenced_by:
+      - design/gdd/03-items-equipment.md
+      - design/gdd/05-map-exploration.md
+    category: martial_melee
+    value_gp: 5
+    damage: "1d10 穿刺"
+    properties: [heavy, reach, two_handed]
+    added: "2026-05-09"
+
+  - name: item_spear
+    status: active
+    source: design/gdd/03-items-equipment.md
+    referenced_by:
+      - design/gdd/03-items-equipment.md
+      - design/gdd/01-character-system.md
+    category: simple_melee
+    value_gp: 1
+    damage: "1d6 穿刺 (versatile 1d8)"
+    properties: [thrown, versatile]
+    range_ft: "20/60"
+    added: "2026-05-09"
+
+  # ── 护甲 ────────────────────────────────────────────────────────────────
+
+  - name: item_leather
+    status: active
+    source: design/gdd/03-items-equipment.md
+    referenced_by:
+      - design/gdd/03-items-equipment.md
+      - design/gdd/04-combat-system.md
+      - design/gdd/07-tavern-system.md
+      - design/gdd/01-character-system.md
+    category: light_armor
+    value_gp: 10
+    ac_formula: "11 + DEX_mod"
+    weight_lb: 10
+    added: "2026-05-09"
+
+  - name: item_studded_leather
+    status: active
+    source: design/gdd/03-items-equipment.md
+    referenced_by:
+      - design/gdd/03-items-equipment.md
+      - design/gdd/04-combat-system.md
+      - design/gdd/01-character-system.md
+    category: light_armor
+    value_gp: 45
+    ac_formula: "12 + DEX_mod"
+    weight_lb: 13
+    added: "2026-05-09"
+
+  - name: item_chain_mail
+    status: active
+    source: design/gdd/03-items-equipment.md
+    referenced_by:
+      - design/gdd/03-items-equipment.md
+      - design/gdd/04-combat-system.md
+      - design/gdd/06-adventure-generation.md
+    category: heavy_armor
+    value_gp: 75
+    ac_formula: "16"
+    weight_lb: 55
+    min_str: 13
+    added: "2026-05-09"
+
+  - name: item_plate
+    status: active
+    source: design/gdd/03-items-equipment.md
+    referenced_by:
+      - design/gdd/03-items-equipment.md
+      - design/gdd/07-tavern-system.md
+    category: heavy_armor
+    value_gp: 1500
+    ac_formula: "18"
+    weight_lb: 65
+    min_str: 15
+    notes: 铁匠铺 Lv5 解锁
+    added: "2026-05-09"
+
+  - name: item_shield
+    status: active
+    source: design/gdd/03-items-equipment.md
+    referenced_by:
+      - design/gdd/03-items-equipment.md
+      - design/gdd/04-combat-system.md
+      - design/gdd/07-tavern-system.md
+      - design/gdd/01-character-system.md
+    category: shield
+    value_gp: 10
+    ac_formula: "+2 AC"
+    weight_lb: 6
+    added: "2026-05-09"
+
+  - name: item_chain_shirt
+    status: active
+    source: design/gdd/03-items-equipment.md
+    referenced_by:
+      - design/gdd/03-items-equipment.md
+      - design/gdd/06-adventure-generation.md
+    category: medium_armor
+    value_gp: 50
+    ac_formula: "13 + min(DEX_mod, 2)"
+    weight_lb: 20
+    added: "2026-05-09"
+
+  # ── 消耗品 ──────────────────────────────────────────────────────────────
+
+  - name: health_potion
+    status: active
+    source: design/gdd/03-items-equipment.md
+    referenced_by:
+      - design/gdd/03-items-equipment.md
+      - design/gdd/06-adventure-generation.md
+      - design/gdd/07-tavern-system.md
+      - design/gdd/09-ui-ux-design.md
+    category: consumable
+    value_gp: 50
+    effect: "恢复 2d4+2 HP"
+    stackable: true
+    added: "2026-05-09"
+
+  - name: greater_health_potion
+    status: active
+    source: design/gdd/03-items-equipment.md
+    referenced_by:
+      - design/gdd/03-items-equipment.md
+      - design/gdd/06-adventure-generation.md
+      - design/gdd/07-tavern-system.md
+    category: consumable
+    value_gp: 250
+    effect: "恢复 4d4+4 HP"
+    stackable: true
+    added: "2026-05-09"
+
+  - name: antidote
+    status: active
+    source: design/gdd/03-items-equipment.md
+    referenced_by:
+      - design/gdd/03-items-equipment.md
+      - design/gdd/06-adventure-generation.md
+      - design/gdd/07-tavern-system.md
+    category: consumable
+    value_gp: 40
+    effect: 移除中毒状态
+    stackable: true
+    added: "2026-05-09"
+
+  - name: alchemist_fire
+    status: active
+    source: design/gdd/03-items-equipment.md
+    referenced_by:
+      - design/gdd/03-items-equipment.md
+      - design/gdd/06-adventure-generation.md
+      - design/gdd/07-tavern-system.md
+    category: consumable
+    value_gp: 75
+    effect: "1d4 fire/round, DC 10 敏捷豁免灭"
+    stackable: true
+    added: "2026-05-09"
+
+  # ── 弹药 ────────────────────────────────────────────────────────────────
+
+  - name: item_arrow
+    status: active
+    source: design/gdd/03-items-equipment.md
+    referenced_by:
+      - design/gdd/03-items-equipment.md
+      - design/gdd/01-character-system.md
+      - design/gdd/07-tavern-system.md
+    category: ammunition
+    value_gp: 0.05
+    stackable: true
+    stack_size: 20
+    added: "2026-05-09"
+
+  - name: item_bolt
+    status: active
+    source: design/gdd/03-items-equipment.md
+    referenced_by:
+      - design/gdd/03-items-equipment.md
+      - design/gdd/01-character-system.md
+      - design/gdd/07-tavern-system.md
+    category: ammunition
+    value_gp: 0.1
+    stackable: true
+    stack_size: 20
+    added: "2026-05-09"
 
 
 # ─── FORMULAS ────────────────────────────────────────────────────────────────
 # Named calculations with defined variables and output ranges.
-# Register a formula when its output feeds into another system's input,
-# or when another GDD references it by name.
-#
+# Register a formula when its output feeds into another system's input.
 # Required fields: name, status, source, referenced_by, variables[],
 #   output_range[min, max], added
-# Optional: expression (the actual formula), notes
 
-formulas: []
+formulas:
 
-# Example:
-#
-# formulas:
-#   - name: damage_formula
-#     status: active
-#     source: design/gdd/combat.md
-#     referenced_by:
-#       - design/gdd/combat.md
-#       - design/gdd/progression.md   # progression GDD scales attack variable
-#     variables:
-#       - attack
-#       - defense
-#       - crit_chance
-#       - crit_multiplier
-#     output_range: [0, 999]
-#     expression: "max(0, attack - defense) * (1 + crit_chance * crit_multiplier)"
-#     notes: "Output feeds into health-system damage intake. Min is 0 (armour
-#       can absorb all damage). Max is uncapped in formula but tuning knob
-#       damage_cap in combat.md clamps at 999."
-#     added: 2026-03-26
-#     revised: ""
+  # ── 核心属性公式 ────────────────────────────────────────────────────────
+
+  - name: ability_modifier_formula
+    status: active
+    source: design/gdd/01-character-system.md
+    referenced_by:
+      - design/gdd/01-character-system.md
+      - design/gdd/04-combat-system.md
+      - design/gdd/05-map-exploration.md
+      - design/gdd/03-items-equipment.md
+    expression: "floor((score - 10) / 2)"
+    variables:
+      - name: ability_score
+        symbol: score
+        type: int
+        range: [1, 30]
+        description: 六项属性值之一
+    output_range: [-5, 10]
+    notes: DND 5e SRD 核心公式，所有检定/攻击/豁免/DC 计算的基础
+    added: "2026-05-09"
+
+  - name: proficiency_bonus_formula
+    status: active
+    source: design/gdd/01-character-system.md
+    referenced_by:
+      - design/gdd/01-character-system.md
+      - design/gdd/04-combat-system.md
+      - design/gdd/05-map-exploration.md
+      - design/gdd/03-items-equipment.md
+    expression: "floor((level - 1) / 4) + 2"
+    variables:
+      - name: character_level
+        symbol: level
+        type: int
+        range: [1, 20]
+        description: 角色等级
+    output_range: [2, 6]
+    notes: "等级→PB映射表: Lv1-4=+2, Lv5-8=+3, Lv9-12=+4, Lv13-16=+5, Lv17-20=+6"
+    added: "2026-05-09"
+
+  - name: hp_max_formula
+    status: active
+    source: design/gdd/01-character-system.md
+    referenced_by:
+      - design/gdd/01-character-system.md
+      - design/gdd/04-combat-system.md
+      - design/gdd/08-failure-growth.md
+    expression: |
+      Lv1: HitDie.max + CON_mod
+      Lv2+: previous_HP + ceil(HitDie.avg) + CON_mod (最少+1)
+    variables:
+      - name: hit_die
+        symbol: HD
+        type: int
+        range: [6, 12]
+        description: "职业生命骰 (d6/d8/d10/d12)"
+      - name: constitution_modifier
+        symbol: CON_mod
+        type: int
+        range: [-5, 10]
+        description: 体质调整值
+      - name: character_level
+        symbol: level
+        type: int
+        range: [1, 20]
+        description: 角色等级
+    output_range: [1, 400]
+    notes: "HitDie 期望值: d6=4, d8=5, d10=6, d12=7 (向上取整)"
+    added: "2026-05-09"
+
+  - name: armor_class_formula
+    status: active
+    source: design/gdd/01-character-system.md
+    referenced_by:
+      - design/gdd/01-character-system.md
+      - design/gdd/04-combat-system.md
+      - design/gdd/03-items-equipment.md
+    expression: |
+      无甲: 10 + DEX_mod
+      轻甲: base + DEX_mod
+      中甲: base + min(DEX_mod, 2)
+      重甲: base
+      盾牌: +2
+    variables:
+      - name: armor_base
+        symbol: base
+        type: int
+        range: [10, 18]
+        description: 护甲基础AC值
+      - name: dexterity_modifier
+        symbol: DEX_mod
+        type: int
+        range: [-5, 10]
+        description: 敏捷调整值
+    output_range: [10, 25]
+    notes: 全护甲表见 character-system.md §2.1.3
+    added: "2026-05-09"
+
+  # ── 战斗公式 ────────────────────────────────────────────────────────────
+
+  - name: attack_roll_formula
+    status: active
+    source: design/gdd/04-combat-system.md
+    referenced_by:
+      - design/gdd/04-combat-system.md
+      - design/gdd/01-character-system.md
+      - design/gdd/03-items-equipment.md
+    expression: "d20 + ability_mod + PB + other_bonuses"
+    variables:
+      - name: ability_modifier
+        symbol: ability_mod
+        type: int
+        range: [-5, 10]
+        description: "关联属性调整值 (近战=STR, 远程=DEX, 灵巧可选, 法术=施法属性)"
+      - name: proficiency_bonus
+        symbol: PB
+        type: int
+        range: [2, 6]
+        description: 熟练加值 (若角色熟练)
+      - name: other_bonuses
+        symbol: other
+        type: int
+        description: 魔法加值/战斗风格/优势劣势
+    output_range: [-5, 36]
+    special_rules:
+      - "自然20 = 必定命中 + 暴击"
+      - "自然1 = 必定未命中"
+      - "优势: 骰2取高"
+      - "劣势: 骰2取低"
+    added: "2026-05-09"
+
+  - name: damage_formula
+    status: active
+    source: design/gdd/04-combat-system.md
+    referenced_by:
+      - design/gdd/04-combat-system.md
+      - design/gdd/01-character-system.md
+      - design/gdd/03-items-equipment.md
+    expression: "weapon_die + ability_mod + other_bonuses"
+    variables:
+      - name: weapon_damage_die
+        symbol: weapon_die
+        type: dice
+        range: [1d4, 2d6]
+        description: 武器伤害骰
+      - name: ability_modifier
+        symbol: ability_mod
+        type: int
+        range: [-5, 10]
+        description: "关联属性调整值 (近战=STR, 远程=DEX, 投掷同近战)"
+      - name: other_bonuses
+        symbol: other
+        type: int
+        description: 附魔+法术+战斗风格+毒药
+    output_range: [0, 50]
+    post_step: 抗性÷2 / 免疫=0 / 易伤×2 → 临时HP抵扣 → 实际HP扣除
+    added: "2026-05-09"
+
+  - name: crit_damage_formula
+    status: active
+    source: design/gdd/04-combat-system.md
+    referenced_by:
+      - design/gdd/04-combat-system.md
+      - design/gdd/01-character-system.md
+      - design/gdd/03-items-equipment.md
+    expression: "max(weapon_die) + max(enchantment_die) + max(sneak_die) + ability_mod + other_bonuses"
+    variables:
+      - name: weapon_damage_die
+        symbol: weapon_die
+        type: dice
+        description: 武器伤害骰
+      - name: enchantment_die
+        symbol: enchant_die
+        type: dice
+        description: 附魔额外伤害骰
+      - name: sneak_attack_die
+        symbol: sneak_die
+        type: dice
+        description: 偷袭骰
+      - name: ability_modifier
+        symbol: ability_mod
+        type: int
+        range: [-5, 10]
+      - name: fixed_bonuses
+        symbol: other
+        type: int
+        description: 固定加值(保持不变)
+    output_range: [武器最大骰+加值, 100]
+    notes: "⚠️ 非标准5e: 本游戏自然20时伤害骰取最大值(标准5e是双倍骰数)"
+    added: "2026-05-09"
+
+  - name: initiative_formula
+    status: active
+    source: design/gdd/04-combat-system.md
+    referenced_by:
+      - design/gdd/04-combat-system.md
+      - design/gdd/01-character-system.md
+    expression: "d20 + DEX_mod + other_bonuses"
+    variables:
+      - name: dexterity_modifier
+        symbol: DEX_mod
+        type: int
+        range: [-5, 10]
+        description: 敏捷调整值
+      - name: other_bonuses
+        symbol: other
+        type: int
+        description: Alert专长(+5), 装备加值
+    output_range: [-5, 35]
+    rules: "整场战斗固定先攻顺序(标准5e规则)"
+    notes: "⚠️ 已确认: combat-system §1.3 为准(固定先攻), character-system §1.4 说'每轮重骰'已废弃"
+    added: "2026-05-09"
+
+  - name: spell_save_dc_formula
+    status: active
+    source: design/gdd/04-combat-system.md
+    referenced_by:
+      - design/gdd/04-combat-system.md
+      - design/gdd/01-character-system.md
+    expression: "8 + PB + spellcasting_ability_mod"
+    variables:
+      - name: proficiency_bonus
+        symbol: PB
+        type: int
+        range: [2, 6]
+      - name: spellcasting_ability_modifier
+        symbol: spell_ability_mod
+        type: int
+        range: [-5, 10]
+        description: "施法属性调整值 (INT=法师, WIS=牧师, CHA=术士)"
+    output_range: [5, 24]
+    related: 战技DC = "8 + PB + STR/DEX_mod"
+    added: "2026-05-09"
+
+  - name: spell_attack_mod_formula
+    status: active
+    source: design/gdd/04-combat-system.md
+    referenced_by:
+      - design/gdd/04-combat-system.md
+      - design/gdd/01-character-system.md
+    expression: "PB + spellcasting_ability_mod"
+    variables:
+      - name: proficiency_bonus
+        symbol: PB
+        type: int
+        range: [2, 6]
+      - name: spellcasting_ability_modifier
+        symbol: spell_ability_mod
+        type: int
+        range: [-5, 10]
+    output_range: [-3, 16]
+    added: "2026-05-09"
+
+  - name: saving_throw_formula
+    status: active
+    source: design/gdd/04-combat-system.md
+    referenced_by:
+      - design/gdd/04-combat-system.md
+      - design/gdd/01-character-system.md
+    expression: "d20 + ability_mod + (if proficient then PB else 0)"
+    variables:
+      - name: ability_modifier
+        symbol: ability_mod
+        type: int
+        range: [-5, 10]
+        description: 六项属性调整值之一
+      - name: proficiency_bonus
+        symbol: PB
+        type: int
+        range: [2, 6]
+      - name: is_proficient
+        symbol: prof
+        type: bool
+        description: 角色是否熟练此项豁免
+    output_range: "d20决定, 比对DC"
+    added: "2026-05-09"
+
+  - name: concentration_check_dc_formula
+    status: active
+    source: design/gdd/04-combat-system.md
+    referenced_by:
+      - design/gdd/04-combat-system.md
+      - design/gdd/01-character-system.md
+    expression: "max(10, damage / 2)"
+    variables:
+      - name: damage_taken
+        symbol: damage
+        type: int
+        range: [0, null]
+        description: 受到的伤害值
+    output_range: [10, 50]
+    notes: "使用 CON 豁免进行检定; 角色可主动解除专注(无需动作)"
+    added: "2026-05-09"
+
+  - name: death_save_rule
+    status: active
+    source: design/gdd/04-combat-system.md
+    referenced_by:
+      - design/gdd/04-combat-system.md
+      - design/gdd/08-failure-growth.md
+      - design/gdd/01-character-system.md
+    expression: |
+      双轨机制:
+        轨道1: rounds_without_healing >= 3 → 死亡
+        轨道2: death_failures >= 3 → 死亡
+      每次受伤: death_failures + 2
+    variables:
+      - name: rounds_without_healing
+        symbol: rounds_no_heal
+        type: int
+        range: [0, 3]
+      - name: death_failures
+        symbol: deaths_fails
+        type: int
+        range: [0, 3]
+    output_range: alive / dead
+    notes: "非标准5e: 标准5e为3成功/3失败独立计数; 本游戏3轮无治疗即死亡"
+    added: "2026-05-09"
+
+  # ── 技能/探索公式 ──────────────────────────────────────────────────────
+
+  - name: passive_perception_formula
+    status: active
+    source: design/gdd/01-character-system.md
+    referenced_by:
+      - design/gdd/01-character-system.md
+      - design/gdd/05-map-exploration.md
+      - design/gdd/04-combat-system.md
+    expression: "10 + WIS_mod + (if proficient in Perception then PB else 0)"
+    variables:
+      - name: wisdom_modifier
+        symbol: WIS_mod
+        type: int
+        range: [-5, 10]
+      - name: proficiency_bonus
+        symbol: PB
+        type: int
+        range: [2, 6]
+      - name: perception_proficient
+        symbol: has_perception
+        type: bool
+        description: 是否熟练察觉技能
+    output_range: [5, 26]
+    notes: "同类: 被动调查 = 10 + INT_mod + (感知熟练? PB : 0)"
+    added: "2026-05-09"
+
+  - name: skill_check_formula
+    status: active
+    source: design/gdd/01-character-system.md
+    referenced_by:
+      - design/gdd/01-character-system.md
+      - design/gdd/05-map-exploration.md
+      - design/gdd/04-combat-system.md
+      - design/gdd/06-adventure-generation.md
+    expression: "ability_mod + (if proficient then PB else 0) + (if expertise then PB*2 else 0)"
+    variables:
+      - name: ability_modifier
+        symbol: ability_mod
+        type: int
+        range: [-5, 10]
+        description: 18项技能关联的六项属性之一
+      - name: proficiency_bonus
+        symbol: PB
+        type: int
+        range: [2, 6]
+      - name: skill_proficiency
+        symbol: proficiency_level
+        type: enum
+        values: [none, proficient, expertise, jack_of_all_trades]
+        description: "none=无PB; proficient=PB; expertise=PB×2; jack=floor(PB/2)"
+    output_range: [-5, 22]
+    notes: 18项技能详见 character-system.md §2.6
+    added: "2026-05-09"
+
+  # ── 经验/传承公式 ──────────────────────────────────────────────────────
+
+  - name: xp_base_encounter_formula
+    status: active
+    source: design/gdd/08-failure-growth.md
+    referenced_by:
+      - design/gdd/08-failure-growth.md
+      - design/gdd/06-adventure-generation.md
+      - design/gdd/01-character-system.md
+    expression: "Base XP = (50 to 400) × avg_party_level, 按难度定系数"
+    variables:
+      - name: average_party_level
+        symbol: avg_level
+        type: float
+        range: [1, 20]
+        description: 队伍平均等级
+      - name: encounter_difficulty
+        symbol: difficulty
+        type: enum
+        values: [Easy, Medium, Hard, Deadly]
+    difficulty_coefficients:
+      Easy: 50
+      Medium: 100
+      Hard: 200
+      Deadly: 400
+    output_range: [25, 8000]
+    notes: "4人队伍单人值; 总XP = 单人XP × 队伍人数"
+    added: "2026-05-09"
+
+  - name: xp_completion_reward
+    status: active
+    source: design/gdd/08-failure-growth.md
+    referenced_by:
+      - design/gdd/08-failure-growth.md
+      - design/gdd/01-character-system.md
+      - design/gdd/06-adventure-generation.md
+    expression: "Short=150, Medium=750, Long=2500"
+    variables:
+      - name: adventure_tier
+        symbol: tier
+        type: enum
+        values: [short, medium, long]
+        description: 冒险长度
+    output_range: [150, 2500]
+    notes: "已从原始值(300/1500/5000)减半, 见 failure-growth §2.2.5 注释"
+    added: "2026-05-09"
+
+  - name: heritage_points_formula
+    status: active
+    source: design/gdd/08-failure-growth.md
+    referenced_by:
+      - design/gdd/08-failure-growth.md
+      - design/gdd/01-character-system.md
+    expression: "floor(xp / 1000) + points_from_level"
+    variables:
+      - name: dead_character_xp
+        symbol: xp
+        type: int
+        range: [0, 2148400]
+        description: 死亡角色生前累计 XP
+      - name: dead_character_level
+        symbol: level
+        type: int
+        range: [1, 20]
+        description: 死亡角色等级
+    points_from_level:
+      - "Lv1-5: +1"
+      - "Lv6-10: +2"
+      - "Lv11-15: +3"
+      - "Lv16-20: +4"
+    output_range: [0, 4300]
+    notes: "⚠️ 已确认: 以 character-system §1.7 的 floor(xp/1000) 为准, failure-growth §7.6 原写 floor(xp/500) 已废弃"
+    added: "2026-05-09"
+
+  # ── 经济公式 ────────────────────────────────────────────────────────────
+
+  - name: item_price_formula
+    status: active
+    source: design/gdd/03-items-equipment.md
+    referenced_by:
+      - design/gdd/03-items-equipment.md
+      - design/gdd/07-tavern-system.md
+      - design/gdd/08-failure-growth.md
+    expression: |
+      买价 (Shop→Player): base_value × rarity_multiplier × condition_adjuster
+      卖价 (Player→Shop): base_value × rarity_multiplier × 0.3 × condition_adjuster
+    variables:
+      - name: base_value
+        symbol: base_value
+        type: int
+        unit: gp
+        description: 物品基础价格
+      - name: rarity
+        symbol: rarity
+        type: enum
+        values: [common, uncommon, rare, very_rare, legendary, artifact]
+        multipliers:
+          common: 1
+          uncommon: 3
+          rare: 10
+          very_rare: 30
+          legendary: 100
+          artifact: 500
+      - name: condition
+        symbol: condition
+        type: enum
+        values: [pristine, good, worn, damaged, broken]
+        adjusters:
+          pristine: 1.0
+          good: 0.9
+          worn: 0.65
+          damaged: 0.35
+          broken: 0.05
+    output_range: [0, 500000]
+    notes: "⚠️ 注意: 08-failure-growth.md §11.1 使用不同卖价公式(base×0.5×reputation_mult), 以本条目为准"
+    added: "2026-05-09"
+
+  - name: repair_cost_formula
+    status: active
+    source: design/gdd/03-items-equipment.md
+    referenced_by:
+      - design/gdd/03-items-equipment.md
+      - design/gdd/07-tavern-system.md
+      - design/gdd/08-failure-growth.md
+    expression: "item.value_gp × rarity_multiplier × condition_fix_rate"
+    variables:
+      - name: item_value
+        symbol: value_gp
+        type: int
+        description: 物品基础价值
+      - name: rarity_multiplier
+        symbol: rarity_mult
+        type: float
+        values: [1, 3, 10, 30, 100, 500]
+      - name: condition_state
+        symbol: condition
+        type: enum
+        description: 当前耐久状态
+        fix_rates:
+          pristine: 0.0
+          good: 0.05
+          worn: 0.25
+          damaged: 0.50
+          broken: 1.00
+    output_range: [0, 7500]
+    added: "2026-05-09"
+
+  - name: reputation_change_formula
+    status: active
+    source: design/gdd/08-failure-growth.md
+    referenced_by:
+      - design/gdd/08-failure-growth.md
+      - design/gdd/07-tavern-system.md
+      - design/gdd/06-adventure-generation.md
+    expression: |
+      成功: Base(Short=+5/Medium=+10/Long=+15) × 难度系数
+      失败: Minor=-5 / Moderate=-10 / Severe=-15 / Catastrophic=-20
+    variables:
+      - name: adventure_tier
+        symbol: tier
+        type: enum
+        values: [short, medium, long]
+      - name: difficulty_modifier
+        symbol: diff_mod
+        type: float
+        values:
+          Easy: 0.8
+          Normal: 1.0
+          Hard: 1.3
+          Deadly: 1.6
+      - name: failure_severity
+        symbol: fail_severity
+        type: enum
+        values: [minor, moderate, severe, catastrophic]
+    output_range: [-20, 24]
+    range_limit: "声望范围 0–100 (不跌负)"
+    added: "2026-05-09"
+
+  # ── 遭遇/难度公式 ──────────────────────────────────────────────────────
+
+  - name: encounter_cr_budget_formula
+    status: active
+    source: design/gdd/06-adventure-generation.md
+    referenced_by:
+      - design/gdd/06-adventure-generation.md
+      - design/gdd/04-combat-system.md
+      - design/gdd/05-map-exploration.md
+    expression: "基于 DND 5e DMG p.82: 每人XP阈值 × 人数 × 敌人数量倍率"
+    variables:
+      - name: party_level
+        symbol: PL
+        type: int
+        range: [1, 20]
+      - name: party_size
+        symbol: size
+        type: int
+        range: [1, 6]
+        default: 4
+      - name: difficulty
+        symbol: diff
+        type: enum
+        values: [Easy, Medium, Hard, Deadly]
+    quick_reference:
+      "Lv1×4": { Easy: 0.5, Medium: 1.0, Hard: 1.5, Deadly: 2.0 }
+      "Lv3×4": { Easy: 1.5, Medium: 3.0, Hard: 4.5, Deadly: 6.0 }
+      "Lv5×4": { Easy: 2.5, Medium: 5.0, Hard: 7.5, Deadly: 10.0 }
+    output_range: [0.5, 20]
+    added: "2026-05-09"
+
+  - name: difficulty_scaling_formula
+    status: active
+    source: design/gdd/06-adventure-generation.md
+    referenced_by:
+      - design/gdd/06-adventure-generation.md
+      - design/gdd/04-combat-system.md
+      - design/gdd/05-map-exploration.md
+    expression: |
+      HP 缩放: base_hp × (1 + (PL - RL) × 0.15), clamp [0.5, 2.0]
+      伤害缩放: base_dmg × (1 + (PL - RL) × 0.10), clamp [0.7, 1.5]
+      DC 缩放: base_dc + floor((PL - RL) × 0.5), clamp [8, 25]
+    variables:
+      - name: party_level
+        symbol: PL
+        type: int
+        description: 队伍平均等级
+      - name: recommended_level
+        symbol: RL
+        type: int
+        description: 冒险推荐等级
+      - name: base_value
+        symbol: base
+        type: float
+        description: 模板基础 HP/伤害/DC
+    output_range: "按各子公式分段"
+    added: "2026-05-09"
+
+  # ── 背包/负重公式 ──────────────────────────────────────────────────────
+
+  - name: carry_capacity_slots_formula
+    status: active
+    source: design/gdd/01-character-system.md
+    referenced_by:
+      - design/gdd/01-character-system.md
+      - design/gdd/03-items-equipment.md
+    expression: "10 + max(0, STR_mod × 2)"
+    variables:
+      - name: strength_modifier
+        symbol: STR_mod
+        type: int
+        range: [-5, 10]
+        description: 力量调整值
+    output_range: [10, 30]
+    notes: 槽位制负重(非磅制), 非标准5e
+    added: "2026-05-09"
 
 
 # ─── CONSTANTS ───────────────────────────────────────────────────────────────
 # Named numerical values referenced across multiple systems.
-# Register a constant when it is defined in one GDD but another GDD must
-# agree with it (e.g., gold carry limit defined in economy but checked in
-# inventory, or base inventory slots defined in inventory but displayed in HUD).
-#
 # Required fields: name, status, source, referenced_by, value, unit, added
 
-constants: []
+constants:
 
-# Example:
-#
-# constants:
-#   - name: gold_carry_limit
-#     status: active
-#     source: design/gdd/economy.md
-#     referenced_by:
-#       - design/gdd/economy.md
-#       - design/gdd/inventory.md   # inventory enforces the carry limit
-#       - design/gdd/ui.md          # HUD displays current gold vs limit
-#     value: 9999
-#     unit: gold
-#     added: 2026-03-26
-#     revised: ""
-#
-#   - name: base_inventory_slots
-#     status: active
-#     source: design/gdd/inventory.md
-#     referenced_by:
-#       - design/gdd/inventory.md
-#       - design/gdd/progression.md  # progression unlocks additional slots
-#     value: 20
-#     unit: slots
-#     added: 2026-03-26
-#     revised: ""
+  - name: base_backpack_slots
+    status: active
+    source: design/gdd/01-character-system.md
+    referenced_by:
+      - design/gdd/01-character-system.md
+      - design/gdd/03-items-equipment.md
+    value: 10
+    unit: slots
+    added: "2026-05-09"
+
+  - name: attunement_slot_limit
+    status: active
+    source: design/gdd/03-items-equipment.md
+    referenced_by:
+      - design/gdd/03-items-equipment.md
+      - design/gdd/01-character-system.md
+    value: 3
+    unit: items
+    added: "2026-05-09"
+
+  - name: exhaustion_max_level
+    status: active
+    source: design/gdd/04-combat-system.md
+    referenced_by:
+      - design/gdd/04-combat-system.md
+      - design/gdd/01-character-system.md
+      - design/gdd/08-failure-growth.md
+    value: 3
+    unit: levels
+    notes: 非标准5e (标准5e为6级), 本游戏简化为3级
+    added: "2026-05-09"
+
+  - name: death_save_timer_rounds
+    status: active
+    source: design/gdd/04-combat-system.md
+    referenced_by:
+      - design/gdd/04-combat-system.md
+      - design/gdd/08-failure-growth.md
+      - design/gdd/01-character-system.md
+    value: 3
+    unit: rounds
+    notes: 3轮无治疗即死亡 (双轨制, 非标准5e 3成功/3失败)
+    added: "2026-05-09"
+
+  - name: death_failures_threshold
+    status: active
+    source: design/gdd/04-combat-system.md
+    referenced_by:
+      - design/gdd/04-combat-system.md
+      - design/gdd/08-failure-growth.md
+    value: 3
+    unit: failures
+    notes: death_failures >= 3 → 死亡 (双轨第二条)
+    added: "2026-05-09"
+
+  - name: reputation_max
+    status: active
+    source: design/gdd/08-failure-growth.md
+    referenced_by:
+      - design/gdd/08-failure-growth.md
+      - design/gdd/07-tavern-system.md
+      - design/gdd/06-adventure-generation.md
+    value: 100
+    unit: points
+    added: "2026-05-09"
+
+  - name: reputation_min
+    status: active
+    source: design/gdd/08-failure-growth.md
+    referenced_by:
+      - design/gdd/08-failure-growth.md
+      - design/gdd/07-tavern-system.md
+    value: 0
+    unit: points
+    notes: 不跌负
+    added: "2026-05-09"
+
+  - name: tavern_level_max
+    status: active
+    source: design/gdd/07-tavern-system.md
+    referenced_by:
+      - design/gdd/07-tavern-system.md
+      - design/gdd/08-failure-growth.md
+    value: 10
+    unit: levels
+    added: "2026-05-09"
+
+  - name: party_max_size
+    status: active
+    source: design/gdd/07-tavern-system.md
+    referenced_by:
+      - design/gdd/07-tavern-system.md
+      - design/gdd/06-adventure-generation.md
+      - design/gdd/04-combat-system.md
+      - design/gdd/05-map-exploration.md
+    value: 4
+    unit: characters
+    notes: 所有遭遇/CR表基于4人队伍设计
+    added: "2026-05-09"
+
+  - name: standard_array
+    status: active
+    source: design/gdd/01-character-system.md
+    referenced_by:
+      - design/gdd/01-character-system.md
+      - design/gdd/07-tavern-system.md
+    value: [15, 14, 13, 12, 10, 8]
+    unit: ability_scores
+    notes: 角色生成标准属性数组 (含种族加成前)
+    added: "2026-05-09"
+
+  - name: mvp_level_cap
+    status: active
+    source: design/gdd/01-character-system.md
+    referenced_by:
+      - design/gdd/01-character-system.md
+      - design/gdd/06-adventure-generation.md
+    value: 5
+    unit: level
+    notes: MVP 阶段等级上限
+    added: "2026-05-09"
+
+  - name: damage_type_count
+    status: active
+    source: design/gdd/04-combat-system.md
+    referenced_by:
+      - design/gdd/04-combat-system.md
+      - design/gdd/03-items-equipment.md
+    value: 13
+    unit: types
+    list: [bludgeoning, slashing, piercing, acid, cold, fire, force, lightning, necrotic, poison, psychic, radiant, thunder]
+    added: "2026-05-09"
+
+  - name: condition_count
+    status: active
+    source: design/gdd/01-character-system.md
+    referenced_by:
+      - design/gdd/01-character-system.md
+      - design/gdd/04-combat-system.md
+      - design/gdd/09-ui-ux-design.md
+    value: 14
+    unit: conditions
+    list: [blinded, charmed, deafened, frightened, grappled, incapacitated, invisible, paralyzed, petrified, poisoned, prone, restrained, stunned, unconscious]
+    notes: DND 5e SRD 14种标准条件
+    added: "2026-05-09"
+
+  - name: equipment_slot_count
+    status: active
+    source: design/gdd/01-character-system.md
+    referenced_by:
+      - design/gdd/01-character-system.md
+      - design/gdd/03-items-equipment.md
+    value: 9
+    unit: slots
+    list: [main_hand, off_hand, armor, helmet, cloak, boots, ring1, ring2, amulet]
+    added: "2026-05-09"
