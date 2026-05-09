@@ -30,19 +30,20 @@
 核心原则：
 1. **数值确定性**：所有战斗数值由程序计算，LLM仅负责叙事文本（战斗描述、击杀台词等）
 2. **规则透明**：玩家可以查看每个骰子结果的完整计算过程
-3. **节奏优化**：通过"同时选择→按先攻结算"减少等待感
+3. **节奏优化**：通过流畅的UI和快速的AI决策减少等待感
 4. **死亡有重量**：角色永久死亡是游戏核心体验的一部分
 
 ### 1.3 关键修改（相对于标准DND 5e）
 
 | 系统 | DND 5e原版 | 本游戏调整 | 原因 | GDD引用 |
 |------|-----------|-----------|------|---------|
-| 先攻 | 整场战斗固定顺序 | **每轮重新骰先攻** | 增加不确定性+战斗节奏感 | §5.4 |
+| 先攻 | 整场战斗固定顺序 | **整场战斗固定顺序**（标准5e） | 保持策略深度 | §5.4 |
 | 暴击 | 自然20=伤害骰翻倍 | **自然20=伤害骰取最大值** | 更爽更快结算 | §5.4 |
-| 死亡 | 3次失败=死亡 | **3轮无治疗=死亡** | 紧迫感，简化管理 | §5.4 |
+| 死亡 | 3次失败=死亡 | **双轨制：3轮无治疗=死亡（主要）+ 死亡失败累积3次=死亡（次要）** | 有层次的风险递进，兼顾紧迫感与救援窗口 | §8.3, §14.3 |
 | 疲劳 | 6级渐进 | **3级（正常/疲乏/力竭）** | 减少管理负担 | §5.3 |
 | 法术位恢复 | 短休部分恢复 | **短休恢复所有1环位** | Roguelike资源压力 | §5.4 |
-| 动作执行 | 依次行动 | **同时选择→按先攻结算** | 减少等待感 | §5.4 |
+| 移动 | 整段移动 | **分段移动**（移动→行动→移动） | 增加战术灵活性 | §5.4 |
+| 反应 | 回合结束时检查 | **中断驱动**（随时触发） | 更真实的战斗节奏 | §5.4 |
 
 ### 1.4 与其他系统的关系
 
@@ -84,6 +85,12 @@
 
 战斗采用有限状态机（FSM）管理整个回合流程。每个状态有明确的进入条件、执行逻辑和退出条件。
 
+**核心设计**：
+- **顺序回合制**：每个角色按先攻顺序依次行动（标准DND 5e）
+- **分段移动**：移动点数可在回合内分段使用（移动→行动→移动）
+- **中断式反应**：反应不占用回合阶段，在满足触发条件时随时中断当前回合执行（见反应中断表）
+- **固定先攻**：战斗开始时骰一次先攻，整场战斗固定顺序，不重复骰
+
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                    战斗状态机 (Combat FSM)                        │
@@ -91,34 +98,46 @@
 │  INITIALIZATION                                                   │
 │       │                                                           │
 │       ▼                                                           │
-│  ROLL_INITIATIVE ──────────────────────────────────────┐          │
-│       │                                                │          │
-│       ▼                                                │          │
-│  ROUND_START                                           │          │
-│       │                                                │          │
-│       ▼                                                │          │
-│  ┌─ TURN_START ◄──────────────────────────────┐       │          │
-│  │     │                                       │       │          │
-│  │     ▼                                       │       │          │
-│  │  ACTION_PHASE                                │       │          │
-│  │     │                                       │       │          │
-│  │     ▼                                       │       │          │
-│  │  BONUS_ACTION_PHASE                          │       │          │
-│  │     │                                       │       │          │
-│  │     ▼                                       │       │          │
-│  │  MOVEMENT_PHASE                              │       │          │
-│  │     │                                       │       │          │
-│  │     ▼                                       │       │          │
-│  │  REACTION_WINDOW                             │       │          │
-│  │     │                                       │       │          │
-│  │     ▼                                       │       │          │
-│  │  TURN_END ──→ 还有下一个角色? ──YES────────┘       │          │
-│  │     │                                       NO      │          │
-│  │     ▼                                       │       │          │
-│  │  ROUND_END ──→ 战斗结束? ──YES──→ VICTORY/DEFEAT   │          │
-│  │     │                  NO                          │          │
-│  │     └──────────────→ ROLL_INITIATIVE ──────────────┘          │
-│  └───────────────────────────────────────────────────────────────┘
+│  ROLL_INITIATIVE (战斗开始时仅一次)                               │
+│       │                                                           │
+│       ▼                                                           │
+│  ┌ ROUND_START ◄──────────────────────────────────────┐          │
+│  │     │                                              │          │
+│  │     ▼                                              │          │
+│  │  ┌─ TURN_START ◄──────────────────────────┐       │          │
+│  │  │     │                                   │       │          │
+│  │  │     ▼                                   │       │          │
+│  │  │  MOVEMENT_PHASE_1 (可选)                 │       │          │
+│  │  │     │                                   │       │          │
+│  │  │     ▼                                   │       │          │
+│  │  │  ACTION_PHASE                            │       │          │
+│  │  │     │                                   │       │          │
+│  │  │     ▼                                   │       │          │
+│  │  │  BONUS_ACTION_PHASE (可选)               │       │          │
+│  │  │     │                                   │       │          │
+│  │  │     ▼                                   │       │          │
+│  │  │  MOVEMENT_PHASE_2 (可选)                 │       │          │
+│  │  │     │                                   │       │          │
+│  │  │     ▼                                   │       │          │
+│  │  │  TURN_END ──→ 还有下一个角色? ──YES─────┘       │          │
+│  │  │     │                                   NO      │          │
+│  │  │     ▼                                   │       │          │
+│  │  │  ROUND_END ──→ 战斗结束? ──YES──→ VICTORY/DEFEAT   │      │
+│  │  │     │           │     NO                    │          │
+│  │  │     │           └──→ 撤退投票通过? ──YES──→ RETREAT_CHECK   │
+│  │  │     │                    NO                │          │
+│  │  │     └──────────────→ ROUND_START ──────────┘          │
+│  │  └───────────────────────────────────────────────────────┘
+│  │                                                           │
+│  └── REACTION 中断 (随时)：在任何角色的回合内，满足触发条件   │
+│       时暂停当前回合 → 执行反应 → 恢复原回合              │
+│                                                                   │
+│  RETREAT_CHECK                                                    │
+│       │                                                           │
+│       ├── 成功 ──→ FLEE ──→ 返回冒险地图                          │
+│       │                                                           │
+│       └── 失败 ──→ 借机攻击 ──→ ROUND_START                      │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 ### 2.2 状态定义与转换表
@@ -126,89 +145,256 @@
 | 状态 | 进入条件 | 执行逻辑 | 退出条件 | 下一状态 |
 |------|----------|----------|----------|----------|
 | `INITIALIZATION` | 战斗触发 | 加载地图/敌人/地形；初始化战斗日志；设置参与者列表 | 所有参与者加载完成 | `ROLL_INITIATIVE` |
-| `ROLL_INITIATIVE` | 新轮开始 | 每个参与者骰d20+DEX调整值；排序；处理突袭 | 所有参与者骰完 | `ROUND_START` |
-| `ROUND_START` | 先攻排序完成 | 触发回合开始效果（如再生、持续伤害）；更新条件持续时间 | 效果处理完成 | `TURN_START` |
-| `TURN_START` | 轮到当前角色 | 显示当前角色高亮；检查失能/昏迷状态；重置反应 | 角色可行动或自动跳过 | `ACTION_PHASE` |
-| `ACTION_PHASE` | 当前角色回合开始 | 显示行动菜单；等待玩家选择（或AI决策）；执行行动 | 行动执行完成或跳过 | `BONUS_ACTION_PHASE` |
-| `BONUS_ACTION_PHASE` | Action完成 | 检查是否有可用附赠动作；显示附赠动作菜单 | 附赠动作执行或跳过 | `MOVEMENT_PHASE` |
-| `MOVEMENT_PHASE` | Bonus Action完成 | 显示移动范围；等待移动指令；执行移动 | 移动完成或跳过 | `REACTION_WINDOW` |
-| `REACTION_WINDOW` | 移动完成 | 检查是否触发反应（借机攻击等）；等待反应确认 | 反应处理完成 | `TURN_END` |
+| `ROLL_INITIATIVE` | 战斗开始（仅一次） | 每个参与者骰d20+DEX调整值；排序；处理突袭 | 所有参与者骰完 | `ROUND_START` |
+| `ROUND_START` | 新轮开始 | 触发回合开始效果（如再生、持续伤害）；更新条件持续时间 | 效果处理完成 | `TURN_START` |
+| `TURN_START` | 轮到当前角色 | 显示当前角色高亮；检查失能/昏迷状态；重置反应次数；重置移动点数 | 角色可行动或自动跳过 | `MOVEMENT_PHASE_1` |
+| `MOVEMENT_PHASE_1` | 当前角色回合开始 | 显示移动范围；等待移动指令（可选，可跳过直接进入行动） | 移动完成或跳过 | `ACTION_PHASE` |
+| `ACTION_PHASE` | 移动前半段完成 | 显示行动菜单；等待玩家选择（或AI决策）；执行行动 | 行动执行完成或跳过 | `BONUS_ACTION_PHASE` |
+| `BONUS_ACTION_PHASE` | Action完成 | 检查是否有可用附赠动作；显示附赠动作菜单 | 附赠动作执行或跳过 | `MOVEMENT_PHASE_2` |
+| `MOVEMENT_PHASE_2` | Bonus Action完成 | 使用剩余移动点数；显示可移动范围 | 移动完成或跳过 | `TURN_END` |
 | `TURN_END` | 当前角色回合结束 | 触发回合结束效果；重置回合标记 | 效果处理完成 | 下一角色`TURN_START`或`ROUND_END` |
-| `ROUND_END` | 所有角色回合结束 | 重新骰先攻；检查胜利/失败条件 | 先攻骰完 | `ROLL_INITIATIVE`或终态 |
+| `ROUND_END` | 所有角色回合结束 | 检查胜利/失败条件；执行撤退投票检查 | 条件检查完成 | `ROUND_START`或终态或`RETREAT_CHECK` |
+| `RETREAT_CHECK` | 撤退投票通过 | 计算撤退DC；执行撤退检定（d20 + DEX_mod + 环境修正） | 检定完成 | `FLEE`（成功）或`ROUND_START`（失败，承受借机攻击后） |
+| `FLEE` | 撤退检定成功 | 应用撤退惩罚；触发LLM撤退叙述；标记节点"已撤退" | 惩罚处理完成 | 返回冒险地图 |
 | `VICTORY` | 所有敌人死亡/逃跑 | 触发战利品生成；触发LLM叙述；结算XP | 结算完成 | 返回冒险场景 |
 | `DEFEAT` | 所有玩家角色死亡 | 触发失败惩罚；触发LLM叙述；检查角色死亡 | 惩罚处理完成 | 返回酒馆 |
 
-### 2.3 同时选择机制 `[CUSTOM]`
+**反应（REACTION）中断机制**：
 
-**核心规则**：每轮开始时，所有玩家角色**同时选择**行动，然后按先攻顺序依次结算。
+反应不是独立的回合阶段，而是**中断驱动**的系统。在任何角色的回合内，当满足反应触发条件时，当前回合暂停，执行反应，然后恢复原回合。
+
+| 反应类型 | 触发条件 | 执行时机 | 恢复点 |
+|----------|----------|----------|--------|
+| **借机攻击** | 敌人离开触及范围 | 立即中断 | 敌人移动继续 |
+| **Shield** | 被攻击命中时 | 攻击判定后、伤害前 | 伤害计算继续 |
+| **Counterspell** | 敌人施法时 | 施法开始后、效果前 | 法术解析继续 |
+| **Protection** | 邻接队友被攻击时 | 攻击判定前 | 攻击判定继续 |
+| **Uncanny Dodge** | 被可见攻击者命中时 | 伤害计算后 | 伤害应用继续 |
+
+### 2.3 顺序回合制 `[SRD-FULL]`
+
+**核心规则**：每个角色按先攻顺序依次行动，标准DND 5e回合制。
 
 ```
-同时选择流程:
+顺序回合流程:
 
-  Step 1: ROUND_START
-    - 重新骰先攻
-    - 显示先攻顺序条
+  Step 1: ROLL_INITIATIVE (战斗开始时，仅一次)
+    - 所有参与者骰 d20 + DEX调整值 + 其他加值
+    - 按结果从高到低排序
+    - 处理平局（见§3.3）
+    - 结果固定，整场战斗不变
 
-  Step 2: SIMULTANEOUS_SELECTION (所有玩家角色)
-    - 每个玩家角色同时看到行动菜单
-    - 选择: 主动作 + 附赠动作 + 移动意图
-    - 选择有倒计时 (30秒, 可在设置中调整)
-    - 倒计时结束自动选择"待机"
+  Step 2: ROUND_START (每轮开始)
+    - 触发回合开始效果（再生、持续伤害等）
+    - 更新条件持续时间
 
-  Step 3: RESOLUTION (按先攻顺序)
-    - 从最高先攻开始
-    - 执行该角色的已选行动
-    - 如果行动目标已死亡/移动, 允许重新选择目标 (但不改变行动类型)
+  Step 3: TURN_START (每个角色回合开始)
+    - 高亮当前角色
+    - 检查失能/昏迷状态
+    - 重置反应次数（恢复1次）
+    - 重置移动点数（恢复至速度值）
 
-  Step 4: AI角色决策
-    - AI角色在Step 2期间由AI系统预决策
-    - 在其先攻顺序时执行
+  Step 4: MOVEMENT_PHASE_1 (移动前半段，可选)
+    - 使用部分移动点数
+    - 可跳过，直接进入行动
 
-  优势:
-    - 减少等待时间 (玩家不用等其他人一个个选)
-    - 增加策略不确定性 (不知道队友会做什么)
-    - 更快的战斗节奏
+  Step 5: ACTION_PHASE (主动作)
+    - 显示行动菜单
+    - 等待玩家选择（或AI决策）
+    - 执行行动
+
+  Step 6: BONUS_ACTION_PHASE (附赠动作，可选)
+    - 检查是否有可用附赠动作
+    - 执行或跳过
+
+  Step 7: MOVEMENT_PHASE_2 (移动后半段，可选)
+    - 使用剩余移动点数
+    - 支持分段移动：移动→行动→移动
+
+  Step 8: TURN_END (回合结束)
+    - 触发回合结束效果
+    - 检查下一个角色
+
+  Step 9: ROUND_END (轮结束)
+    - 所有角色回合结束后触发
+    - 检查胜利/失败条件
+    - 进入下一轮（先攻顺序不变）
+
+  分段移动示例:
+    战士速度30尺:
+      MOVEMENT_PHASE_1: 移动10尺靠近敌人
+      ACTION_PHASE: 攻击敌人
+      MOVEMENT_PHASE_2: 移动20尺撤退
+      总移动: 30尺（等于速度值）
+
+  设计理由:
+    - 标准5e规则，玩家熟悉
+    - 分段移动增加战术深度
+    - 顺序行动保证策略可预测性
 ```
 
 ### 2.4 状态转换守卫条件
 
-```gdscript
-# 状态转换守卫函数
-func can_transition(from_state: CombatState, to_state: CombatState) -> bool:
-    match [from_state, to_state]:
-        [INITIALIZATION, ROLL_INITIATIVE]:
-            return all_participants_loaded()
-        [ROLL_INITIATIVE, ROUND_START]:
-            return initiative_rolls_complete()
-        [ROUND_START, TURN_START]:
-            return round_start_effects_resolved()
-        [TURN_START, ACTION_PHASE]:
-            return current_combatant.can_act()  # 非失能/昏迷
-        [ACTION_PHASE, BONUS_ACTION_PHASE]:
-            return action_used_or_skipped()
-        [BONUS_ACTION_PHASE, MOVEMENT_PHASE]:
-            return bonus_action_used_or_skipped()
-        [MOVEMENT_PHASE, REACTION_WINDOW]:
-            return movement_complete_or_skipped()
-        [REACTION_WINDOW, TURN_END]:
-            return reactions_resolved()
-        [TURN_END, TURN_START]:
-            return has_next_combatant()
-        [TURN_END, ROUND_END]:
-            return all_combatants_acted()
-        [ROUND_END, ROLL_INITIATIVE]:
-            return not is_combat_over()
-        [ROUND_END, VICTORY]:
-            return all_enemies_dead_or_fled()
-        [ROUND_END, DEFEAT]:
-            return all_players_dead()
-        _:
-            return false
+```csharp
+/// <summary>
+/// 战斗状态机转换守卫条件
+/// </summary>
+public static class CombatTransitionGuards
+{
+    /// <summary>
+    /// 检查是否允许从一个状态转换到另一个状态
+    /// </summary>
+    public static bool CanTransition(CombatState from, CombatState to, CombatContext context)
+    {
+        return (from, to) switch
+        {
+            (CombatState.Initialization, CombatState.RollInitiative)
+                => context.AllParticipantsLoaded(),
+
+            (CombatState.RollInitiative, CombatState.RoundStart)
+                => context.InitiativeRollsComplete(),
+
+            (CombatState.RoundStart, CombatState.TurnStart)
+                => context.RoundStartEffectsResolved(),
+
+            (CombatState.TurnStart, CombatState.MovementPhase1)
+                => context.CurrentCombatant.CanAct(),  // 非失能/昏迷
+
+            (CombatState.MovementPhase1, CombatState.ActionPhase)
+                => context.MovementPhase1CompleteOrSkipped(),
+
+            (CombatState.ActionPhase, CombatState.BonusActionPhase)
+                => context.ActionUsedOrSkipped(),
+
+            (CombatState.BonusActionPhase, CombatState.MovementPhase2)
+                => context.BonusActionUsedOrSkipped(),
+
+            (CombatState.MovementPhase2, CombatState.TurnEnd)
+                => context.MovementPhase2CompleteOrSkipped(),
+
+            (CombatState.TurnEnd, CombatState.TurnStart)
+                => context.HasNextCombatant(),
+
+            (CombatState.TurnEnd, CombatState.RoundEnd)
+                => context.AllCombatantsActed(),
+
+            (CombatState.RoundEnd, CombatState.RoundStart)
+                => !context.IsCombatOver(),
+
+            (CombatState.RoundEnd, CombatState.Victory)
+                => context.AllEnemiesDeadOrFled(),
+
+            (CombatState.RoundEnd, CombatState.Defeat)
+                => context.AllPlayersDead(),
+
+            // 撤退相关转换
+            (CombatState.RoundEnd, CombatState.RetreatCheck)
+                => context.RetreatVotePassed(),
+
+            (CombatState.RetreatCheck, CombatState.Flee)
+                => context.RetreatCheckSucceeded(),
+
+            (CombatState.RetreatCheck, CombatState.RoundStart)
+                => !context.RetreatCheckSucceeded(),  // 撤退失败→借机攻击→进入下一轮
+
+            (CombatState.Flee, CombatState.Victory)
+                => false,  // Flee是终态，已处理完毕
+
+            _ => false
+        };
+    }
+}
+
+/// <summary>
+/// 战斗状态枚举
+/// </summary>
+public enum CombatState
+{
+    Initialization,
+    RollInitiative,
+    RoundStart,
+    TurnStart,
+    MovementPhase1,
+    ActionPhase,
+    BonusActionPhase,
+    MovementPhase2,
+    TurnEnd,
+    RoundEnd,
+    Victory,
+    Defeat,
+    RetreatCheck,
+    Flee
+}
+
+/// <summary>
+/// 战斗上下文，提供守卫条件查询
+/// </summary>
+public class CombatContext
+{
+    public Combatant CurrentCombatant { get; set; }
+    public List<Combatant> AllCombatants { get; set; }
+    public int CurrentCombatantIndex { get; set; }
+
+    public bool AllParticipantsLoaded()
+        => AllCombatants.All(c => c.IsLoaded);
+
+    public bool InitiativeRollsComplete()
+        => AllCombatants.All(c => c.InitiativeRolled);
+
+    public bool RoundStartEffectsResolved()
+        => true; // 由效果系统确认
+
+    public bool MovementPhase1CompleteOrSkipped()
+        => true; // 玩家可随时跳过移动
+
+    public bool ActionUsedOrSkipped()
+        => CurrentCombatant.ActionUsed || CurrentCombatant.ActionSkipped;
+
+    public bool BonusActionUsedOrSkipped()
+        => CurrentCombatant.BonusActionUsed || CurrentCombatant.BonusActionSkipped;
+
+    public bool MovementPhase2CompleteOrSkipped()
+        => true; // 玩家可随时跳过移动
+
+    public bool HasNextCombatant()
+        => CurrentCombatantIndex < AllCombatants.Count - 1;
+
+    public bool AllCombatatantsActed()
+        => CurrentCombatantIndex >= AllCombatants.Count - 1;
+
+    public bool IsCombatOver()
+        => AllEnemiesDeadOrFled() || AllPlayersDead();
+
+    public bool AllEnemiesDeadOrFled()
+        => AllCombatants
+            .Where(c => c.Team == Team.Enemy)
+            .All(c => c.IsDead || c.HasFled);
+
+    public bool AllPlayersDead()
+        => AllCombatants
+            .Where(c => c.Team == Team.Player)
+            .All(c => c.IsDead);
+
+    /// <summary>
+    /// 撤退投票是否通过（全员同意或多数+领导检定成功）
+    /// </summary>
+    public bool RetreatVotePassed()
+        => RetreatVoteResult == RetreatVote.Agreed;
+
+    /// <summary>
+    /// 撤退检定是否成功（d20 + DEX_mod + 环境修正 vs DC）
+    /// </summary>
+    public bool RetreatCheckSucceeded()
+        => RetreatCheckResult.IsSuccess;
+
+    public RetreatVote RetreatVoteResult { get; set; }
+    public RetreatCheckOutcome RetreatCheckResult { get; set; }
+}
 ```
 
 ---
 
-## 3. 先攻系统 `[SRD-MODIFIED]`
+## 3. 先攻系统 `[SRD-FULL]`
 
 ### 3.1 先攻检定公式
 
@@ -216,7 +402,7 @@ func can_transition(from_state: CombatState, to_state: CombatState) -> bool:
 先攻检定 = d20 + DEX调整值 + 其他加值
 
 其中:
-  - d20: 每轮重新骰（非标准5e的整场固定）
+  - d20: 在战斗开始时骰一次，整场战斗固定
   - DEX调整值: floor((DEX - 10) / 2)
   - 其他加值:
     - Alert专长: +5
@@ -224,24 +410,25 @@ func can_transition(from_state: CombatState, to_state: CombatState) -> bool:
     - 某些装备附魔: 如"疾风之" (+3)
 ```
 
-### 3.2 每轮重骰规则 `[SRD-MODIFIED]`
+### 3.2 固定先攻规则 `[SRD-FULL]`
 
-**与标准5e的区别**：标准5e在战斗开始时骰一次先攻，整场战斗固定。本游戏**每轮重新骰先攻**。
+**规则**：采用标准DND 5e固定先攻——战斗开始时所有参与者骰一次先攻，整场战斗保持此顺序不变。
 
 ```
-每轮重骰流程:
+固定先攻流程:
 
-  1. ROUND_END 状态触发
-  2. 所有存活参与者重新骰 d20 + DEX_mod + bonuses
+  1. INITIALIZATION 完成后进入 ROLL_INITIATIVE
+  2. 所有参与者骰 d20 + DEX_mod + bonuses
   3. 按结果从高到低排序
-  4. 平局处理（见3.3）
-  5. 结果显示在先攻顺序条上
-  6. 进入 ROLL_INITIATIVE → ROUND_START
+  4. 平局处理（见§3.3）
+  5. 确定先攻顺序，整场战斗固定不变
+  6. 进入 ROUND_START
 
   设计理由:
-    - 增加每轮的不确定性（高DEX角色不一定每轮先动）
-    - 配合"同时选择"机制（选择时不知道精确顺序）
-    - 更快的战斗节奏感
+    - 策略可预测性：玩家知道行动顺序后可据此制定战术
+    - 减少等待时间：无需每轮重新排序
+    - 符合标准5e规则，玩家无需额外学习
+    - 便于DEX优化构筑发挥价值
 ```
 
 ### 3.3 平局处理规则 `[CUSTOM]`
@@ -728,7 +915,7 @@ func can_transition(from_state: CombatState, to_state: CombatState) -> bool:
 法术位恢复 [SRD-MODIFIED]:
 
   短休 (Short Rest):
-    - 恢复所有1环法术位至最大值
+    - 恢复一半1环法术位（向上取整）
     - 邪术师(Warlock): 恢复全部Pact Magic法术位
     - 法师(Wizard): 额外使用Arcane Recovery恢复ceil(Lv/2)总环位
 
@@ -737,8 +924,8 @@ func can_transition(from_state: CombatState, to_state: CombatState) -> bool:
 
   示例:
     Lv5 Wizard (1st=4, 2nd=3, 3rd=2):
-      短休前: 1st=1, 2nd=0, 3rd=0
-      短休后: 1st=4, 2nd=0, 3rd=0 (恢复4个1环)
+      短休前: 1st=1, 2环=0, 3环=0
+      短休后: 1st=3, 2环=0, 3环=0 (恢复ceil(4/2)=2个1环)
       Arcane Recovery: +3环 (可选1环+2环, 或3个1环)
       最终: 1st=4, 2nd=2, 3rd=0 (假设选1个1环+2个2环)
 ```
@@ -985,42 +1172,83 @@ CONCENTRATING  → IDLE
 | Warlock | WIS, CHA |
 | Barbarian | STR, CON |
 
-### 8.3 死亡豁免 `[SRD-MODIFIED]`
+### 8.3 死亡豁免与死亡失败 `[SRD-MODIFIED + CUSTOM]`
 
 ```
-死亡豁免规则 [SRD-MODIFIED]:
+死亡系统规则 [SRD-MODIFIED + CUSTOM]:
 
-  触发条件:
+  本游戏采用双轨死亡机制:
+    - 主要机制: 3轮无治疗计时器（紧迫感）
+    - 次要机制: 死亡失败计数（受伤累积风险）
+
+  ─── 触发条件 ───
     - 角色HP降至0
-    - 角色进入昏迷(Unconscious)状态
+    - 角色进入昏迷(Unconscious) + 倒地(Prone)状态
 
-  本游戏修改:
-    - 不使用标准5e的"3次成功/3次失败"规则
-    - 改为: 3轮无治疗 = 死亡
-
-  流程:
-    1. HP降至0 → 角色倒地 + 昏迷
+  ─── 主要机制: 3轮死亡计时器 ───
+    1. HP降至0 → rounds_without_healing = 0, death_failures = 0
     2. 每轮开始: rounds_without_healing += 1
-    3. 如果3轮内无人治疗 → 角色永久死亡
-    4. 如果有人治疗(HP>0) → 角色恢复，rounds重置为0
-    5. 如果受到额外伤害 → 直接死亡（无需等待3轮）
+    3. 如果3轮内无人治疗且未稳定 → 角色永久死亡
+    4. 如果有人治疗(HP>0) → 角色恢复，所有计数重置
 
-  治疗定义:
-    - 任何恢复HP的效果（法术/药水/能力）
-    - 治疗至HP>0即可
+  ─── 次要机制: 死亡失败计数 [CUSTOM] ───
+    1. 角色HP=0时受到任何伤害 → death_failures += 2
+    2. death_failures >= 3 → 角色永久死亡（无需等待3轮）
+    3. 死亡失败不会因稳定化重置（但HP恢复>0时全部重置）
+
+    设计理由:
+      - 标准5e的"0HP受伤=直接死亡"过于残酷
+      - 改为累积失败制，给队友更多救援时间
+      - 但仍保持高压: 一次受伤=2失败，两次受伤=死亡
+
+  ─── 稳定化 (Stabilize) ───
+    检定: d20 + Medicine技能 vs DC 10
+    成功:
+      - 角色从"濒死"变为"稳定"
+      - HP仍为0，仍处于昏迷状态
+      - 停止计数死亡轮次（rounds_without_healing不再增加）
+      - 停止计数死亡失败（death_failures不再增加）
+      - 仍需治疗才能恢复行动
+    失败: 无效果，继续计数
+    自动成功: Spare the Dying (戏法) 等特定效果
+
+  ─── 治疗定义 ───
+    - 任何恢复HP至>0的效果（法术/药水/能力）
+    - 治疗后: rounds_without_healing = 0, death_failures = 0
     - 临时HP不算治疗
+    - 稳定化不算治疗（只是停止计数）
 
-  稳定化 (Stabilize):
-    - DC 10 Medicine检定
-    - 成功: 角色稳定（不再死亡，但仍昏迷，HP=0）
-    - 稳定后: 不再计数，但仍需治疗才能行动
+  ─── 状态追踪 ───
+    每个HP=0的角色追踪两个计数器:
+      - rounds_without_healing: 0-3（每轮+1）
+      - death_failures: 0-3（受伤+2）
+    任一计数器达到3 → 角色永久死亡
 
-  示例:
-    回合1: 战士HP降至0, rounds_without_healing = 0
-    回合2: 无人治疗, rounds = 1
-    回合3: 无人治疗, rounds = 2
-    回合4: 无人治疗, rounds = 3 → 死亡
-    回合3(替代): 法师施放Healing Word → 战士恢复HP, rounds重置
+  ─── 示例 ───
+    示例1: 标准3轮死亡
+      回合1: 战士HP降至0, rounds=0, failures=0
+      回合2: 无人治疗, rounds=1
+      回合3: 无人治疗, rounds=2
+      回合4: 无人治疗, rounds=3 → 永久死亡
+
+    示例2: 受伤加速死亡
+      回合1: 战士HP降至0, rounds=0, failures=0
+      回合2: 受到5点伤害, rounds=1, failures=2
+      回合3: 受到3点伤害, rounds=2, failures=4(≥3) → 永久死亡
+
+    示例3: 稳定化保命
+      回合1: 战士HP降至0, rounds=0, failures=0
+      回合2: 受到伤害, rounds=1, failures=2
+      回合3: 盗贼DC 10 Medicine成功 → 稳定化
+        → rounds停止增加, failures停止增加
+        → 战士仍昏迷但不再有死亡风险
+      回合5: 法师施放Healing Word → 战士恢复
+
+    示例4: 治疗重置一切
+      回合1: 战士HP降至0, rounds=0, failures=0
+      回合2: 受到伤害, rounds=1, failures=2
+      回合3: 牧师施放Cure Wounds → HP恢复>0
+        → rounds=0, failures=0, 战士恢复行动
 ```
 
 ### 8.4 豁免DC来源
@@ -1839,7 +2067,7 @@ AI决策流程 (每回合):
 
   恢复内容:
     1. 法术位恢复 [SRD-MODIFIED]:
-       - 恢复所有1环法术位至最大值
+       - 恢复一半1环法术位（向上取整）
        - 邪术师: 恢复全部Pact Magic法术位
        - 法师: 额外使用Arcane Recovery
 
@@ -1932,43 +2160,59 @@ AI决策流程 (每回合):
 
 ```
 失败条件:
-  - 所有玩家角色死亡（HP=0且3轮无治疗）
+  - 所有玩家角色死亡（HP=0且rounds_without_healing ≥ 3或death_failures ≥ 3）
   - 特殊失败条件（如NPC被杀/回合耗尽）
+
+撤退条件:
+  - 队伍通过撤退投票并成功通过撤退检定 → 见§14.8撤退机制
+  - 撤退不是失败，但有独立惩罚
 
 失败结算流程:
   1. 战斗动画结束
   2. 显示失败画面
   3. 触发LLM失败叙述生成
-  4. 应用失败惩罚（见14.5）
+  4. 应用失败惩罚（见§14.5）
   5. 检查角色永久死亡
   6. 返回酒馆
 ```
 
-### 14.3 死亡豁免机制回顾
+### 14.3 死亡机制回顾 `[SRD-MODIFIED + CUSTOM]`
 
 ```
-死亡流程:
+死亡流程（双轨机制）:
 
-  1. HP降至0
-     - 角色倒地 + 昏迷
+  ─── 阶段1: HP降至0 ───
+     - 角色进入昏迷(Unconscious) + 倒地(Prone)
      - rounds_without_healing = 0
+     - death_failures = 0
 
-  2. 每轮开始检查
+  ─── 阶段2: 每轮开始检查 ───
      - rounds_without_healing += 1
      - 如果 rounds >= 3 → 角色永久死亡
 
-  3. 受到额外伤害
-     - 如果角色HP=0时受到任何伤害 → 直接永久死亡
-     - 无需等待3轮
+  ─── 阶段3: 受到额外伤害 ───
+     - 角色HP=0时受到任何伤害 → death_failures += 2
+     - 如果 death_failures >= 3 → 角色永久死亡
+     - 注意: 不再是"0HP受伤=直接死亡"，改为累积失败制
 
-  4. 治疗
+  ─── 阶段4: 治疗 ───
      - 任何恢复HP至>0的效果 → 角色恢复
-     - rounds_without_healing 重置为0
+     - rounds_without_healing = 0
+     - death_failures = 0
 
-  5. 稳定化
+  ─── 阶段5: 稳定化 ───
      - DC 10 Medicine检定
-     - 成功: 角色稳定（不再死亡，但仍昏迷）
-     - 稳定后仍需治疗才能行动
+     - 成功: 角色稳定
+       · HP仍为0，仍昏迷
+       · 停止计数死亡轮次
+       · 停止计数死亡失败
+       · 仍需治疗才能行动
+     - 失败: 无效果，继续计数
+
+  ─── 死亡判定优先级 ───
+     1. death_failures >= 3 → 立即永久死亡
+     2. rounds_without_healing >= 3 → 永久死亡
+     3. 两个计数器独立追踪，任一触发即死亡
 ```
 
 ### 14.4 稳定化规则
@@ -1989,22 +2233,76 @@ AI决策流程 (每回合):
     - 如 Spare the Dying (戏法)
 ```
 
-### 14.5 失败惩罚
+### 14.5 失败惩罚 `[CUSTOM]`
+
+> 失败惩罚分为两大类：**战斗败退惩罚**（队伍被击败）和**主动撤退惩罚**（战略性撤退）。撤退的代价低于败退，鼓励玩家在不利局面下做出明智判断。
+
+#### 14.5.1 战斗败退惩罚表
 
 | 惩罚等级 | 触发条件 | 效果 |
 |----------|----------|------|
-| **轻微** | 部分队员倒地但最终胜利 | 无额外惩罚 |
-| **中等** | 全队败退但无人死亡 | 随机装备损坏(1-2件退化25%) |
-| **严重** | 有角色永久死亡 | 角色永久死亡 + 装备损坏 |
-| **灾难性** | 全灭 | 全队死亡 + 所有装备退化至broken |
+| **轻微** | 部分队员倒地但最终胜利 | 无额外惩罚（倒地队员通过治疗恢复后无长期影响） |
+| **中等** | 全队败退（被击败）但无人永久死亡 | 随机装备损坏(1-2件退化25%) + 金币损失(10-20%) |
+| **严重** | 有角色永久死亡（双轨死亡机制触发：3轮无治疗 或 死亡失败>=3） | 角色永久死亡 + 全队疲乏+1 + 装备损坏(1件退化至broken) |
+| **灾难性** | 全灭（全员永久死亡） | 所有角色死亡 + 所有装备退化至broken + 金币损失50% |
+
+> **死亡触发说明**：角色的永久死亡通过双轨机制判定（详见§8.3），任一轨道触发即死亡：
+> - **主要轨道**：HP=0后3轮无治疗 → 永久死亡
+> - **次要轨道**：HP=0期间death_failures累积达到3次 → 永久死亡
+> 
+> 惩罚等级取触发的最严重级别，不叠加。示例：有人死亡+全灭 → 按"灾难性"处理。
+
+#### 14.5.2 主动撤退惩罚表
+
+| 惩罚项 | 效果 | 说明 |
+|--------|------|------|
+| **疲乏** | 全队获得1级疲乏 | 撤退的体力消耗 |
+| **金币损失** | 丢失10-20%当前金币 | 撤退中遗落 |
+| **装备损坏** | 1件随机装备退化25% | 匆忙中受损 |
+| **冒险进度** | 当前节点标记"已撤退" | 重新进入需再次触发遭遇（可能更难） |
+
+> 以上所有惩罚**同时生效**（非选择其一）。撤退惩罚独立于败退惩罚——撤退不会同时触发角色死亡。
+
+#### 14.5.3 装备损坏与金币损失规则
+
+```
+惩罚叠加规则:
+  - 败退惩罚按最高级生效，不叠加（严重 vs 灾难性→按灾难性）
+  - 撤退惩罚独立于败退惩罚
+
+装备损坏规则:
+  - 退化25%: 装备耐久度降低，属性暂时减弱
+  - 退化至broken: 装备完全失效，需要修理
+  - 修理费用: broken→正常 = 装备价值的50%
+  - 退化25%→正常 = 装备价值的15%
+
+金币损失:
+  - 从队伍总金币中扣除
+  - 不足时扣除至0，不产生负数
+  - 丢失的金币在冒险结束时结算
+```
 
 ### 14.6 战利品与XP分配
 
 ```
 XP分配规则:
-  - 每个击杀: (怪物CR / 角色等级) × 100 XP, 最低10 XP
-  - 完成冒险: 基础冒险XP × 难度系数
+  - 每个击杀: 使用DND 5e SRD标准XP值（按CR查表）
+  - 完成冒险: 基于冒险长度的完成奖励（见failure-growth.md §2.2）
   - 多人满额获取: 每个角色独立获取全额XP（不分摊）
+
+  DND 5e CR→XP对照表（部分）:
+    CR 0: 10 XP
+    CR 1/8: 25 XP
+    CR 1/4: 50 XP
+    CR 1/2: 100 XP
+    CR 1: 200 XP
+    CR 2: 450 XP
+    CR 3: 700 XP
+    CR 5: 1,800 XP
+    CR 10: 5,900 XP
+
+  注意: XP获取与角色等级无关——高等级角色杀低CR怪物获得的XP不变。
+  这鼓励玩家挑战更高CR的遭遇，而非反复刷低级怪物。
 
 战利品分配:
   - 战利品在战斗结束后生成
@@ -2041,6 +2339,136 @@ LLM叙述触发时机:
   6. 战斗失败
      - 生成失败描述
      - "黑暗吞噬了冒险者的意识..."
+```
+
+### 14.8 撤退机制 `[CUSTOM]`
+
+```
+撤退 (Retreat/Flee) 设计哲学:
+  - 在永久死亡游戏中，撤退必须是可行选项
+  - 撤退应有代价但不致命（保留"战略性撤退"的空间）
+  - 撤退流程必须简单快速，不打断战斗节奏
+```
+
+#### 14.8.1 撤退投票
+
+```
+撤退发起条件:
+  - 任何玩家角色可在自己回合选择"提议撤退"
+  - 提议撤退消耗该角色的主动作
+  - 提议后进入投票阶段（不中断当前回合）
+
+投票规则:
+  - 所有存活玩家角色参与投票
+  - 全员同意 → 立即进入撤退检定
+  - 多数同意 + 领导者检定成功 → 进入撤退检定
+    · 领导者检定: d20 + CHA(Leadership) vs DC 12
+    · 任一角色可担任提议者
+  - 未通过 → 战斗继续，该回合已消耗的主动作不返还
+
+投票UI:
+  ┌─────────────────────────────────────────┐
+  │  🏳️ 撤退提议                             │
+  │                                         │
+  │  战士提议撤退！                          │
+  │                                         │
+  │  [同意撤退]  [继续战斗]                  │
+  │                                         │
+  │  队伍状态:                               │
+  │  战士: HP 12/28 ⚠️                      │
+  │  法师: HP 3/18 💀                       │
+  │  盗贼: HP 22/22 ✓                       │
+  └─────────────────────────────────────────┘
+```
+
+#### 14.8.2 撤退检定
+
+```
+撤退检定公式:
+  撤退检定 = d20 + 队伍最高DEX调整值 + 环境修正
+
+  环境修正:
+    - 每个存活敌人: -1（敌人越多越难逃脱）
+    - 有明确出口: +2（地图有标记的出口）
+    - 困难地形: -2（撤退路径有困难地形）
+    - 已消灭半数以上敌人: +3（敌人士气低落）
+    - Boss战: -5（Boss不会放走猎物）
+
+  DC基准:
+    ┌────────────────────────────────────────────┐
+    │  遭遇类型        │  基础DC  │  说明         │
+    ├──────────────────┼──────────┼───────────────┤
+    │  普通遭遇        │  10      │  标准难度     │
+    │  精英遭遇        │  13      │  敌人更执着   │
+    │  Boss战          │  18      │  极难逃脱     │
+    │  伏击/陷阱       │  15      │  被包围       │
+    └──────────────────┴──────────┴───────────────┘
+
+  最终DC = 基础DC + 环境修正（最低DC 5，最高DC 25）
+
+  示例:
+    普通遭遇(3哥布林), 已消灭1个, 有出口:
+      DC = 10 + (-2存活敌人) + (+2出口) + (+3已消灭半数) = 13
+      检定: d20 + DEX_mod(最高) vs DC 13
+
+    Boss战(巨魔), 无出口:
+      DC = 18 + (-1存活敌人) + (-5 Boss) = 24
+      检定: d20 + DEX_mod vs DC 24（几乎不可能）
+```
+
+#### 14.8.3 撤退结果
+
+```
+撤退成功:
+  - 所有玩家角色脱离战斗
+  - 进入撤退惩罚（详见§14.5.2撤退惩罚表）
+  - 返回冒险地图（当前节点标记为"已探索"）
+  - 未拾取的战利品丢失
+
+撤退失败:
+  - 所有玩家角色受到一次借机攻击（来自最近的敌人）
+  - 借机攻击使用敌人的标准攻击检定
+  - 战斗继续（不消耗额外回合）
+  - 该轮不能再提议撤退
+```
+
+#### 14.8.4 撤退限制
+
+```
+不可撤退的情况:
+  - Boss战中Boss HP > 50%: DC极高(18+)，但技术上仍可尝试
+  - 被包围（所有出口被敌人占据）: DC+5
+  - 特殊剧情战斗: 标记为"不可撤退"的遭遇
+
+撤退冷却:
+  - 撤退失败后，该遭遇不能再提议撤退
+  - 撤退成功后，重新进入该节点会触发新遭遇（可能更难）
+
+AI敌人对撤退的反应:
+  - 普通敌人: 不追击（撤退成功）
+  - 精英敌人: 50%概率追击（额外1轮战斗）
+  - Boss: 必定追击（但撤退检定已考虑此因素）
+```
+
+#### 14.8.5 撤退与FSM集成
+
+```
+撤退在FSM中的位置:
+
+  ROUND_END状态:
+    - 检查胜利/失败条件之前
+    - 检查是否有撤退投票通过
+    - 如果通过 → 进入RETREAT_CHECK状态
+
+  RETREAT_CHECK状态:
+    - 执行撤退检定
+    - 成功 → FLEE状态
+    - 失败 → 借机攻击 → 回到ROUND_START
+
+  FLEE状态:
+    - 应用撤退惩罚
+    - 触发LLM撤退叙述
+    - 返回冒险地图
 ```
 
 ---
@@ -2178,9 +2606,11 @@ TEST 28: 死亡豁免治疗重置
   Given: 角色HP=0, 已2轮无治疗, 受到治疗
   Expected: HP恢复, rounds_without_healing重置为0
 
-TEST 29: 0HP额外伤害
+TEST 29: 0HP额外伤害（双轨死亡 — 次要机制）
   Given: 角色HP=0, 受到任何伤害
-  Expected: 直接永久死亡
+  Expected: death_failures += 2
+  death_failures >= 3 → 永久死亡
+  （注：不再是"0HP受伤=直接死亡"，改为累积失败制，详见§8.3）
 ```
 
 #### Test Suite: 条件系统
@@ -2215,14 +2645,22 @@ TEST 34: 完整战斗轮模拟
     4. 验证HP变化、条件应用、伤害计算
     5. 验证胜利/失败条件
 
-TEST 35: 同时选择→按先攻结算
-  Given: 3玩家同时选择行动
+TEST 35: 顺序回合制验证
+  Given: 3玩家，按先攻顺序为盗贼(18)→法师(15)→战士(11)
   流程:
-    1. 所有玩家选择行动
-    2. 按先攻顺序结算
-    3. 验证行动按正确顺序执行
+    1. 骰先攻确定固定顺序
+    2. 验证盗贼先行动，然后法师，最后战士
+    3. 验证顺序整场战斗不变
 
-TEST 36: Boss战完整流程
+TEST 36: 分段移动验证
+  Given: 战士速度30尺
+  流程:
+    1. MOVEMENT_PHASE_1: 移动10尺
+    2. ACTION_PHASE: 攻击
+    3. MOVEMENT_PHASE_2: 移动20尺
+    4. 验证总移动=30尺（不超过速度值）
+
+TEST 37: Boss战完整流程
   Given: 3玩家 vs 巨魔Boss
   流程:
     1. 验证巨魔再生特性
@@ -2234,38 +2672,62 @@ TEST 36: Boss战完整流程
 ### 15.3 边界情况测试
 
 ```
-TEST 37: 死亡豁免时机
+TEST 38: 死亡豁免时机
   - 角色在轮开始时HP=0 → 检查死亡计数
   - 角色在轮中间HP降至0 → 不立即计数，下轮开始计数
 
-TEST 38: 专注中断时机
+TEST 39: 专注中断时机
   - 专注法术施放时受到伤害 → 专注检定
   - 专注法术持续中受到伤害 → 专注检定
   - 施法者失能 → 专注自动中断
 
-TEST 39: 反应时机
+TEST 40: 反应时机
   - 借机攻击: 敌人离开触及范围时
   - Shield: 被攻击命中时
   - Counterspell: 敌人施法时
 
-TEST 40: 优势劣势取消
+TEST 41: 优势劣势取消
   - 3源优势 + 1源劣势 = 平骰
   - 1源优势 + 1源劣势 = 平骰
   - 0源优势 + 2源劣势 = 劣势
 
-TEST 41: 掩体叠加
+TEST 42: 掩体叠加
   - 半掩体 + 半掩体 = 3/4掩体? (否, 取最高)
   - 3/4掩体 + 半掩体 = 3/4掩体
 
-TEST 42: 临时HP不叠加
+TEST 43: 临时HP不叠加
   - 已有5临时HP, 获得8临时HP → 8临时HP (取高)
   - 已有8临时HP, 获得5临时HP → 8临时HP (保持)
+
+TEST 43.5: 撤退投票
+  - 全员同意→撤退检定触发
+  - 多数+领导检定成功(d20+CHA_mod vs DC 12)→撤退检定触发
+  - 少数同意→战斗继续
+
+TEST 43.6: 撤退检定DC计算
+  - 普通遭遇(3哥布林), 已消灭1个, 有出口:
+    DC = 10 + (-2存活) + (+2出口) + (+3消灭半数) = 13
+  - Boss战(巨魔), 无出口:
+    DC = 18 + (-1存活) + (-5Boss) = 24
+  - 被包围(无出口):
+    DC = 10 + (-3存活×3) + (-5无出口) + 0 = 闭锁（无法撤退）
+
+TEST 43.7: 撤退成功惩罚
+  - 全队疲乏+1级
+  - 金币损失10-20%
+  - 1件随机装备退化25%
+  - 当前节点标记"已撤退"
+
+TEST 43.8: 撤退失败惩罚
+  - 全员承受一次借机攻击（来自最近敌人）
+  - 战斗继续
+  - 该遭遇不能再提议撤退
 ```
 
 ### 15.4 平衡验证
 
 ```
-TEST 43: DPR (每轮伤害) 计算
+TEST 44: DPR (每轮伤害) 计算
   Lv1-5各职业的预期DPR:
 
   Lv1 Fighter (STR 16, 长剑):
@@ -2285,7 +2747,7 @@ TEST 43: DPR (每轮伤害) 计算
     DPR = 0.6 × 5.5 = 3.3 (戏法)
     Fireball: 8d6 = 28平均 (1次/战斗)
 
-TEST 44: 遭遇CR预算
+TEST 45: 遭遇CR预算
   4人Lv3队伍:
     Easy: CR 1-2
     Medium: CR 3-4
@@ -2309,56 +2771,72 @@ TEST 44: 遭遇CR预算
 │           │ all_loaded                                                │
 │           ▼                                                           │
 │  ┌─────────────────┐                                                 │
-│  │ ROLL_INITIATIVE │◄──────────────────────────────────────┐         │
-│  └────────┬────────┘                                       │         │
-│           │ initiative_complete                             │         │
-│           ▼                                                │         │
-│  ┌─────────────────┐                                       │         │
-│  │  ROUND_START    │                                       │         │
-│  └────────┬────────┘                                       │         │
-│           │ effects_resolved                               │         │
-│           ▼                                                │         │
-│  ┌─────────────────┐    can_act=false                      │         │
-│  │   TURN_START    │──────────────────┐                    │         │
-│  └────────┬────────┘                  │                    │         │
-│           │ can_act=true              ▼                    │         │
-│           ▼                  ┌─────────────────┐           │         │
-│  ┌─────────────────┐        │    TURN_END     │           │         │
-│  │  ACTION_PHASE   │        └────────┬────────┘           │         │
-│  └────────┬────────┘                 │                    │         │
-│           │ action_done              │                    │         │
-│           ▼                          │                    │         │
-│  ┌─────────────────┐                 │                    │         │
-│  │BONUS_ACTION_PHASE│                │                    │         │
-│  └────────┬────────┘                 │                    │         │
-│           │ bonus_done               │                    │         │
-│           ▼                          │                    │         │
-│  ┌─────────────────┐                 │                    │         │
-│  │ MOVEMENT_PHASE  │                 │                    │         │
-│  └────────┬────────┘                 │                    │         │
-│           │ movement_done            │                    │         │
-│           ▼                          │                    │         │
-│  ┌─────────────────┐                 │                    │         │
-│  │REACTION_WINDOW  │                 │                    │         │
-│  └────────┬────────┘                 │                    │         │
-│           │ reaction_done            │                    │         │
-│           ▼                          │                    │         │
-│  ┌─────────────────┐                 │                    │         │
-│  │    TURN_END     │─────────────────┘                    │         │
-│  └────────┬────────┘  has_next                            │         │
-│           │ no_next                                       │         │
-│           ▼                                               │         │
-│  ┌─────────────────┐                                      │         │
-│  │   ROUND_END     │                                      │         │
-│  └────────┬────────┘                                      │         │
-│           │                                               │         │
-│     ┌─────┼─────┬─────────┐                               │         │
-│     ▼     ▼     ▼         ▼                               │         │
-│  ┌─────┐┌─────┐┌─────┐┌─────────┐                        │         │
-│  │VICTORY│DEFEAT│NEXT ││         │                        │         │
-│  └─────┘└─────┘│ROUND││         │                        │         │
-│                 └─────┘│         │                        │         │
-│                        └─────────┘────────────────────────┘         │
+│  │ ROLL_INITIATIVE │ (战斗开始时仅一次)                               │
+│  └────────┬────────┘                                                 │
+│           │ initiative_complete                                       │
+│           ▼                                                           │
+│  ┌─────────────────┐ ◄───────────────────────────────────┐          │
+│  │  ROUND_START    │                                      │          │
+│  └────────┬────────┘                                      │          │
+│           │ effects_resolved                              │          │
+│           ▼                                               │          │
+│  ┌─────────────────┐    can_act=false                     │          │
+│  │   TURN_START    │──────────────────┐                   │          │
+│  └────────┬────────┘                  │                   │          │
+│           │ can_act=true              ▼                   │          │
+│           ▼                  ┌─────────────────┐          │          │
+│  ┌─────────────────┐        │    TURN_END     │          │          │
+│  │MOVEMENT_PHASE_1 │        └────────┬────────┘          │          │
+│  │    (可选)       │                 │                   │          │
+│  └────────┬────────┘                 │                   │          │
+│           │ move1_done               │                   │          │
+│           ▼                          │                   │          │
+│  ┌─────────────────┐                 │                   │          │
+│  │  ACTION_PHASE   │                 │                   │          │
+│  └────────┬────────┘                 │                   │          │
+│           │ action_done              │                   │          │
+│           ▼                          │                   │          │
+│  ┌─────────────────┐                 │                   │          │
+│  │BONUS_ACTION_PHASE│                │                   │          │
+│  │    (可选)       │                 │                   │          │
+│  └────────┬────────┘                 │                   │          │
+│           │ bonus_done               │                   │          │
+│           ▼                          │                   │          │
+│  ┌─────────────────┐                 │                   │          │
+│  │MOVEMENT_PHASE_2 │                 │                   │          │
+│  │    (可选)       │                 │                   │          │
+│  └────────┬────────┘                 │                   │          │
+│           │ move2_done               │                   │          │
+│           ▼                          │                   │          │
+│  ┌─────────────────┐                 │                   │          │
+│  │    TURN_END     │─────────────────┘                   │          │
+│  └────────┬────────┘  has_next                           │          │
+│           │ no_next                                      │          │
+│           ▼                                              │          │
+│  ┌─────────────────┐                                     │          │
+│  │   ROUND_END     │                                     │          │
+│  └────────┬────────┘                                     │          │
+│           │                                              │          │
+│     ┌─────┼─────┬─────────┬───────────┐                  │          │
+│     ▼     ▼     ▼         ▼           ▼                  │          │
+│  ┌─────┐┌─────┐┌─────┐┌──────────┐┌──────┐              │          │
+│  │VICTORY│DEFEAT│NEXT ││  RETREAT ││ FLEE │              │          │
+│  └─────┘└─────┘│ROUND││  _CHECK  │└──────┘              │          │
+│                 └──┬──┘└────┬─────┘    ▲                  │          │
+│                    │        │ 失败     │ 成功             │          │
+│                    │        │ 借机攻击  │                  │          │
+│                    │        └──────┐   │                  │          │
+│                    │               ▼   │                  │          │
+│                    │        ┌──────────┐                  │          │
+│                    │        │借机攻击后 │                  │          │
+│                    │        │回ROUND_  │                  │          │
+│                    │        │  START ◄─┘                  │          │
+│                    │        └──────────┘                  │          │
+│                    └────────────┬─────────────────────────┘          │
+│                                 │                                    │
+│                                 │                                    │
+│  REACTION 中断（任意回合内）:                                        │
+│    当前回合进行中 ──触发条件满足──→ 暂停→执行反应→恢复原回合         │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -2394,7 +2872,69 @@ TEST 44: 遭遇CR预算
 
 ---
 
-*文档版本: v1.0*
+## 16. 依赖关系 (Dependencies)
+
+### 16.1 上游依赖（本系统依赖）
+
+| 依赖系统 | 依赖内容 | 状态 | 风险 |
+|----------|----------|:----:|:----:|
+| **角色系统** | HP/AC/属性调整值/法术位/豁免熟练/技能加值 | ✅ 已审查 | 低 |
+| **物品装备系统** | 武器伤害骰/护甲AC/附魔效果/耐久度 | ✅ 已审查 | 中 — 需集成耐久度退化事件 |
+| **冒险生成系统** | 遭遇CR/敌人配置/地形数据 | ✅ 已设计 | 低 |
+| **LLM集成网关** | 战斗叙述生成 | ✅ 已审查 | 低 |
+| **酒馆系统** | 短休/长休触发 | ✅ 已设计 | 低 |
+| **失败与成长系统** | XP计算/失败惩罚/撤退机制 | ✅ 已审查 | 中 — 需对齐XP公式 |
+
+### 16.2 下游依赖（依赖本系统的系统）
+
+| 依赖系统 | 依赖内容 | GDD状态 |
+|----------|----------|:-------:|
+| **冒险生成系统** | 战斗结果影响世界状态 | ✅ |
+| **失败与成长系统** | 角色死亡/伤疤生成 | ✅ |
+| **LLM集成网关** | 战斗日志作为叙事输入 | ✅ |
+| **酒馆系统** | 短休/长休资源恢复 | ✅ |
+
+---
+
+## 17. 可调参数 (Tuning Knobs)
+
+| 参数 | 当前值 | 安全范围 | 影响面 |
+|------|:------:|:--------:|--------|
+| **先攻重骰** | 每场战斗1次 | 每轮/每场 | 战术可预测性 |
+| **暴击规则** | 伤害骰最大值 | 最大值/双骰 | 暴击爽感 |
+| **死亡豁免轮数** | 3轮 | 2-4轮 | 死亡紧迫感 |
+| **0HP+伤害** | 2次死亡失败 | 1-3次 | 死亡残酷度 |
+| **短休1环恢复** | 一半(向上取整) | 全部/一半/无 | 施法者资源优势 |
+| **Arcane Recovery** | ceil(Lv/2)环位 | 保持/减半 | 法师短休收益 |
+| **Hit Dice恢复** | 长休恢复一半 | 保持/全部 | 长冒险资源压力 |
+| **撤退DC** | 基于情况 | 10-20 | 撤退可行性 |
+| **Boss传奇动作** | 无 | 0-3次/轮 | Boss战难度 |
+| **AI难度默认** | Normal | Easy-Hard | 敌人战术水平 |
+| **同时选择倒计时** | 已移除 | N/A | N/A |
+| **每轮重骰先攻** | 已移除 | N/A | N/A |
+
+---
+
+## 18. 验收标准 (Acceptance Criteria)
+
+| # | 验收标准 | 测试方法 | 通过条件 |
+|---|----------|----------|----------|
+| AC-1 | FSM状态转换正确 | 单元测试 | 12个状态+17条守卫全部通过 |
+| AC-2 | 顺序回合制正常工作 | 集成测试 | 按先攻顺序依次执行 |
+| AC-3 | 反应中断机制正确 | 集成测试 | 借机攻击/Shield/Counterspell在正确时机触发 |
+| AC-4 | 分段移动支持 | 单元测试 | move→action→move流程正确 |
+| AC-5 | 攻击检定管线完整 | 单元测试 | 优势/劣势/掩体/finesse全部正确 |
+| AC-6 | 伤害计算管线完整 | 单元测试 | 抗性/免疫/易伤/临时HP全部正确 |
+| AC-7 | 法术位消耗/恢复正确 | 单元测试 | 短休恢复一半1环，长休全恢复 |
+| AC-8 | 死亡豁免机制正确 | 单元测试 | 3轮无治疗=死亡，0HP+伤害=2次失败 |
+| AC-9 | 撤退机制正常工作 | 集成测试 | 检定成功/失败正确处理 |
+| AC-10 | 条件系统14种条件全部正确 | 单元测试 | 每种条件的机械效果验证 |
+| AC-11 | AI目标选择正确 | 单元测试 | 评分公式输出合理 |
+| AC-12 | Boss阶段转换正确 | 集成测试 | HP阈值触发行为变化 |
+
+---
+
+*文档版本: v1.1*
 *创建日期: 2026-05-04*
-*状态: 初始设计阶段*
-*下一步: 实现CombatManager核心类，编写单元测试*
+*最后更新: 2026-05-09*
+*状态: 设计评审修订完成，待复审*

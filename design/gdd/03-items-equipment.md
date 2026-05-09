@@ -64,6 +64,43 @@
 
 ---
 
+## 1A. 玩家体验幻想 (Player Fantasy)
+
+> **设计支柱对齐：** 物品系统是三大支柱的交汇点——装备选择驱动**角色驱动的故事**（P1），装备决策体现**战术深度**（P2），物品的损坏与传承塑造**持续演进的世界**（P3）。
+
+### 核心情感承诺
+
+物品系统围绕四层情感体验设计：
+
+| 情感 | 承诺 | 设计含义 |
+|------|------|----------|
+| **发现的惊喜** | 每次战利品掉落都可能是改变构筑方向的契机 | 稀有物品不只是"更强"，而是"不同"——它们打开新的玩法可能性 |
+| **选择的重量** | 装备决策有真实的机会成本 | 同调上限（3件）、槽位互斥、双手武器占两槽——每个"是"都意味着一个"否" |
+| **物品的故事** | 魔法物品有自己的来历和传说 | LLM 生成的 flavor text、诅咒的隐藏叙事、灵魂绑定的传承故事 |
+| **使用的后果** | 耐久度和灵魂绑定让物品有生命周期 | 物品会损坏、会丢失、会传承——它们不是静态数值，而是有生命的伙伴 |
+
+### 设计测试
+
+面对任何物品设计决策时，用以下四个测试验证：
+
+1. **惊喜测试** — 如果玩家看到这件物品时没有"哦！"的反应，这个设计就失败了。物品应该改变玩家对角色构筑的思考，而不只是"+1 更大的数字"。
+
+2. **选择测试** — 装备这件物品是否意味着放弃另一件？如果没有机会成本，物品就没有意义。同调槽位（最多3件）、装备槽位互斥、双手武器规则都是为了制造有意义的选择。
+
+3. **故事测试** — 这件物品能否承载一个故事？（来历、传说、诅咒）一把"炽焰长剑"不如一把"曾属于堕落圣骑士的、在黑暗中低语的长剑"。LLM 的职责就是为物品注入叙事灵魂。
+
+4. **构筑测试** — 这件物品是否能让玩家思考新的构筑方向？一把附带火焰伤害的武器可能让玩家重新考虑火系法术的搭配；一件提供潜行优势的护甲可能让战士考虑更隐秘的战术。
+
+### 反支柱约束
+
+物品系统**必须遵守**游戏的反支柱——本游戏**不是刷关打宝游戏**：
+
+- ❌ **物品不应该只是"+X 数值"的数值棍** — 每件魔法物品必须有独特的机制或叙事身份，而非单纯的数值提升
+- ❌ **物品不应该让玩家"不敢使用"** — 耐久度惩罚必须有合理的修复出口（铁匠铺），不能让玩家因为害怕损坏而把好装备锁在箱子里
+- ❌ **物品不应该让玩家"刷30次"才能获得** — 战利品生成依赖概率表而非重复刷取；任何物品都可以通过制作、商店或任务奖励等替代路径获得
+
+---
+
 ## 2. 物品数据模型
 
 ### 2.1 核心 Item JSON Schema
@@ -93,8 +130,8 @@
     "type": {
       "type": "string",
       "enum": [
-        "weapon", "armor", "shield", "potion",
-        "scroll", "wand", "ring", "amulet",
+        "weapon", "armor", "shield", "helmet", "cloak", "boots",
+        "potion", "scroll", "wand", "ring", "amulet",
         "misc", "quest"
       ],
       "description": "物品类型，决定装备槽位和行为"
@@ -450,6 +487,9 @@
 | `weapon` | 武器（近战/远程） | Main Hand / Off Hand / Both | 是 | 否 |
 | `armor` | 护甲（轻/中/重） | Armor | 是 | 否 |
 | `shield` | 盾牌 | Off Hand | 是 | 否 |
+| `helmet` | 头盔 | Helmet | 是 | 否 |
+| `cloak` | 披风/斗篷 | Cloak | 是 | 否 |
+| `boots` | 靴子 | Boots | 是 | 否 |
 | `potion` | 药水 | Backpack (使用) | 否 | 是 (最大99) |
 | `scroll` | 卷轴 | Backpack (使用) | 否 | 是 (最大99) |
 | `wand` | 魔杖 | Main Hand | 是 (有限) | 否 |
@@ -501,6 +541,21 @@
 | `item_shortbow` | 短弓 | 1d6 | piercing | 2 | ammunition (80/320), two_handed | 80/320 | 25 |
 | `item_sling` | 投石索 | 1d4 | bludgeoning | 0 | ammunition (30/120) | 30/120 | 0.1 |
 
+#### 弹药物品 (Ammunition)
+
+| id | 名称 | 适用武器 | 重量 | 堆叠上限 | 价值(gp) |
+|----|------|----------|------|----------|----------|
+| `item_arrow` | 箭矢 | 短弓、长弓 | 0.05 | 20 | 0.05 |
+| `item_bolt` | 弩矢 | 轻弩、重弩、手弩 | 0.075 | 20 | 0.1 |
+| `item_sling_bullet` | 投石弹丸 | 投石索 | 0.075 | 20 | 0.01 |
+| `item_blowgun_needle` | 吹箭针 | 吹箭筒 | 0.01 | 50 | 0.1 |
+
+**弹药规则**:
+- 每次远程攻击消耗1发弹药
+- 战斗结束后可回收50%已使用的弹药（向上取整）
+- 弹药占背包槽位：每20发占1格（见角色系统§2.1.4）
+- 弹药可堆叠，堆叠上限见上表
+
 #### 军用近战武器 (Martial Melee Weapons)
 
 | id | 名称 | 伤害 | 伤害类型 | 重量 | 属性 | 价值(gp) |
@@ -523,12 +578,12 @@
 | `item_war_pick` | 战镐 | 1d8 | piercing | 2 | — | 5 |
 | `item_warhammer` | 战锤 | 1d8 | bludgeoning | 2 | versatile (1d10) | 15 |
 | `item_whip` | 长鞭 | 1d4 | slashing | 3 | finesse, reach | 2 |
-| `item_blowgun` | 吹箭筒 | 1 | piercing | 1 | ammunition (25/100), loading | 10 |
 
 #### 军用远程武器 (Martial Ranged Weapons)
 
 | id | 名称 | 伤害 | 伤害类型 | 重量 | 属性 | 射程 | 价值(gp) |
 |----|------|------|----------|------|------|------|----------|
+| `item_blowgun` | 吹箭筒 | 1 | piercing | 1 | ammunition (25/100), loading | 25/100 | 10 |
 | `item_hand_crossbow` | 手弩 | 1d6 | piercing | 3 | ammunition (30/120), light, loading | 30/120 | 75 |
 | `item_heavy_crossbow` | 重弩 | 1d10 | piercing | 18 | ammunition (100/400), heavy, loading, two_handed | 100/400 | 50 |
 | `item_longbow` | 长弓 | 1d8 | piercing | 2 | ammunition (150/600), heavy, two_handed | 150/600 | 50 |
@@ -579,11 +634,17 @@
 | 稀有度 | 英文 | 稀有度修正值 | 附魔槽数 | 同调需求概率 | 基础价格乘数 | UI颜色 |
 |--------|------|-------------|----------|-------------|-------------|--------|
 | Common | common | ×1.0 | 0 | 0% | ×1 | `#9d9d9d` (灰) |
-| Uncommon | uncommon | ×1.5 | 1 | 10% | ×5 | `#1eff00` (绿) |
-| Rare | rare | ×2.0 | 1–2 | 40% | ×50 | `#0070dd` (蓝) |
-| Very Rare | very_rare | ×3.0 | 2–3 | 70% | ×500 | `#a335ee` (紫) |
-| Legendary | legendary | ×5.0 | 3 | 100% | ×5000 | `#ff8000` (橙) |
-| Artifact | artifact | ×10.0 | 特殊 | 100% | ×50000 | `#e6cc80` (金) |
+| Uncommon | uncommon | ×1.5 | 1 | 10% | ×3 | `#1eff00` (绿) |
+| Rare | rare | ×2.0 | 1–2 | 40% | ×10 | `#0070dd` (蓝) |
+| Very Rare | very_rare | ×3.0 | 2–3 | 70% | ×30 | `#a335ee` (紫) |
+| Legendary | legendary | ×5.0 | 3 | 100% | ×100 | `#ff8000` (橙) |
+| Artifact | artifact | ×10.0 | 特殊 | 100% | ×500 | `#e6cc80` (金) |
+
+> **经济设计理念 — "掉落为主，商店为辅"**：
+> - 稀有度价格乘数采用**近似线性增长**（×1/×3/×10/×30/×100/×500），与装备战力增长曲线匹配
+> - Rare+ 物品主要通过**冒险掉落**获取，商店仅出售 Common/Uncommon 物品
+> - 商店定位为"**补充消耗品**"而非"购买装备"
+> - 制作系统允许玩家用冒险材料**定向制作** Rare+ 物品，作为掉落的补充途径
 
 > **稀有度修正值 (rarity_modifier)**：用于战利品生成时调整掉率权重。数值越高，表示该稀有度的出现概率经基础概率调整后的实际权重。
 
@@ -598,7 +659,7 @@
 | Boss 掉落 | 20% | 30% | 25% | 15% | 8% | 2% |
 | 宝箱/隐藏区域 | 50% | 30% | 15% | 4% | 1% | 0% |
 | 任务奖励 | 30% | 35% | 25% | 8% | 2% | 0% |
-| 商人出售 | 80% | 15% | 5% | 0% | 0% | 0% |
+| 商店出售 | 70% | 30% | 0% | 0% | 0% | 0% |
 
 #### 中冒险 (Medium Adventure, ~3 hr, CR 5–10)
 
@@ -609,7 +670,7 @@
 | Boss 掉落 | 10% | 20% | 30% | 20% | 15% | 5% |
 | 宝箱/隐藏区域 | 35% | 30% | 22% | 10% | 2.5% | 0.5% |
 | 任务奖励 | 20% | 30% | 28% | 15% | 6% | 1% |
-| 商人出售 | 60% | 25% | 12% | 2.5% | 0.5% | 0% |
+| 商店出售 | 60% | 40% | 0% | 0% | 0% | 0% |
 | 制作 (铁匠铺) | 85% | 12% | 3% | 0% | 0% | 0% |
 
 #### 长冒险 (Long Adventure, ~6 hr, CR 11–16+)
@@ -621,7 +682,7 @@
 | Boss 掉落 | 5% | 15% | 25% | 25% | 20% | 10% |
 | 宝箱/隐藏区域 | 20% | 28% | 28% | 16% | 6% | 2% |
 | 任务奖励 | 10% | 20% | 30% | 22% | 14% | 4% |
-| 商人出售 | 45% | 30% | 18% | 5% | 1.5% | 0.5% |
+| 商店出售 | 50% | 50% | 0% | 0% | 0% | 0% |
 | 制作 (图书馆) | 60% | 25% | 10% | 4% | 1% | 0% |
 
 ### 3.3 稀有度掷骰算法
@@ -687,64 +748,66 @@ roll = 0.72:
 
 ### 4.1 槽位定义
 
+> **设计说明 (v1.1)**: 槽位布局以角色系统 (`01-character-system.md` §3.1) 为准。背包槽数 = 10 + STR调整值×2（非固定12格）。
+
 ```
 角色装备栏 (Character Equipment Slots):
 
 ┌─────────────────────────────────────────┐
-│  [Head — Helmet]                        │  ← 头盔 (Phase 2, MVP暂不启用)
+│  [Helmet]                               │  ← 头盔
 ├──────────────┬──────────────────────────┤
-│ [Body — Armor]                          │  ← 护甲
+│ [Armor]                                │  ← 护甲
 ├──────────────┼──────────────┬───────────┤
-│ [Main Hand]  │ [Off Hand]   │ [Back]    │  ← 主手/副手/披风
+│ [Main Hand]  │ [Off Hand]   │ [Cloak]   │  ← 主手/副手/披风
 ├──────────────┴──────────────┼───────────┤
-│ [Hands — Gloves]            │ [Waist]   │  ← 手套/腰带 (Phase 2)
-├─────────────────────────────┼───────────┤
-│ [Feet — Boots]              │           │  ← 靴子
+│ [Boots]                    │           │  ← 靴子
 ├──────────────┬──────────────┴───────────┤
 │ [Ring 1]     │ [Ring 2]                │  ← 戒指 ×2
 ├──────────────┼─────────────────────────┤
 │ [Amulet]     │                          │  ← 护符
 ├──────────────┴─────────────────────────┤
-│  📦 Backpack (12 slots)                 │  ← 背包 (所有非装备物品)
+│  📦 Backpack (10 + STR_mod×2 slots)    │  ← 背包 (所有非装备物品)
 └─────────────────────────────────────────┘
 
-MVP 阶段槽位: Main Hand, Off Hand, Armor, Ring 1, Ring 2, Amulet, Backpack(12)
-Phase 2 扩展槽位: Head, Hands, Feet, Back, Waist
+MVP 阶段槽位: Main Hand, Off Hand, Armor, Helmet, Cloak, Boots, Ring 1, Ring 2, Amulet, Backpack
+背包槽数: 基础10格 + 每+1 STR调整值额外2格 (STR 16 → 16格)
 ```
 
 ### 4.2 槽位枚举
 
-```gdscript
-enum EquipmentSlot {
-    MAIN_HAND,      # 主手
-    OFF_HAND,       # 副手
-    ARMOR,          # 护甲
-    HEAD,           # 头盔 (Phase 2)
-    BACK,           # 披风 (Phase 2)
-    HANDS,          # 手套 (Phase 2)
-    WAIST,          # 腰带 (Phase 2)
-    FEET,           # 靴子 (Phase 2)
-    RING_1,         # 戒指 1
-    RING_2,         # 戒指 2
-    AMULET,         # 护符
-    BACKPACK        # 背包 (12格)
+```csharp
+public enum EquipmentSlot
+{
+    MainHand,      // 主手
+    OffHand,       // 副手
+    Armor,         // 护甲
+    Helmet,        // 头盔
+    Cloak,         // 披风
+    Boots,         // 靴子
+    Ring1,         // 戒指 1
+    Ring2,         // 戒指 2
+    Amulet,        // 护符
+    Backpack       // 背包 (10 + STR_mod×2 格)
 }
 ```
 
 ### 4.3 槽位兼容矩阵
 
-| 物品类型 ↓ / 槽位 → | Main Hand | Off Hand | Armor | Ring | Amulet | Backpack |
-|---------------------|-----------|----------|-------|------|--------|----------|
-| `weapon` | ✅ | ✅ (限定条件) | ❌ | ❌ | ❌ | ✅ |
-| `armor` | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ |
-| `shield` | ❌ | ✅ | ❌ | ❌ | ❌ | ✅ |
-| `potion` | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
-| `scroll` | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
-| `wand` | ✅ | ❌ | ❌ | ❌ | ❌ | ✅ |
-| `ring` | ❌ | ❌ | ❌ | ✅ | ❌ | ✅ |
-| `amulet` | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ |
-| `misc` | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
-| `quest` | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
+| 物品类型 ↓ / 槽位 → | Main Hand | Off Hand | Armor | Helmet | Cloak | Boots | Ring | Amulet | Backpack |
+|---------------------|-----------|----------|-------|--------|-------|-------|------|--------|----------|
+| `weapon` | ✅ | ✅ (限定条件) | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
+| `armor` | ❌ | ❌ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
+| `shield` | ❌ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
+| `helmet` | ❌ | ❌ | ❌ | ✅ | ❌ | ❌ | ❌ | ❌ | ✅ |
+| `cloak` | ❌ | ❌ | ❌ | ❌ | ✅ | ❌ | ❌ | ❌ | ✅ |
+| `boots` | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ |
+| `potion` | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
+| `scroll` | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
+| `wand` | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
+| `ring` | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ❌ | ✅ |
+| `amulet` | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ |
+| `misc` | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
+| `quest` | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
 
 ### 4.4 双手武器规则
 
@@ -1087,7 +1150,8 @@ Procedure:
   2. 显示修复成本和所需材料:
 
      修复成本(gp) = item.value_gp × rarity_multiplier × condition_fix_rate
-     - rarity_multiplier: common=1, uncommon=1.5, rare=2, very_rare=3, legendary=5, artifact=10
+     - rarity_multiplier: common=1, uncommon=3, rare=10, very_rare=30, legendary=100, artifact=500
+       (使用 §3.1 统一稀有度乘数)
      - condition_fix_rate = (100 - current_durability) / 100 * rate_per_tier
        rate_per_tier: pristine→0%, good→0.10, worn→0.25, damaged→0.50, broken→1.00
 
@@ -1103,8 +1167,11 @@ Procedure:
 
 修复示例:
   一把稀有 (rare) 长剑 (value_gp=15) 处于 damaged (35%):
-  基础修复成本 = 15 × 2 × 0.50 = 15 gp
+  基础修复成本 = 15 × 10 × 0.50 = 75 gp
   需要: 铁矿 ×2 + 秘银锭 ×1
+
+  一把 Uncommon 长剑 (value_gp=15) 处于 worn (60%):
+  基础修复成本 = 15 × 3 × 0.25 = 11.25 → 11 gp
 ```
 
 ### 6.5 物品损坏 (Broken)
@@ -1199,6 +1266,12 @@ Broken 状态效果:
 | 铁匠铺 (Blacksmith) | 声望 Lv.2 | 武器、护甲、盾牌 | 武器、护甲、盾牌 |
 | 炼金台 (Alchemist) | 声望 Lv.3 | 药水、油、毒药 | — |
 | 图书馆 (Library) | 声望 Lv.5 | 法术卷轴、魔杖充能、附魔研究 | — |
+
+> **制作系统经济定位**：
+> - **Common/Uncommon 物品**：制作成本与商店售价持平（成本平价），玩家可选择购买或自制
+> - **Rare+ 物品**：商店不出售，制作是获取特定附魔装备的**主要途径**（配合冒险掉落的随机性）
+> - **材料来源**：制作材料主要来自**冒险掉落**，商店仅出售基础材料（铁锭、皮革等）
+> - **制作优势**：相比掉落的随机性，制作允许玩家**定向选择**附魔组合
 
 ### 8.2 制作配方数据模型
 
@@ -1303,6 +1376,71 @@ Broken 状态效果:
 | `recipe_scroll_lv3` | 3环法术卷轴 | 18 | 羊皮纸 ×2, 魔法墨水 ×5, 水晶粉 ×1 | 400 | 2×长休 |
 | `recipe_wand_magic_missile` | 魔法飞弹魔杖 | 18 | 魔杖核心 ×1, 魔法墨水 ×5, 水晶粉 ×3 | 500 | 3×长休 |
 | `recipe_research_enchant` | 附魔研究 (解锁稀有附魔配方) | 20 | 古代典籍 ×1, 魔法墨水 ×10 | 1000 | 5×长休 |
+
+### 8.5 Rare+ 制作配方（定向附魔）
+
+Rare+ 物品**不出售于商店**，制作是获取特定附魔装备的主要途径。制作 Rare+ 物品需要：
+1. **基础物品**（Common/Uncommon 品质，可自制或购买）
+2. **稀有材料**（仅来自冒险掉落，不可购买）
+3. **附魔配方**（通过图书馆"附魔研究"解锁，或冒险中拾取）
+
+#### Rare+ 制作成本公式
+
+```
+Rare+ 制作成本公式:
+
+  制作总成本 = 基础物品成本 + 稀有材料成本 + 附魔加工费
+
+  其中:
+    基础物品成本 = base_value × 基础稀有度乘数 (common×1 或 uncommon×3)
+    稀有材料成本 = Σ(材料.掉落数量权重 × 材料.稀有度) — 不可购买，仅冒险掉落
+    附魔加工费 = target_rarity_multiplier × base_value × 0.3
+
+  成本平价验证:
+    制作总成本 ≈ base_value × target_rarity_multiplier × 0.8~1.0
+    即制作成本约为目标稀有度商店售价的 80%~100%（若商店出售的话）
+
+  示例 — 制作一把 Rare 炽焰长剑:
+    基础物品: 长剑 (common) = 15 × 1 = 15 gp
+    稀有材料: 秘银锭 ×2 (冒险掉落, 不可购买) + 火焰精华 ×1 (冒险掉落)
+    附魔加工费: 10 × 15 × 0.3 = 45 gp
+    制作总成本: 15 + 0 (材料不可定价) + 45 = 60 gp
+    对比 Rare 长剑理论售价: 15 × 10 = 150 gp
+    制作节省: 60% (但需要冒险获取稀有材料)
+```
+
+#### Rare+ 铁匠铺配方
+
+| 配方 ID | 产出物品 | DC | 基础物品 | 稀有材料 (冒险掉落) | 金币 | 时间 |
+|---------|---------|-----|---------|-------------------|------|------|
+| `recipe_longsword_flame` | 炽焰长剑 (Rare) | 16 | 长剑 ×1 | 秘银锭 ×2, 火焰精华 ×1 | 45 | 2×长休 |
+| `recipe_longsword_frost` | 霜痕长剑 (Rare) | 16 | 长剑 ×1 | 秘银锭 ×2, 寒冰精华 ×1 | 45 | 2×长休 |
+| `recipe_greatsword_power` | 巨力巨剑 (Rare) | 18 | 巨剑 ×1 | 精金锭 ×3, 泰坦之血 ×1 | 80 | 2×长休 |
+| `recipe_plate_reinforced` | 强化板甲 (Rare) | 19 | 全身板甲 ×1 | 秘银锭 ×5, 符文石 ×2 | 200 | 3×长休 |
+| `recipe_longsword_holy` | 神圣长剑 (Very Rare) | 20 | 炽焰长剑 (Rare) ×1 | 星辰钢 ×3, 圣水精华 ×2 | 150 | 3×长休 |
+
+#### Rare+ 炼金台配方
+
+| 配方 ID | 产出物品 | DC | 基础物品 | 稀有材料 (冒险掉落) | 金币 | 时间 |
+|---------|---------|-----|---------|-------------------|------|------|
+| `recipe_superior_healing` | 超级治疗药水 (Rare) | 16 | 高级治疗药水 ×1 | 生命精华 ×2, 精灵露 ×1 | 80 | 长休 |
+| `recipe_potion_of_str` | 力量药水 (Rare) | 17 | 纯净水 ×1 | 巨人精华 ×1, 水晶粉 ×3 | 100 | 长休 |
+| `recipe_potion_of_speed` | 加速药水 (Very Rare) | 19 | 纯净水 ×1 | 闪电精华 ×2, 时光沙 ×1 | 200 | 2×长休 |
+
+#### 稀有材料来源表
+
+| 材料 ID | 名称 | 掉落来源 | 典型掉率 | 用途 |
+|---------|------|----------|----------|------|
+| `material_mithril_ingot` | 秘银锭 | 精英敌人/Boss (CR 5+) | 15% | Rare 武器/护甲 |
+| `material_adamantine_ingot` | 精金锭 | Boss (CR 8+) | 10% | Rare+ 重型武器 |
+| `material_fire_essence` | 火焰精华 | 火焰主题敌人/Boss | 20% | 炽焰附魔 |
+| `material_frost_essence` | 寒冰精华 | 寒冰主题敌人/Boss | 20% | 霜痕附魔 |
+| `material_titan_blood` | 泰坦之血 | Boss (CR 10+) | 8% | 力量类附魔 |
+| `material_rune_stone` | 符文石 | 宝箱/隐藏区域 | 12% | 护甲附魔 |
+| `material_star_steel` | 星辰钢 | Boss (CR 13+) | 5% | Very Rare 武器 |
+| `material_holy_water_essence` | 圣水精华 | 亡灵主题 Boss | 10% | 神圣附魔 |
+| `material_life_essence` | 生命精华 | 精英敌人 (CR 5+) | 12% | 高级治疗药水 |
+| `material_time_sand` | 时光沙 | Boss (CR 15+) | 3% | Very Rare 药水 |
 
 
 ---
@@ -1884,10 +2022,12 @@ Attack Roll Calculation Pipeline:
 
 | 商店 | 酒馆区域 | 解锁条件 | 出售物品类型 | 刷新周期 |
 |------|----------|----------|-------------|----------|
-| 杂货商 | 大厅 | 初始 | 基础消耗品、基础武器、弹药 | 每次冒险返回后 |
-| 铁匠铺 | 铁匠铺 | 声望 Lv.2 | 武器、护甲、盾牌 | 每次长休后 |
-| 炼金店 | 炼金台 | 声望 Lv.3 | 药水、油、毒药、材料 | 每次冒险返回后 |
-| 魔法书店 | 图书馆 | 声望 Lv.5 | 法术卷轴、魔杖、魔法材料 | 每次长休后 |
+| 杂货商 | 大厅 | 初始 | 基础消耗品、弹药、基础材料 | 每次冒险返回后 |
+| 铁匠铺 | 铁匠铺 | 声望 Lv.2 | Common/Uncommon 武器护甲、维修材料 | 每次长休后 |
+| 炼金店 | 炼金台 | 声望 Lv.3 | 药水、油、毒药、炼金材料 | 每次冒险返回后 |
+| 魔法书店 | 图书馆 | 声望 Lv.5 | 1-2环法术卷轴、魔法墨水 | 每次长休后 |
+
+> **商店定位**：商店仅出售 **Common 和 Uncommon** 物品。Rare+ 物品通过**冒险掉落**或**制作系统**获取。商店的核心功能是**补充消耗品**和**提供基础材料**，而非出售高级装备。
 
 ### 12.2 定价模型
 
@@ -1895,19 +2035,19 @@ Attack Roll Calculation Pipeline:
 价格公式:
 
   卖价 (Shop → Player):
-    price = base_value × rarity_multiplier × condition_adjuster × reputation_modifier
+    price = base_value × rarity_multiplier × condition_adjuster
 
   回收价 (Player → Shop):
-    sell_price = base_value × rarity_multiplier × 0.5 × condition_adjuster × reputation_modifier
+    sell_price = base_value × rarity_multiplier × 0.3 × condition_adjuster
 
   其中:
     rarity_multiplier:
       common:     ×1
-      uncommon:   ×5
-      rare:       ×50
-      very_rare:  ×500
-      legendary:  ×5000
-      artifact:   ×50000 (传说级，通常不出售于常规商店)
+      uncommon:   ×3
+      rare:       ×10  (仅制作/掉落，商店不出售)
+      very_rare:  ×30  (仅制作/掉落，商店不出售)
+      legendary:  ×100 (仅制作/掉落，商店不出售)
+      artifact:   ×500 (仅制作/掉落，商店不出售)
 
     condition_adjuster:
       pristine: 1.0
@@ -1916,18 +2056,19 @@ Attack Roll Calculation Pipeline:
       damaged:  0.35
       broken:   0.05
 
-    reputation_modifier:
-      声望 Lv.1-2: ×1.25
-      声望 Lv.3-5: ×1.10
-      声望 Lv.6-8: ×1.00
-      声望 Lv.9+:   ×0.90
+  注意: 商店仅出售 Common/Uncommon 物品。Rare+ 物品的"价格"仅用于
+  回收估值和制作成本计算，不出现在商店 UI 中。
 
 定价示例:
-  一把稀有 (rare) 长剑，耐久 pristine:
-    sell_price = 15 × 50 × 1.0 × 1.10 (声望 Lv.3) = 825 gp
+  一把 Uncommon 长剑，耐久 pristine:
+    shop_price = 15 × 3 × 1.0 = 45 gp
 
   玩家卖出同一把剑 (worn, 60%):
-    buyback_price = 15 × 50 × 0.5 × 0.65 × 1.10 = 268 gp
+    sell_price = 15 × 3 × 0.3 × 0.65 = 8.78 → 9 gp
+
+  一把 Rare 长剑 (商店不出售，仅用于回收估值):
+    theoretical_value = 15 × 10 = 150 gp
+    sell_price = 150 × 0.3 × 1.0 = 45 gp (pristine)
 ```
 
 ### 12.3 商店库存刷新
@@ -1941,22 +2082,30 @@ Attack Roll Calculation Pipeline:
      炼金店: 6 + d4 物品
      魔法书店: 4 + d4 物品
 
-  2. 库存生成:
+  2. 库存生成 (仅 Common/Uncommon):
      for i in [1, inventory_size]:
        rarity = RollRarity("shop", adventure_tier)
+       // 商店稀有度上限: uncommon
+       if rarity > "uncommon":
+         rarity = "uncommon"  // 强制降级
        item = generate item as per loot generation
        inventory.append(item)
 
   3. 必定刷新物品 (不受随机影响):
      杂货商: 箭矢×20 (×3), 治疗药水 (×2), 火把×5, 口粮×5
-     铁匠铺: 基础维修工具包 (×1)
-     炼金店: 治疗药水 (×3), 解毒剂 (×2)
-     魔法书店: 1环法术卷轴 (随机3种, 各×1)
+     铁匠铺: 基础维修工具包 (×1), 铁锭×5, 皮革×3
+     炼金店: 治疗药水 (×3), 解毒剂 (×2), 草药×10
+     魔法书店: 1环法术卷轴 (随机3种, 各×1), 魔法墨水×5
 
   4. 特殊商品 (稀有, 每个刷新周期有概率出现):
-     铁匠铺:  稀有材料 (25%概率), 魔法武器 (10%概率)
-     炼金店:  稀有配方 (15%概率)
-     魔法书店: 3环法术卷轴 (10%概率)
+     铁匠铺:  稀有基础材料 (铁锭/皮革批量包, 25%概率)
+     炼金店:  高级治疗药水 (uncommon, 15%概率)
+     魔法书店: 2环法术卷轴 (uncommon, 10%概率)
+
+  5. 商店不出售的物品类型:
+     - Rare 及以上稀有度的装备
+     - 稀有材料 (秘银锭、火焰精华等 — 仅冒险掉落)
+     - 传奇/神器物品
 ```
 
 ### 12.4 修复与升级成本
@@ -1964,16 +2113,18 @@ Attack Roll Calculation Pipeline:
 ```
 修理成本 (见 §6.4):
   repair_cost = item.value_gp × rarity_multiplier × condition_fix_rate
+  // rarity_multiplier 使用 §3.1 新乘数: ×1/×3/×10/×30/×100/×500
 
 升级成本 (常规→魔法):
   // 铁匠铺: 为 common 武器/护甲 添加 1 个附魔槽 (uncommon 化)
-  upgrade_cost = item.value_gp × 20 + rare_materials × 3
+  upgrade_cost = item.value_gp × 6 + rare_materials × 3
+  // 成本约为 uncommon 物品售价的 2 倍 (15×3×2=90 gp 对比 15×6=90 gp)
   成功概率: DC 18 smithing check
   失败: 物品 durability -25%，材料消耗
   暴击失败 (自然1): 物品 broken
 
   // 图书馆: 为 uncommon+ 物品添加额外附魔槽 (附魔研究)
-  upgrade_cost = item.value_gp × 100 + arcane_crystals × 5
+  upgrade_cost = item.value_gp × 30 + arcane_crystals × 5
   成功概率: DC 20 arcana check
   失败: 材料消耗，不损伤物品
 ```
@@ -1990,11 +2141,120 @@ Attack Roll Calculation Pipeline:
 
   特点:
     - 库存大小: 4 + d4 物品
+    - 稀有度上限: Uncommon (与酒馆商店一致)
     - 价格: ×1.5 基础价格 (旅行溢价)
-    - 回收价: ×0.3 基础价格 (只接受宝石和货币交换)
+    - 回收价: ×0.2 基础价格 (低于酒馆商店的 30%)
     - 特殊: 可能出售该冒险主题的专属消耗品
       (例: 亡灵主题冒险中出售圣水和光耀卷轴)
-    - 无 reputation_modifier (不享受酒馆声望折扣)
+    - 无声誉影响 (不享受酒馆设施加成)
+```
+
+### 12.6 金币消耗机制（Gold Sinks）
+
+为防止金币无限累积，游戏设计了以下三条主要金币消耗途径：
+
+#### 12.6.1 装备维修（主要消耗）
+
+装备维修是**最频繁的金币消耗**。每次冒险后，装备耐久度下降，需要花费金币修复。
+
+```
+维修成本公式:
+  repair_cost = item.value_gp × rarity_multiplier × condition_fix_rate
+
+  其中:
+    rarity_multiplier: 使用 §3.1 的新乘数 (×1/×3/×10/×30/×100/×500)
+    condition_fix_rate:
+      pristine → good:   0.10 (10% 价值)
+      good → pristine:   0.05 (5% 价值)
+      worn → good:       0.25 (25% 价值)
+      damaged → good:    0.50 (50% 价值)
+      broken → good:     1.00 (100% 价值)
+
+  维修消耗预期:
+    - 每次短冒险后: 约 10-30 gp 维修费 (Common/Uncommon 装备)
+    - 每次中冒险后: 约 50-200 gp 维修费 (含 Rare 装备)
+    - 每次长冒险后: 约 200-1000 gp 维修费 (含 Very Rare+ 装备)
+
+  示例:
+    Uncommon 长剑 (value=15, rarity_mult=3), 从 worn 修复:
+    repair_cost = 15 × 3 × 0.25 = 11.25 → 11 gp
+
+    Rare 长剑 (value=15, rarity_mult=10), 从 damaged 修复:
+    repair_cost = 15 × 10 × 0.50 = 75 gp
+```
+
+#### 12.6.2 酒馆设施升级（阶段性消耗）
+
+酒馆设施升级是一次性大额金币消耗，解锁新功能和制作配方。
+
+```
+设施升级成本表:
+
+  铁匠铺:
+    Lv.1 → Lv.2: 200 gp + 铁锭 ×10 (解锁: Uncommon 制作)
+    Lv.2 → Lv.3: 1000 gp + 秘银锭 ×5 (解锁: Rare 制作, 高级维修)
+
+  炼金台:
+    Lv.1 → Lv.2: 300 gp + 草药 ×20 (解锁: 高级药水制作)
+    Lv.2 → Lv.3: 1500 gp + 精华 ×3 (解锁: Very Rare 药水制作)
+
+  图书馆:
+    Lv.1 → Lv.2: 500 gp + 魔法墨水 ×10 (解锁: 2环卷轴制作)
+    Lv.2 → Lv.3: 2500 gp + 古代典籍 ×1 (解锁: 附魔研究, Rare 附魔配方)
+
+  总计: 完全升级所有设施需要约 6000 gp + 大量稀有材料
+```
+
+#### 12.6.3 角色训练（持续消耗）
+
+角色训练是每次冒险间的持续金币消耗，用于提升角色能力。
+
+```
+训练成本表:
+
+  属性提升训练 (每次冒险间可进行 1 次):
+    基础属性 +1: 100 × 当前属性值 gp
+    例: STR 14 → 15: 1400 gp
+    例: STR 16 → 17: 1600 gp
+    限制: 每个属性最多通过训练提升 2 点
+
+  熟练项训练:
+    新武器熟练: 50 × 角色等级 gp
+    新工具熟练: 30 × 角色等级 gp
+    新语言: 20 × 角色等级 gp
+
+  技能专精训练:
+    技能专精 (Expertise): 200 × 角色等级 gp
+    限制: 每 4 级可获得 1 次专精训练
+
+  训练时间:
+    属性提升: 1 次长休
+    熟练项: 2 次长休
+    技能专精: 3 次长休
+```
+
+#### 12.6.4 其他金币消耗
+
+```
+其他消耗途径:
+
+  1. 冒险准备:
+     - 口粮: 5 gp/份 (每次冒险需要 3-5 份)
+     - 火把: 1 gp/支 (每次冒险需要 2-3 支)
+     - 绳索: 1 gp/50尺
+     - 总计: 约 20-40 gp/次冒险
+
+  2. 鉴定费用:
+     - 鉴定魔法物品: 50 gp/件 (或使用鉴定卷轴)
+     - 鉴定诅咒物品: 100 gp/件
+
+  3. 灵魂绑定符文 (稀有消耗品):
+     - 获取方式: 仅 Boss 掉落或特殊任务奖励
+     - 不可购买，但可用于绑定未绑定的 Rare+ 物品
+
+  4. 旅行费用 (Phase 2):
+     - 马车租赁: 50 gp/次冒险
+     - 船票: 100-500 gp (取决于距离)
 ```
 
 
@@ -2131,15 +2391,21 @@ Attack Roll Calculation Pipeline:
 
 ```
 测试名称: test_shop_pricing
-目标: 验证定价公式
+目标: 验证定价公式 (新经济模型)
 
 场景:
-  1. Common 长剑, pristine, 声望 Lv.3:
-     price = 15 × 1 × 1.0 × 1.10 = 16gp (舍入)
-  2. Rare 细剑, worn(60%), 声望 Lv.5:
-     price = 25 × 50 × 0.65 × 1.10 = 893gp
-  3. 卖出 rare 物品 → price × 0.5
-     893 × 0.5 = 446gp
+  1. Common 长剑, pristine:
+     price = 15 × 1 × 1.0 = 15 gp
+  2. Uncommon 长剑, pristine:
+     price = 15 × 3 × 1.0 = 45 gp
+  3. 卖出 Uncommon 长剑 (worn, 60%):
+     sell_price = 15 × 3 × 0.3 × 0.65 = 8.78 → 9 gp
+  4. Rare 长剑 (商店不出售，仅验证回收估值):
+     theoretical_value = 15 × 10 = 150 gp
+     sell_price = 150 × 0.3 × 1.0 = 45 gp (pristine)
+  5. 验证商店不出售 Rare+ 物品:
+     shop_inventory = generate_shop_inventory("blacksmith", "medium")
+     assert all(item.rarity <= "uncommon" for item in shop_inventory)
 ```
 
 ### 13.2 集成测试
@@ -2180,7 +2446,7 @@ Attack Roll Calculation Pipeline:
 
 ```
 测试名称: test_full_loot_economy
-目标: 运行 100 次完整短冒险，验证经济平衡
+目标: 运行 100 次完整短冒险，验证经济平衡 (新经济模型)
 
 流程:
   for i in range(100):
@@ -2188,12 +2454,20 @@ Attack Roll Calculation Pipeline:
     for encounter in adventure.encounters:
       loot = generate_loot(encounter)
       add_to_party_inventory(loot)
+    # 模拟维修消耗
+    repair_cost = calculate_repair_cost(party_equipment)
+    deduct_gold(repair_cost)
 
   # 验证:
-  assert total_gold in range(500, 5000)  # 合理范围
+  assert total_gold in range(200, 3000)  # 合理范围 (含维修消耗)
   assert magic_items_count in range(3, 15)
   assert average_rarity > "common" and average_rarity < "legendary"
-  # 确保 market_value 可用于后续铁匠铺/商店消费
+  # 验证商店不出售 Rare+ 物品
+  shop_items = generate_shop_inventory("blacksmith", "short")
+  assert all(item.rarity <= "uncommon" for item in shop_items)
+  # 验证维修消耗占收入比例合理
+  avg_repair_ratio = total_repair_cost / total_gold_income
+  assert avg_repair_ratio in range(0.15, 0.40)  # 15-40% 收入用于维修
 ```
 
 ### 13.3 边界情况测试
@@ -2242,7 +2516,7 @@ Attack Roll Calculation Pipeline:
 
 ```
 测试名称: test_loot_table_balance_1000_runs
-目标: 通过 1000 次 seeded 运行验证战利品表的长期平衡
+目标: 通过 1000 次 seeded 运行验证战利品表的长期平衡 (新经济模型)
 
 参数:
   rng_seed = 42
@@ -2251,16 +2525,19 @@ Attack Roll Calculation Pipeline:
   每个冒险类型的预期:
     Short Adventure × 1000:
       平均金币收入: 150-400 gp/次
+      平均维修消耗: 30-100 gp/次 (占收入 15-30%)
       平均魔法物品: 1-3 uncommon/次
       Rare+ 物品占比: < 10%
 
     Medium Adventure × 1000:
       平均金币收入: 500-2000 gp/次
+      平均维修消耗: 100-500 gp/次 (占收入 15-30%)
       平均魔法物品: 3-8, 至少 1 rare/次
       Very Rare+ 物品占比: < 5%
 
     Long Adventure × 1000:
       平均金币收入: 2000-10000 gp/次
+      平均维修消耗: 500-3000 gp/次 (占收入 15-30%)
       平均魔法物品: 8-20, 至少 1 very_rare/次
       Legendary+ 物品占比: < 2%
 
@@ -2269,6 +2546,12 @@ Attack Roll Calculation Pipeline:
       实际平均值在预期的 ± 15% 范围内
       无物品超出 CR 范围限制
       无 unexpected_rarity 出现
+      # 验证商店不出售 Rare+ 物品
+      shop_items = generate_all_shop_inventories(tier)
+      assert all(item.rarity <= "uncommon" for item in shop_items)
+      # 验证金币不会无限累积 (含维修消耗)
+      net_gold_per_adventure = avg_gold_income - avg_repair_cost
+      assert net_gold_per_adventure in range(50, 500)  # 净收入合理
 ```
 
 ---
@@ -2353,10 +2636,71 @@ Attack Roll Calculation Pipeline:
 
 ---
 
-*文档版本: v1.0*
+## 14. 依赖关系 (Dependencies)
+
+### 14.1 上游依赖（本系统依赖）
+
+| 依赖系统 | 依赖内容 | 状态 | 风险 |
+|----------|----------|:----:|:----:|
+| **角色系统** | 装备槽位模型、属性加成、熟练项判定 | ✅ 已审查 | 中 — 需确保slot模型一致 |
+| **战斗系统** | 武器伤害骰、AC计算、法术加值 | ✅ 已设计 | 低 |
+| **酒馆系统** | 铁匠铺/炼金台/商店 | ✅ 已设计 | 低 |
+| **失败与成长系统** | 装备损坏惩罚、传承系统 | ✅ 已审查 | 中 — 需确保耐久度分级一致 |
+| **LLM集成网关** | Copywriter Agent物品描述生成 | ✅ 已审查 | 低 |
+
+### 14.2 下游依赖（依赖本系统的系统）
+
+| 依赖系统 | 依赖内容 | GDD状态 |
+|----------|----------|:-------:|
+| **角色系统** | 装备属性加成、护甲熟练项 | ✅ |
+| **战斗系统** | 武器伤害骰、AC计算 | ✅ |
+| **酒馆系统** | 铁匠铺/炼金台制作 | ✅ |
+| **冒险生成系统** | 战利品tier | ✅ |
+
+---
+
+## 15. 可调参数 (Tuning Knobs)
+
+| 参数 | 当前值 | 安全范围 | 影响面 |
+|------|:------:|:--------:|--------|
+| **稀有度价格乘数** | ×1/×3/×10/×30/×100/×500 | ±50% | 物品经济平衡 |
+| **背包基础槽位** | 10 | 8-12 | 角色携带能力 |
+| **STR加成槽位** | 每+1调整值+2格 | +1~+3 | 力量型角色优势 |
+| **耐久度退化（战斗）** | 1%/次 | 0.5-2% | 装备维护频率 |
+| **耐久度退化（暴击失手）** | 5% | 3-8% | 武器损耗速度 |
+| **修复成本乘数** | value×rarity×condition_rate | ±50% | 修复经济负担 |
+| **卖出价格** | 30% | 20-50% | 物品经济出口 |
+| **商店库存规模** | 8+d6 | 6-12 | 商店可用性 |
+| **鉴定成本** | 未定义 | 5-50gp | 鉴定经济负担 |
+| **同调上限** | 3件 | 2-5件 | 魔法物品限制 |
+| **附魔槽数（Uncommon）** | 1 | 1-2 | 物品定制深度 |
+| **Boss保底稀有度** | Rare | Uncommon-Rare | Boss战利品期望 |
+
+---
+
+## 16. 验收标准 (Acceptance Criteria)
+
+| # | 验收标准 | 测试方法 | 通过条件 |
+|---|----------|----------|----------|
+| AC-1 | 物品JSON Schema验证 | 单元测试 | 有效物品通过，无效物品被拒绝 |
+| AC-2 | 装备槽位兼容性 | 单元测试 | 60种组合全部正确 |
+| AC-3 | 双手武器占用规则 | 单元测试 | two_handed占用Main+Off Hand |
+| AC-4 | 耐久度退化正确 | 单元测试 | 5级条件转换正确 |
+| AC-5 | 修复成本计算正确 | 单元测试 | 公式与角色系统一致 |
+| AC-6 | 稀有度掷骰分布 | 统计测试 | 10000次掷骰误差<2% |
+| AC-7 | 战利品生成符合CR限制 | 集成测试 | 物品不超出CR范围 |
+| AC-8 | 制作配方正确执行 | 集成测试 | 材料消耗、产出正确 |
+| AC-9 | 商店只卖Common/Uncommon | 代码审查 | 商店不生成Rare+物品 |
+| AC-10 | 弹药消耗规则正确 | 集成测试 | 远程攻击消耗弹药 |
+| AC-11 | 鉴定系统正常工作 | 端到端测试 | 未鉴定物品正确显示 |
+| AC-12 | 背包槽数=10+STR_mod×2 | 单元测试 | 与角色系统一致 |
+
+---
+
+*文档版本: v1.1*
 *创建日期: 2026-05-04*
-*状态: 初始技术设计 — 待与 Character System 和 Combat System TDD 对接*
-*预计行数: ~2000+*
+*最后更新: 2026-05-09*
+*状态: 设计评审修订完成，待复审*
 *读者: 系统开发者、数值设计师、QA 工程师*
 
 > **下一步**: 本 TDD 完成后，需要与 Character System 和 Combat System 的 TDD 进行交叉评审，确保接口一致、数据流正确。
