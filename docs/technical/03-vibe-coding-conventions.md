@@ -120,7 +120,7 @@ MCP（Model Context Protocol）让 AI 助手直接操作 MonoGame 项目。monog
 | 功能 | 说明 |
 |------|------|
 | 项目结构感知 | AI 理解 .csproj 的依赖关系 |
-| Entity/Component 生成 | 基于 Nez 的 ECS 架构自动生成代码 |
+| Entity/Component 生成 | 基于自定义 ECS 架构自动生成代码 |
 | Content Pipeline 操作 | 管理 Content.mgcb 和资源文件 |
 | NuGet 包管理 | 增删改包引用 |
 | XNB 编译触发 | 调用 MGCB 编译原始资源 |
@@ -281,7 +281,7 @@ public void AddCombatant(PlayerCharacter pc) { ... }
 public void AddCombatant(EnemyCharacter ec) { ... }
 ```
 
-### 3.4 Nez 框架特定规范
+### 3.4 自定义 ECS 特定规范（非 Nez）
 
 ```csharp
 // Entity 创建：scene.CreateEntity("name") 而非 new Entity()
@@ -297,10 +297,10 @@ public class HealthComponent : Component
     public override void OnStart() { /* 启动逻辑 */ }
 }
 
-// 场景切换：Core.StartSceneTransition()
-Core.StartSceneTransition(new FadeTransition(() => new CombatScene(data)));
+// 场景切换：GameRoot.Instance.StartSceneTransition()
+GameRoot.Instance.StartSceneTransition(new CombatScene(data));
 
-// 避免在 Update() 中做繁重计算，用协程或 Core.Schedule()
+// 避免在 Update() 中做繁重计算
 ```
 
 ### 3.5 GoRogue 特定规范
@@ -314,7 +314,7 @@ public class PlayerFovSystem
     public void RecalculateFov(Point pos, int radius = 8)
     {
         _fov = new FOV(walkabilityMap);
-        _fov.Calculate(pos.X, pos.Y, radius, Radius.CIRCLE);
+        _fov.Calculate(pos.X, pos.Y, radius, Radius.SQUARE); // GoRogue 2.6.4 使用 Radius.SQUARE
     }
 }
 
@@ -326,7 +326,7 @@ var generator = new CaveGenerator(width, height);
 generator.Generate(map);
 ```
 
-使用 `IMapView<T>` 接口作为参数类型。注意 GoRogue 的 `Coord` 与 Nez 的 `Point` 之间坐标系转换。
+使用 `IMapView<T>` 接口作为参数类型。注意 GoRogue 的 `Coord` 与自定义ECS的 `Point` 之间坐标系转换。
 
 ### 3.6 Myra UI 特定规范
 
@@ -434,7 +434,7 @@ public void CalculateDamage_NormalHit_ReturnsCorrectDamage()
 
 | 错误模式 | 表现 | 修复 |
 |----------|------|------|
-| 错用 Unity API | MonoBehaviour、GameObject.Find | 替换 Nez/MonoGame 等效 API |
+| 错用 Unity API | MonoBehaviour、GameObject.Find | 替换 自定义ECS/MonoGame 等效 API |
 | async void | 返回 void 而非 Task | 改为 async Task |
 | 忘记 await | 返回 Task 但不 await | 添加 await |
 | 硬编码路径 | "Content/textures/x.png" | 用 ContentManager.Load |
@@ -637,7 +637,7 @@ Sisyphus 委托 deep Agent 时注入以下 System Prompt，确保代码符合项
 
 ## 项目上下文
 - 游戏框架: MonoGame 3.8.5+ (.NET 8+)
-- ECS: Nez (Scene/Entity/Component)
+- ECS: 自定义轻量 Scene/Entity/Component（非 Nez，见 ADR-0001）
 - Roguelike: GoRogue (FOV, A*, 地图生成)
 - UI: Myra (代码布局优先)
 - 字体: FontStashSharp + Noto Sans CJK
@@ -657,11 +657,12 @@ Sisyphus 委托 deep Agent 时注入以下 System Prompt，确保代码符合项
 - 接口优于实现, 系统间通过 IEventBus 解耦
 - 一个类一个职责 (SRP)
 
-## Nez 特定规范
+## 自定义 ECS 特定规范
 - scene.CreateEntity("name") 而非 new Entity()
 - entity.AddComponent() 添加组件
-- Core.StartSceneTransition() 切换场景
+- GameRoot.Instance.StartSceneTransition() 切换场景
 - Component 构造函数不做繁重操作
+- ⚠️ 本项目使用自定义 ECS（见 `src/DndGame/Core/`），不引入 Nez NuGet 包
 
 ## 禁止
 - 不使用 Unity API (MonoBehaviour, GameObject, Instantiate)
@@ -718,7 +719,7 @@ Sisyphus 委托 deep Agent 时注入以下 System Prompt，确保代码符合项
 
 ### 7.4 常见审查场景
 
-**AI 生成了 Unity API（MonoBehaviour/GameObject/Instantiate）。** 标记为编译错误，替换为 Nez 等效 API，将 Unity API 关键词加入 System Prompt 禁止列表。
+**AI 生成了 Unity API（MonoBehaviour/GameObject/Instantiate）。** 标记为编译错误，替换为 自定义ECS/MonoGame 等效 API，将 Unity API 关键词加入 System Prompt 禁止列表。
 
 **AI 硬编码了数值。** 要求 AI 解释来源，从 DND 规则提取为具名常量或 JSON 配置。
 
@@ -751,7 +752,7 @@ Agent 完成 → dotnet build → 失败返回 Agent 修复
 
 ## 附录 A：外部资料查阅规范
 
-查阅优先级：项目内现有代码和文档 > MonoGame/Nez/GoRogue 官方文档 > GitHub 示例项目 > NuGet README > 社区博客。
+查阅优先级：项目内现有代码和文档 > MonoGame/GoRogue 官方文档 > GitHub 示例项目 > NuGet README > 社区博客。
 
 不查阅 Unity 相关文档、Godot 相关文档、GDScript 代码、过时的 .NET Framework 文档。
 
@@ -765,7 +766,7 @@ dotnet build -p:TreatWarningsAsErrors=true    # 严格模式
 dotnet test                                   # 全部测试
 dotnet test --filter "FullyQualifiedName~CombatEngineTests"  # 特定测试
 dotnet publish -c Release                     # 发布
-dotnet add package Nez                        # 添加 NuGet 包
+# dotnet add package Nez                        # ⚠️ 不安装——本项目使用自定义 ECS
 dotnet mgcb Content/Content.mgcb              # 编译内容管线
 ```
 

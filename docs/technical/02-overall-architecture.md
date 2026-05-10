@@ -148,7 +148,7 @@
 ┌──────────────────────────────────────────────────────────────────────────┐
 │                     模块依赖关系 (Module Dependencies)                     │
 │                                                                          │
-│  GameRoot.StartSceneTransition ──────────────────────────────────────────┐ │
+│  GameRoot.Instance.StartSceneTransition ──────────────────────────────────┐ │
 │     │ 场景切换                              │                            │ │
 │     ▼                                      ▼                            │ │
 │  CombatEngine ◄── CharacterSystem ──► AdventureSystem                    │ │

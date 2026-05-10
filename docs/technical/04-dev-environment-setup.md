@@ -267,8 +267,8 @@ cd src/DndGame
 dotnet add package MonoGame.Framework.DesktopGL --version 3.8.5.*
 dotnet add package MonoGame.Content.Builder.Task --version 3.8.5.*
 
-# 场景管理/ECS
-dotnet add package Nez --version 2.*
+# 场景管理/ECS（⚠️ Nez 不安装——本项目使用自定义 ECS，见 ADR-0001）
+# dotnet add package Nez --version 2.*
 
 # 地图/Tiled
 dotnet add package MonoGame.Extended --version 6.0.*
@@ -1005,8 +1005,8 @@ NETSDK1045: The current .NET SDK does not support targeting .NET 8.0.
 | 2.2.x | 3.8.5+ | 最新 |
 
 ```bash
-# 更新 Nez
-dotnet add package Nez --version 2.*
+# 更新 Nez（⚠️ 不安装——使用自定义 ECS）
+# dotnet add package Nez --version 2.*
 ```
 
 ### 8.7 GoRogue 与 MonoGame.Extended 共存

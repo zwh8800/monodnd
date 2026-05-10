@@ -253,7 +253,7 @@ When delegating code generation to `deep` or `unspecified-high`, inject this con
 
 ## 项目上下文
 - 游戏框架: MonoGame 3.8.5+ (.NET 8+)
-- ECS: Nez (Scene/Entity/Component)
+- ECS: 自定义轻量 Scene/Entity/Component（非 Nez，见 ADR-0001）
 - Roguelike: GoRogue (FOV, A*, 地图生成)
 - UI: Myra (代码布局优先)
 - 字体: FontStashSharp + Noto Sans CJK
@@ -273,11 +273,12 @@ When delegating code generation to `deep` or `unspecified-high`, inject this con
 - 接口优于实现, 系统间通过 IEventBus 解耦
 - 一个类一个职责 (SRP)
 
-## Nez 特定规范
+## 自定义 ECS 特定规范
 - scene.CreateEntity("name") 而非 new Entity()
 - entity.AddComponent() 添加组件
-- Core.StartSceneTransition() 切换场景
+- GameRoot.Instance.StartSceneTransition() 切换场景
 - Component 构造函数不做繁重操作
+- ⚠️ 本项目使用自定义 ECS（见 `src/DndGame/Core/`），不引入 Nez NuGet 包
 
 ## 禁止
 - 不使用 Unity API (MonoBehaviour, GameObject, Instantiate)
@@ -350,7 +351,7 @@ When review catches these patterns, handle as follows:
 
 | Failure | Handler |
 |---------|---------|
-| AI generated Unity API (`MonoBehaviour`, `GameObject`, `Instantiate`) | Mark as compile error → replace with Nez equivalent → add keyword to System Prompt ban list |
+| AI generated Unity API (`MonoBehaviour`, `GameObject`, `Instantiate`) | Mark as compile error → replace with 自定义 ECS/MonoGame equivalent → add keyword to System Prompt ban list |
 | AI hardcoded a numeric value | Ask AI to explain source → extract to named constant or JSON config |
 | AI forgot `await` / used `async void` | Mark compile warning → change to `async Task` → verify call chain handles async correctly |
 
@@ -370,7 +371,7 @@ When review catches these patterns, handle as follows:
 - **Game text in 简体中文**, technical identifiers in English — player-facing strings Chinese, code/IDs English
 - **LLM = skin layer** — LLM generates narrative text ONLY; program decides all numeric values, rule outcomes, and story branching
 - **Data-driven** — game values in JSON/SQLite, never hardcoded in C#
-- **Nez conventions**: `scene.CreateEntity("name")` not `new Entity()`, `AddComponent()` for composition, `Core.StartSceneTransition()` for scene changes
+- **ECS conventions** (自定义，非 Nez): `scene.CreateEntity("name")` not `new Entity()`, `AddComponent()` for composition, `GameRoot.Instance.StartSceneTransition()` for scene changes
 - **Test naming**: `MethodName_Scenario_ExpectedResult` with AAA pattern
 - **Git commits**: `type(scope): 中文描述` — types: feat/fix/refactor/docs/test/chore, scopes: combat/character/tavern/adventure/settlement/gateway/ui/map/data/save/build. 描述部分使用简体中文（除 `type(scope):` 前缀外）
 - **文档语言**: 所有文档（.md 文件）必须使用简体中文编写，包括设计文档、技术文档、注释说明等
@@ -398,7 +399,7 @@ After all registered: `ServiceLocator.FinalizeRegistration()` — locks the regi
 - ❌ `object` as parameter type — use generics or interfaces
 - ❌ `#pragma warning disable` — fix the code, don't suppress
 - ❌ `async void` — always `async Task`
-- ❌ Unity API (`MonoBehaviour`, `GameObject`, `Instantiate`, `Transform`) — use Nez equivalents
+- ❌ Unity API (`MonoBehaviour`, `GameObject`, `Instantiate`, `Transform`) — use 自定义 ECS/MonoGame equivalents
 - ❌ Hardcoded paths (e.g., `"Content/textures/x.png"`) — use `ContentManager.Load`
 - ❌ Hardcoded numeric values in code — put in JSON config or named constants
 - ❌ Missing XML doc comments on public API — all public/protected symbols must have `/// <summary>` in 简体中文
@@ -414,7 +415,7 @@ After all registered: `ServiceLocator.FinalizeRegistration()` — locks the regi
 **Common AI errors to watch for:**
 | Pattern | Symptom | Fix |
 |---------|---------|-----|
-| Unity API | `MonoBehaviour`, `GameObject.Find` | Replace with Nez/MonoGame API |
+| Unity API | `MonoBehaviour`, `GameObject.Find` | Replace with 自定义 ECS/MonoGame API |
 | `async void` | Returns void not Task | Change to `async Task` |
 | Missing `await` | Returns Task but doesn't await | Add `await` |
 | Hardcoded path | `"Content/textures/x.png"` | Use `ContentManager.Load` |
@@ -474,7 +475,7 @@ Schema files located at: `Data/Schemas/` (adventure_blueprint, narrative_text, d
 
 ## EXTERNAL REFERENCE RULES
 
-**Consultation priority:** Project docs/code > MonoGame/Nez/GoRogue official docs > GitHub examples > NuGet README > Community blogs
+**Consultation priority:** Project docs/code > MonoGame/GoRogue official docs > GitHub examples > NuGet README > Community blogs
 
 **Do NOT consult:**
 - Unity documentation or API references
@@ -530,18 +531,18 @@ dotnet mgcb Content/Content.mgcb
 # Publish release
 dotnet publish -c Release src/DndGame/DndGame.csproj
 
-# NuGet package management
-dotnet add package Nez --version 2.*
+# NuGet package management (⚠️ Nez 不在项目中使用——本项目采用自定义 ECS)
+# dotnet add package Nez --version 2.*  # 不安装——使用自定义 ECS
 ```
 
 ## NOTES
 
 - **Project state**: Phase 0 complete — Core infrastructure (ServiceLocator, EventBus, Scene/Entity/Component, GameStateManager) implemented with 13 passing tests. All 9 subsystems designed but zero business logic code.
-- **Custom ECS**: Uses hand-rolled Scene/Entity/Component system in Core/, NOT Nez. Nez NuGet package NOT in csproj despite docs referencing Nez conventions. Update docs OR add Nez dependency.
+- **Custom ECS**: ✅ 已确认——使用手写 Scene/Entity/Component 系统（Core/），不依赖 Nez。Nez NuGet 包有意未安装。所有文档已对齐——见 ADR-0001。
 - **GoRogue version mismatch**: csproj has 2.6.4, docs specify 3.*. Lock to 2.6.4 and update docs.
 - **Game1.cs is dead code**: Program.cs creates GameRoot directly; Game1.cs never instantiated. Remove or repurpose.
 - **ServiceLocator partially wired**: GameRoot.Initialize() calls ServiceRegistration.RegisterAll() (registers IEventBus, IGameStateManager, IFontService). Remaining 4 services (IDataPersistence, ILLMGateway, IWorldStateManager, IAudioManager, IResourceCache) not yet registered. FinalizeRegistration() never called.
-- **Missing NuGet packages**: Nez (not installed), MonoGame.Extended.Tiled (not installed), .editorconfig (missing), Directory.Build.props (missing).
+- **Missing NuGet packages**: MonoGame.Extended.Tiled (not installed), .editorconfig (missing), Directory.Build.props (missing). Nez 有意不安装（自定义 ECS）。
 - **Chinese game text**: All player-facing strings (UI, narrative, items, dialogue) are 简体中文. Technical identifiers (code, JSON keys, enums) are English. FontStashSharp + NotoSansCJKsc used.
 - **DND 5e SRD baseline**: Game uses DND 5e SRD rules with documented deviations — see GDD §5.3-5.4 and subsystems/04-combat-system.md.
 - **Offline-first**: Game must be fully playable without any LLM API call. LLM is additive experience, not required.
