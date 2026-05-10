@@ -1,7 +1,7 @@
 # ADR-0001：ECS 架构选型 — 自定义轻量 Scene/Entity/Component
 
 ## Status
-Proposed
+Accepted
 
 ## Date
 2026-05-06

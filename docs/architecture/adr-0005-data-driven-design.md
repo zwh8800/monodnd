@@ -1,7 +1,7 @@
 # ADR-0005：数据驱动设计 — JSON 配置 + SQLite 持久化
 
 ## Status
-Proposed
+Accepted
 
 ## Date
 2026-05-06

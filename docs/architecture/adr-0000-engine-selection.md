@@ -1,7 +1,7 @@
 # ADR-0000：游戏框架与编程语言选型 — MonoGame 3.8.5+ / C# 12 / .NET 8
 
 ## Status
-Proposed
+Accepted
 
 ## Date
 2026-05-06

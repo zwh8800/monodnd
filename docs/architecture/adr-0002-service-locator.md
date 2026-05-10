@@ -1,7 +1,7 @@
 # ADR-0002：全局服务注册模式 — ServiceLocator
 
 ## Status
-Proposed
+Accepted
 
 ## Date
 2026-05-06

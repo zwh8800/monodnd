@@ -1,7 +1,7 @@
 # ADR-0003：跨系统通信模式 — IEventBus + Snapshot-then-Invoke
 
 ## Status
-Proposed
+Accepted
 
 ## Date
 2026-05-06

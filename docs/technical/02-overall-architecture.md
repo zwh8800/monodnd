@@ -2,7 +2,7 @@
 
 > **项目**: 酒馆与命运 (Tavern & Destiny)
 > **引擎**: MonoGame 3.8.5+ (C# 12 / .NET 8)
-> **场景框架**: Nez (Scene/Entity/Component)
+> **场景框架**: 自定义轻量 ECS (Scene/Entity/Component/SceneComponent)
 > **规则基线**: DND 5e SRD（经Roguelike调整）
 > **文档版本**: v2.0 (MonoGame迁移版)
 > **前置文档**: 01-engine-selection.md, GDD-v1.md, 各子系统设计文档
@@ -52,7 +52,7 @@
 │                                                                   │
 │  ⑥ 代码即场景                                                      │
 │     所有游戏对象通过C#代码创建，不依赖可视化编辑器。                   │
-│     Nez Entity/Component组合取代预制体体系。所有场景是Scene子类。     │
+│     自定义 Entity/Component 组合取代预制体体系。所有场景是Scene子类。     │
 │     像素坐标、精灵帧、碰撞体——全部在代码中定义。                      │
 │                                                                   │
 └─────────────────────────────────────────────────────────────────┘
@@ -64,7 +64,7 @@
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                           表现层 (Presentation Layer)                          │
 │  ┌──────────────────────────────────────────────────────────────────────┐   │
-│  │  渲染管线: MonoGame SpriteBatch + Nez PostProcessors                  │   │
+│  │  渲染管线: MonoGame SpriteBatch                                        │   │
 │  │  ┌────────────┐ ┌────────────┐ ┌──────────┐ ┌────────┐ ┌────────┐   │   │
 │  │  │  Tile渲染   │ │ 角色精灵    │ │ 粒子特效  │ │ 动画    │ │ 迷雾    │   │   │
 │  │  └────────────┘ └────────────┘ └──────────┘ └────────┘ └────────┘   │   │
@@ -80,13 +80,13 @@
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                       场景管理层 (Scene Management)                           │
 │  ┌──────────────────────────────────────────────────────────────────────┐   │
-│  │  Nez Core + Scene/Entity/Component                                    │   │
+│  │  自定义 ECS Core (GameRoot + Scene/Entity/Component/SceneComponent)    │   │
 │  │  ┌──────────────┐ ┌────────────────┐ ┌────────────┐ ┌────────────┐  │   │
 │  │  │ TavernScene  │ │ AdventureScene │ │CombatScene │ │ Loading    │  │   │
 │  │  │ (酒馆)       │ │ (地图探索)     │ │ (战斗)     │ │ Scene     │  │   │
 │  │  └──────────────┘ └────────────────┘ └────────────┘ └────────────┘  │   │
 │  └──────────────────────────────────────────────────────────────────────┘   │
-│  场景切换: Core.StartSceneTransition<TScene>()  + 预加载策略                   │
+│  场景切换: GameRoot 场景切换队列 (_nextScene)  + 预加载策略                   │
 └─────────────────────────────────────────────────────────────────────────────┘
                                       │
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -148,7 +148,7 @@
 ┌──────────────────────────────────────────────────────────────────────────┐
 │                     模块依赖关系 (Module Dependencies)                     │
 │                                                                          │
-│  Core.StartSceneTransition<T> ──────────────────────────────────────────┐ │
+│  GameRoot.StartSceneTransition ──────────────────────────────────────────┐ │
 │     │ 场景切换                              │                            │ │
 │     ▼                                      ▼                            │ │
 │  CombatEngine ◄── CharacterSystem ──► AdventureSystem                    │ │
@@ -163,7 +163,7 @@
 │                                                                          │ │
 │  GoRogue ───► CombatEngine (FOV/Pathfinding)                             │ │
 │  GoRogue ───► AdventureSystem (MapGeneration)                            │ │
-│  Nez Core ──► 所有Scene子类 (ECS基础架构)                                  │ │
+│  GameRoot ──► 所有Scene子类 (场景管理)                                  │ │
 │  Myra ──────► 所有UI面板 (XML布局 + 数据绑定)                              │ │
 │  FontStashSharp ──► 所有UI/渲染 (动态字体+中文)                            │ │
 └──────────────────────────────────────────────────────────────────────────┘
@@ -220,12 +220,12 @@ var eventBus = ServiceLocator.Get<IEventBus>();
 
 ### 2.1 场景管理 (Scene Management)
 
-#### 2.1.1 Nez Scene 子系统
+#### 2.1.1 自定义 Scene 子系统
 
-使用 Nez 框架的 `Scene`/`Entity`/`Component` 模式替代 Godot 场景树。每种游戏场景都是 `Nez.Scene` 的子类：
+使用自定义 `Scene`/`Entity`/`Component`/`SceneComponent` 模式替代 Godot 场景树。每种游戏场景都是自定义 `Scene` 的子类：
 
 ```csharp
-using Nez;
+using DndGame.Core;
 
 public enum SceneId
 {
@@ -240,7 +240,7 @@ public enum SceneId
 
 public class TavernScene : Scene
 {
-    public override void OnStart()
+    public override void Initialize()
     {
         AddSceneComponent(new TavernBackgroundRenderer());
         AddSceneComponent(new NPCSchedulerSystem());
@@ -262,14 +262,15 @@ public class CombatScene : Scene
 {
     private CombatEngine _engine;
 
-    public override void OnStart()
+    public override void Initialize()
     {
         _engine = new CombatEngine();
         AddSceneComponent(_engine);
 
         // 使用GoRogue的ArrayMap渲染战斗地图
         var map = ServiceLocator.Get<GoRogueMapSystem>();
-        AddEntity(map.CreateMapEntity());
+        var mapEntity = CreateEntity("combat_map");
+        mapEntity.AddComponent(map.CreateMapComponent());
     }
 }
 
@@ -277,7 +278,7 @@ public class AdventureScene : Scene
 {
     private AdventureInstance _adventure;
 
-    public override void OnStart()
+    public override void Initialize()
     {
         _adventure = ServiceLocator.Get<IAdventureSystem>().CurrentInstance;
         // 从AdventureInstance构建节点图
@@ -288,20 +289,21 @@ public class AdventureScene : Scene
 #### 2.1.2 场景切换
 
 ```csharp
-// 场景切换通过 Core.StartSceneTransition 实现
+// 场景切换通过 GameRoot.Instance.StartSceneTransition 实现
+// 实际切换在下一帧 Update 开始时执行（帧边界安全）
 public static class SceneManager
 {
     public static void SwitchTo<TScene>() where TScene : Scene, new()
     {
-        // Nez内置场景过渡
-        Core.StartSceneTransition(new FadeTransition(() => new TScene()));
+        // 自定义场景切换（_nextScene 队列，帧边界安全）
+        GameRoot.Instance.StartSceneTransition(new TScene());
     }
 
     public static void SwitchTo<TScene>(object context) where TScene : Scene, new()
     {
         // 带上下文的场景切换（如传入AdventureInstance）
         ServiceLocator.Get<IGameStateManager>().TransitionContext = context;
-        Core.StartSceneTransition(new FadeTransition(() => new TScene()));
+        GameRoot.Instance.StartSceneTransition(new TScene());
     }
 }
 ```
@@ -1864,7 +1866,7 @@ AdventureSystem.CheckCompletion() → 判定成功/失败
 |------|------|:----:|------|
 | **游戏框架** | MonoGame | 3.8.5+ | MIT许可证，跨平台，C#/.NET原生 |
 | **语言** | C# | 12+ | .NET 8+，record类型、模式匹配 |
-| **场景/实体** | Nez | 最新 | Scene/Entity/Component ECS，内置FSM/行为树 |
+| **场景/实体** | 自定义 ECS | — | Scene/Entity/Component/SceneComponent，GameRoot管理生命周期 |
 | **地图系统** | MonoGame.Extended | 6.0+ | Tiled/LDtk地图加载，正交/等距 |
 | **Roguelike工具** | GoRogue | 3.x | FOV视野、A*寻路、ArrayMap、MapGeneration |
 | **UI框架** | Myra | 最新 | 像素风UI，XML布局+数据绑定 |
@@ -1885,8 +1887,7 @@ AdventureSystem.CheckCompletion() → 判定成功/失败
   <!-- 游戏框架 -->
   <PackageReference Include="MonoGame.Framework.DesktopGL" Version="3.8.5.*" />
 
-  <!-- 场景管理/ECS -->
-  <PackageReference Include="Nez" Version="2.*" />
+  <!-- 场景管理/ECS（已由自定义 ECS 替代，无需第三方框架） -->
 
   <!-- 地图/Tiled支持 -->
   <PackageReference Include="MonoGame.Extended" Version="6.0.*" />
@@ -2013,7 +2014,7 @@ TavernAndDestiny/
 │   │   ├── SettlementScene.cs        # 结算场景
 │   │   └── DialogueScene.cs          # 对话场景
 │   ├── Entities/
-│   │   ├── CharacterEntity.cs        # 角色实体(Nez Entity)
+│   │   ├── CharacterEntity.cs        # 角色实体(自定义 Entity)
 │   │   ├── EnemyEntity.cs            # 敌人实体
 │   │   ├── ItemEntity.cs             # 物品实体
 │   │   └── NPCEntity.cs              # NPC实体
@@ -2180,7 +2181,7 @@ Phase 1 (MVP)           Phase 2              Phase 3              Phase 4
 | P0 | 战斗引擎 | CombatFSM, DiceRoller, ActionResolver, AISystem, GoRogue FOV/寻路 | 6-8周 |
 | P0 | 角色系统 | CharacterData(record), NumericalGenerator, 3职业×3种族, Lv1-5 | 3-4周 |
 | P0 | 酒馆UI | Myra XML布局, 招募板(9预设角色), 任务板, 基础装备管理 | 2-3周 |
-| P0 | 地图/探索 | Nez AdventureScene, GoRogue地牢生成, 节点导航, 3房间模板 | 3-4周 |
+| P0 | 地图/探索 | AdventureScene (自定义 Scene 子类), GoRogue地牢生成, 节点导航, 3房间模板 | 3-4周 |
 | P0 | LLM Gateway | HttpClient + System.Text.Json基础Gateway, DMAgent(战斗叙述), 文案Agent | 2-3周 |
 | P0 | 美术资源 | 基础Tileset, 3角色精灵, 3敌人精灵, MGCB内容管线 | 持续 |
 | P1 | 短冒险模板 | 5个主题的离线模板JSON | 1-2周 |
@@ -2275,9 +2276,9 @@ E2E Tests (端到端) — 完整游戏流程
 | **LLM API成本超出预算** | 中 | 高 | Token预算控制、缓存策略、离线模板降级、选择性调用 |
 | **LLM输出不符合Schema** | 中 | 中 | 严格重试机制(最多3次)、增强prompt(附带失败原因)、兜底默认值 |
 | **MonoGame无可视化编辑器** | 高 | 中 | 代码创建所有对象(代码即场景)，配合Tiled编辑地图，monogame-mcp辅助调试 |
-| **MonoGame社区较小** | 中 | 中 | 核心框架稳定，GoRogue/Nez/Myra有独立维护，关键路径自己维护 |
+| **MonoGame社区较小** | 中 | 中 | 核心框架稳定，GoRogue/Myra 有独立维护；ECS 自行维护 |
 | **C#热重载限制** | 中 | 中 | 开发使用dotnet watch + MonoGame的HotReload，核心循环提前充分测试 |
-| **GoRogue与Nez版本兼容** | 低 | 中 | 锁定稳定版本，上游更新前在CI中验证兼容性 |
+| **GoRogue 版本兼容** | 低 | 中 | 锁定稳定版本，上游更新前在CI中验证兼容性 |
 | **中文像素字体现成选择少** | 低 | 低 | 使用Noto Sans CJK (FontStashSharp动态加载)或自建位图字体 |
 | **Myra UI对回合制回合复杂度** | 中 | 中 | Myra Grid/StackPanel构建复杂布局，自定义Widget处理战斗菜单 |
 
@@ -2287,7 +2288,7 @@ E2E Tests (端到端) — 完整游戏流程
 |:----:|:----:|:----:|----------|
 | **无场景编辑器，全部代码手写** | 确定 | 中 | 建立Entity创建工厂和Scene初始化模板，使用monogame-mcp辅助生成样板代码 |
 | **内容管线(MGCB)配置复杂** | 中 | 中 | 建立标准化的Content.mgcb模板，自动化构建脚本 |
-| **无内置TileMap/寻路系统** | 确定 | 中 | Nez提供基础支持，GoRogue覆盖寻路/FOV/地图生成 |
+| **无内置TileMap/寻路系统** | 确定 | 中 | 自定义 ECS 提供基础场景管理支持，GoRogue覆盖寻路/FOV/地图生成 |
 | **无内置UI系统** | 确定 | 中 | Myra UI成熟稳定，XML布局可热修改 |
 | **.NET版本和依赖冲突** | 低 | 中 | 使用global.json锁定.NET 8 SDK，NuGet版本锁定文件 |
 
@@ -2350,7 +2351,7 @@ E2E Tests (端到端) — 完整游戏流程
 | 角色系统复杂度失控 | 从全DND 5e规则退化为简化版（保留核心6维+HP+AC） |
 | LLM成本过高 | 全面切换到本地模型(Ollama+DeepSeek)或纯模板驱动 |
 | 团队无法完成MVP | 缩小范围：仅战斗引擎+酒馆基本交互，取消LLM集成 |
-| Nez废弃/不维护 | 独立维护ECS层，或迁移到MonoGame.Extended的ECS |
+| 自定义 ECS 需升级或重构 | 独立维护ECS层，或迁移到MonoGame.Extended的ECS |
 
 ---
 

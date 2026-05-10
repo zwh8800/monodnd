@@ -1,7 +1,7 @@
 # ADR-0006：战斗引擎架构 — FSM CombatEngine SceneComponent + EventBus + 数据驱动
 
 ## Status
-Proposed
+Accepted
 
 ## Date
 2026-05-07

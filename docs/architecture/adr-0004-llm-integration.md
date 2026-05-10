@@ -1,7 +1,7 @@
 # ADR-0004：LLM 集成架构 — 皮肤层 + 事件结果分离模型
 
 ## Status
-Proposed
+Accepted
 
 ## Date
 2026-05-06
