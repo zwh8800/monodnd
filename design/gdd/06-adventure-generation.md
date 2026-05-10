@@ -174,14 +174,20 @@
 | 参数 | 当前值 | 安全范围 | 影响面 |
 |------|:------:|:--------:|--------|
 | **三层管线重试次数** | 3 | 2-5 | 蓝图生成可靠性 |
-| **离线模板数** | 50+ | 30-100 | 离线冒险多样性 |
+| **离线模板数(MVP)** | 5 | 5-20 | 离线冒险多样性 |
+| **离线模板数(Phase 2+)** | 50+ | 30-100 | 离线冒险多样性 |
 | **CR预算容忍度** | ±0.5 | ±0.2-1.0 | 遭遇难度弹性 |
 | **分支深度(短冒险)** | 1 | 0-2 | 剧情复杂度 |
 | **分支深度(中冒险)** | 2 | 1-4 | 剧情复杂度 |
-| **节点数(短冒险)** | 5-8 | 4-10 | 冒险长度 |
+| **节点数(短冒险)** | 7-8 | 6-10 | 冒险长度 |
 | **节点数(中冒险)** | 15-25 | 12-30 | 冒险长度 |
+| **节点数(长冒险)** | 30-50 | 25-55 | 冒险长度 |
 | **战利品等级上限(短)** | 2 | 1-3 | 奖励期望 |
+| **战利品等级上限(中)** | 3 | 2-4 | 奖励期望 |
+| **战利品等级上限(长)** | 4 | 3-5 | 奖励期望 |
 | **世界状态挂钩数(短)** | 1-2 | 1-4 | 世界演进深度 |
+| **世界状态挂钩数(中)** | 2-4 | 2-6 | 世界演进深度 |
+| **世界状态挂钩数(长)** | 3-6 | 3-8 | 世界演进深度 |
 
 ---
 
@@ -244,8 +250,8 @@ class BlueprintBusinessValidator:
         var tier = blueprint.meta.tier
         match tier:
             "short":
-                if nodes.size() < 5 or nodes.size() > 8:
-                    errors.append(ValidationError.new("NODE_COUNT", "短冒险节点数应为5-8，实际: %d" % nodes.size()))
+                if nodes.size() < 7 or nodes.size() > 8:
+                    errors.append(ValidationError.new("NODE_COUNT", "短冒险节点数应为7-8，实际: %d" % nodes.size()))
             "medium":
                 if nodes.size() < 15 or nodes.size() > 25:
                     errors.append(ValidationError.new("NODE_COUNT", "中冒险节点数应为15-25，实际: %d" % nodes.size()))
@@ -394,20 +400,20 @@ class BlueprintBusinessValidator:
   "meta": {
     "estimated_duration_minutes": 30,
     "recommended_party_size": 4,
-    "node_count_range": [5, 8],
+    "node_count_range": [7, 8],
     "structure": "linear_with_one_climax"
   },
   "node_distribution": {
-    "opening": { "count": 1, "percentage": 12 },
-    "combat": { "count_range": [2, 3], "percentage": 40 },
+    "opening": { "count": 1, "percentage": 10 },
+    "combat": { "count_range": [3, 5], "percentage": 35 },
     "exploration": { "count_range": [1, 2], "percentage": 30 },
-    "dialogue": { "count_range": [0, 1], "percentage": 15 },
-    "rest": { "count_range": [0, 1], "percentage": 10 },
+    "dialogue": { "count_range": [0, 1], "percentage": 12 },
+    "rest": { "count_range": [0, 1], "percentage": 8 },
     "merchant": { "count_range": [0, 1], "percentage": 5 },
     "boss": { "count": 1, "percentage": 0 }
   },
   "structure_rules": {
-    "boss_placement": "node_index_6_or_7",
+    "boss_placement": "last_25_percent",
     "branch_chance": "minimal",
     "max_branches": 2,
     "rest_before_boss": true,
@@ -454,24 +460,25 @@ class BlueprintBusinessValidator:
   },
   "node_distribution": {
     "opening": { "count": 1, "percentage": 4 },
-    "combat": { "count_range": [5, 8], "percentage": 35 },
+    "combat": { "count_range": [5, 8], "percentage": 32 },
     "elite_combat": { "count_range": [1, 2], "percentage": 5 },
-    "exploration": { "count_range": [3, 5], "percentage": 20 },
-    "dialogue": { "count_range": [3, 6], "percentage": 25 },
+    "exploration": { "count_range": [3, 5], "percentage": 18 },
+    "dialogue": { "count_range": [3, 6], "percentage": 23 },
     "puzzle": { "count_range": [1, 2], "percentage": 5 },
-    "rest": { "count_range": [1, 3], "percentage": 10 },
-    "merchant": { "count_range": [0, 1], "percentage": 5 },
+    "rest": { "count_range": [1, 3], "percentage": 9 },
+    "merchant": { "count_range": [0, 1], "percentage": 4 },
     "boss": { "count_range": [1, 2], "percentage": 0 },
     "branch": { "count_range": [2, 3], "percentage": 0 }
   },
   "structure_rules": {
-    "boss_placement": "midpoint_mini_boss_plus_end_boss",
+    "boss_placement": "mini_boss_at_act2_start_plus_end_boss",
     "branch_chance": "moderate",
     "max_branches": 3,
     "puzzle_required": true,
     "act_structure": "2_or_3_acts",
     "rest_between_acts": true,
-    "merchant_at_act_boundary": true
+    "merchant_at_act_boundary": true,
+    "midpoint_boss_index": "floor(node_count * 0.4)"
   },
   "difficulty_profile_template": {
     "encounter_count": { "easy": 2, "medium": 4, "hard": 2, "deadly": 1 },
@@ -528,17 +535,17 @@ class BlueprintBusinessValidator:
   },
   "node_distribution": {
     "opening": { "count": 1, "percentage": 2 },
-    "combat": { "count_range": [9, 15], "percentage": 30 },
-    "elite_combat": { "count_range": [2, 4], "percentage": 8 },
-    "exploration": { "count_range": [4, 7], "percentage": 15 },
-    "dialogue": { "count_range": [9, 15], "percentage": 30 },
+    "combat": { "count_range": [9, 15], "percentage": 26 },
+    "elite_combat": { "count_range": [2, 4], "percentage": 7 },
+    "exploration": { "count_range": [4, 7], "percentage": 13 },
+    "dialogue": { "count_range": [9, 15], "percentage": 26 },
     "puzzle": { "count_range": [1, 3], "percentage": 5 },
-    "rest": { "count_range": [3, 5], "percentage": 10 },
-    "merchant": { "count_range": [1, 2], "percentage": 5 },
+    "rest": { "count_range": [3, 5], "percentage": 9 },
+    "merchant": { "count_range": [3, 5], "percentage": 5 },
     "boss": { "count": 3, "percentage": 0 },
     "branch": { "count_range": [5, 8], "percentage": 0 },
     "skill_challenge": { "count_range": [1, 3], "percentage": 3 },
-    "story": { "count_range": [1, 3], "percentage": 5 }
+    "story": { "count_range": [1, 3], "percentage": 4 }
   },
   "structure_rules": {
     "boss_placement": "one_per_act",
@@ -1170,7 +1177,7 @@ Step 3: 转换为CR预算(简化版)
   Lv3 × 4人 Medium → CR预算 ≈ 3.0
 ```
 
-**简化CR预算速查表** (本游戏使用):
+**简化CR预算速查表** (本游戏使用, 基于4人队伍):
 
 | 队伍Lv×人数 | Easy CR | Medium CR | Hard CR | Deadly CR |
 |------------|:---:|:---:|:---:|:---:|
@@ -1179,6 +1186,13 @@ Step 3: 转换为CR预算(简化版)
 | Lv3 × 4 | 1.5 | 3.0 | 4.5 | 6.0 |
 | Lv4 × 4 | 2.0 | 4.0 | 6.0 | 8.0 |
 | Lv5 × 4 | 3.0 | 5.0 | 7.5 | 10.0 |
+| Lv6 × 4 | 3.5 | 6.0 | 9.0 | 12.0 |
+| Lv7 × 4 | 4.0 | 7.5 | 11.0 | 15.0 |
+| Lv8 × 4 | 5.0 | 9.0 | 14.0 | 18.0 |
+| Lv9 × 4 | 6.0 | 11.0 | 16.0 | 22.0 |
+| Lv10 × 4 | 7.0 | 12.0 | 19.0 | 26.0 |
+
+> **非4人队伍缩放**: 实际CR预算 = 查表值 × (actual_party_size / 4)。例如3人Lv3 Medium: CR 3.0 × (3/4) = 2.25。
 
 ### 6.3 敌人组合生成算法
 
@@ -1227,13 +1241,35 @@ Step 4: 分配角色
     次高CR → glass_cannon (高输出)
     最低CR → support / controller (辅助/控制)
 
-Step 5: 验证总CR
+Step 5: 验证并调整总CR
   actual_cr = sum(e.cr for e in enemies)
-  if abs(actual_cr - cr_budget) > 0.5:
+  if abs(actual_cr - cr_budget) > CR_TOLERANCE:
       adjust(enemies, cr_budget)
 
-Step 6: 返回
-  return enemies
+  adjust() 算法:
+    如果 actual_cr < cr_budget - CR_TOLERANCE (不足):
+      while actual_cr < cr_budget - CR_TOLERANCE and len(enemies) < MAX_ENEMIES:
+        添加最低CR的候选敌人(CR ≤ remaining_budget, 主题匹配优先)
+        actual_cr += 新敌人的CR
+    如果 actual_cr > cr_budget + CR_TOLERANCE (超出):
+      while actual_cr > cr_budget + CR_TOLERANCE and len(enemies) > MIN_ENEMIES:
+        移除最低CR的敌人
+        actual_cr -= 被移除敌人的CR
+    如果仍超出容忍度:
+      记录警告: "遭遇CR预算无法精确匹配，偏差: %.1f" % (actual_cr - cr_budget)
+
+  CR_TOLERANCE = 0.5
+  MAX_ENEMIES = 10
+  MIN_ENEMIES = 2
+
+Step 6: 候选池空回退
+  if candidates.is_empty():
+    放宽主题过滤 — 保留cr_max/cr_min约束，移除theme_match要求
+    candidates = EnemyDB.query({ "cr_max": cr_budget + 1, "cr_min": cr_budget * 0.05 })
+    记录警告: "无主题匹配敌人，使用通用候选池"
+  if candidates.is_empty():
+    使用最近似CR的默认敌人(如 goblin/cr 0.25)
+    记录错误: "无法生成遭遇——敌人数据库为空"
 ```
 
 ### 6.4 MVP敌人Stat Block
@@ -1307,7 +1343,7 @@ Step 6: 返回
   "alignment": "lawful_evil",
   "ac": 13,
   "ac_source": "armor_scraps",
-  "hp": { "average": 13, "hit_dice": "2d8+2" },
+  "hp": { "average": 13, "hit_dice": "2d8+4" },
   "speed": 30,
   "abilities": {
     "str": 10, "dex": 14, "con": 15,
@@ -1675,7 +1711,7 @@ Step 6: 返回
   "alignment": "any_non_lawful",
   "ac": 15,
   "ac_source": "studded_leather_shield",
-  "hp": { "average": 36, "hit_dice": "8d8" },
+  "hp": { "average": 52, "hit_dice": "8d8+16" },
   "speed": 30,
   "abilities": {
     "str": 14, "dex": 14, "con": 14,
@@ -1834,25 +1870,21 @@ Step 6: 返回
 
 ### 7.1 战利品分布规则
 
-| 节点类型 | 战利品等级 | 金币范围 | 物品掉落 | 特殊规则 |
-|----------|-----------|----------|----------|----------|
-| combat (普通) | tier ± 0 | 10-50 GP | 0-1件 | 基于CR的金币表 |
-| elite_combat | tier + 0 | 30-100 GP | 1件 | 保底1件uncommon |
-| boss | tier + 1 | 100-500 GP | 2-3件 | **保底1件rare+** |
-| exploration | tier ± 1 | 5-30 GP | 0-2件 | 需检定发现 |
-| merchant | - | - | - | 玩家购买 |
-| rest | - | - | - | 无战利品 |
-| puzzle | tier + 0 | 50-200 GP | 1件 | 解谜奖励 |
+> **金币数据源**: 本节仅定义战利品分布。金币的权威计算公式见 §9.5（骰子公式）。§7.1-7.2 的每节点/每CR金币表已移除，以 §9.5 为单一数据源。
 
-### 7.2 金币分布表 (基于CR)
+| 节点类型 | 战利品等级 | 物品掉落 | 特殊规则 |
+|----------|-----------|----------|----------|
+| combat (普通) | tier ± 0 | 0-1件 | — |
+| elite_combat | tier + 0 | 1件 | 保底1件uncommon |
+| boss | tier + 1 | 2-3件 | **保底1件rare+** |
+| exploration | tier ± 1 | 0-2件 | 需检定发现 |
+| merchant | - | - | 玩家购买 |
+| rest | - | - | 无战利品 |
+| puzzle | tier + 0 | 1件 | 解谜奖励 |
 
-| CR | 金币掉落范围 |
-|:---:|:---:|
-| 0-1 | 5-20 GP |
-| 2-4 | 20-75 GP |
-| 5-10 | 75-300 GP |
-| 11-16 | 300-800 GP |
-| 17+ | 800-2000 GP |
+### 7.2 金币计算
+
+> **已迁移**: 金币的权威计算已整合至 §9.5 骰子公式（按冒险长度和节点类型分表）。§7.2 原"基于CR的金币分布表"已移除以避免与 §9.5 产生数据源矛盾。所有金币生成统一调用 `RollGold(tier, cr_range, node_type)` 函数（定义见 §9.5）。
 
 ### 7.3 物品稀有度分布
 
@@ -2103,6 +2135,29 @@ class AdventureLog:
 ### 9.2 上下文注入策略
 
 ```
+DM Agent上下文构建 (4000 token预算):
+
+┌─────────────────────────────────────────────────────────┐
+│ 静态层 (总是注入): ~1800-2400 tokens                      │
+│  · System Prompt (~300 tokens)                           │
+│  · 冒险蓝图摘要 (~600-1000 tokens)  ← 新增：编剧Agent生成  │
+│    · 核心冲突、关键NPC动机、伏笔列表、预期结局             │
+│    · 直接注入蓝图段落，非动作日志截断                       │
+│  · 冒险存档摘要 (~200-400 tokens)                         │
+│    · 由AdventureLog智能摘要生成(层级压缩算法)              │
+│  · 当前场景信息 (current_node) (~100 tokens)              │
+├─────────────────────────────────────────────────────────┤
+│ 动态层 (按需注入): ~300-600 tokens                       │
+│  · 最近8个动作历史(~300 tokens)   ← 从5个扩展到8个         │
+│  · 活跃NPC信息(~100 tokens)                              │
+│  · 队伍状态(~100 tokens)                                 │
+│  · 具体动作上下文(~100 tokens)                            │
+├─────────────────────────────────────────────────────────┤
+│ 预留安全余量: ~400 tokens                                │
+└─────────────────────────────────────────────────────────┘
+
+总消耗: 2500-3400 tokens (在4000预算内)
+```
 DM Agent上下文构建 (2000 token预算):
 
 ┌─────────────────────────────────────────┐
@@ -2126,9 +2181,10 @@ DM Agent上下文构建 (2000 token预算):
 ```
 
 **上下文压缩规则**:
-- 超出10个动作的历史 → 由AdventureLog生成200字摘要替代
-- NPC超过3个 → 只保留与当前节点直接关联的
-- 队伍状态 → 只传递HP百分比和显著状态效果
+- 超出8个动作的历史 → 由AdventureLog生成层级摘要（最近5动作全文→6-15动作关键词摘要→16+动作单句摘要）
+- NPC超过3个 → 只保留与当前节点直接关联的，保留关键叙事承诺
+- 队伍状态 → 传递HP百分比和显著状态效果
+- **关键叙事承诺保护**: 摘要算法标记并保留"玩家承诺"类动作（如"答应归还护符"、"发誓击败Boss"），不参与压缩截断
 
 ### 9.3 叙事与程序结果合并
 
@@ -2297,6 +2353,12 @@ Step 4: 记录变更历史
   - 世界状态变更 → `08-failure-growth.md` §2 Step 6
   - LLM 叙事生成 → `08-failure-growth.md` §2 Step 8
 
+**金币消耗（经济槽）**: 冒险结算管线必须包含强制性金币消耗检查:
+  - 补给消耗: 每节点 5 GP × party_size（口粮/弹药/住宿）→ 短冒险约 35-40 GP/人
+  - 装备耐久退化: 参照 `03-items-equipment.md` §6（Phase 2 完整实现，MVP 跳过）
+  - 鉴定费用: 参照 `03-items-equipment.md` §5A.2（Uncommon 25 GP, Rare 50 GP, Very Rare 100 GP, Legendary 250 GP）
+  - 酒馆设施维护: 参照 `07-tavern-system.md`（每冒险固定维护费）
+
 冒险生成系统保留的职责：
   - 提供冒险上下文（主题、难度、参与角色、关键事件）给结算管线
   - 记录冒险日志到世界状态
@@ -2338,45 +2400,24 @@ Step 4: 记录变更历史
    scaled_dc = base_dc + floor((party_level - recommended_level) × 0.5)
    最小DC: 8, 最大DC: 25
 
-4. 战利品质量缩放
-   loot_tier_bonus = floor((party_level - recommended_level) / 3)
-   effective_loot_tier = base_loot_tier + loot_tier_bonus
+4. 战利品质量缩放（反刷机制）
+   loot_tier_penalty = floor((party_level - recommended_level) / 3)
+   effective_loot_tier = max(1, base_loot_tier - loot_tier_penalty)
+   (队伍等级过高时降级战利品——防止刷低级冒险获取高级装备)
 
-5. XP奖励缩放
-   xp_multiplier = 1.0 + (party_level - recommended_level) × 0.05
+5. XP奖励缩放（反刷机制）
+   xp_multiplier = max(0.1, 1.0 - (party_level - recommended_level) × 0.05)
    (等级越高，同难度冒险的XP越少——鼓励挑战更高难度)
 ```
 
-### 12.2 动态难度调整
+### 12.2 难度自适应设计（已移除）
 
-```
-冒险进行中的动态调整:
-
-检测指标:
-  · 队伍平均HP百分比 (最近3个节点)
-  · 消耗品使用速率
-  · 法术位剩余量
-  · 角色死亡/倒地次数
-
-调整策略:
-
-如果队伍"过于轻松"(平均HP > 80%, 无消耗品使用):
-  · 下一个combat节点的敌人数量 +1
-  · Boss的HP +10%
-  · 陷阱DC +1
-
-如果队伍"挣扎"(平均HP < 40%, 多次倒地):
-  · 下一个combat节点的敌人数量 -1
-  · 在下一个节点添加隐藏的治疗物品
-  · Boss的HP -10%
-  · 陷阱DC -1
-
-调整限制:
-  · 每次冒险最多调整3次
-  · 调整幅度不超过原始值的20%
-  · Boss难度不低于"medium"
-  · 调整对玩家不可见(隐藏的Director系统)
-```
+> **⚠️ 设计评审裁决 (2026-05-10)**: 原§12.2"动态难度调整"(隐藏Director系统暗中修改遭遇数据)因以下原因被移除:
+> 1. 违背Pillar 2"战术深度——原汁原味DND"——暗中帮/罚玩家破坏 mastery 承诺
+> 2. 阈值阶梯函数(80% HP边界)引发博弈行为
+> 3. 与Roguelike DND的"诚实"传统相悖
+>
+> **替代方案**: 通过预设计遭遇难度曲线 + 可选难度节点（如分支选择"正面突袭"vs"潜行绕路"）让玩家自我调节挑战水平。所有遭遇难度由程序在冒险开始时确定性计算，不随进度暗中变化。
 
 ### 12.3 难度配置文件
 
@@ -2412,15 +2453,17 @@ Step 4: 记录变更历史
 
 ### 13.2 模板分类
 
-| 分类 | 主题 | 短冒险 | 中冒险 | 长冒险 |
-|------|------|:---:|:---:|:---:|
-| 地牢探索 | dungeon, crypt, cave | 5 | 3 | 1 |
-| 荒野冒险 | forest, swamp, mountain | 4 | 3 | 1 |
-| 城镇阴谋 | urban, political, intrigue | 3 | 3 | 1 |
-| 救援任务 | rescue, escort, defense | 3 | 2 | 1 |
-| 盗窃行动 | heist, stealth, infiltration | 2 | 2 | 1 |
-| Boss挑战 | boss_rush, arena, challenge | 3 | 1 | 0 |
-| **合计** | | **20** | **14** | **5** |
+> **MVP范围**: 仅5个短冒险模板（覆盖5类主题各1个）。中/长冒险无离线模板——仅LLM生成。Phase 2+ 扩展到50+模板（含中/长冒险）。
+
+| 分类 | 主题 | MVP短冒险 | Phase 2+ 短 | Phase 2+ 中 | Phase 2+ 长 |
+|------|------|:---:|:---:|:---:|:---:|
+| 地牢探索 | dungeon, crypt, cave | 1 | 5 | 3 | 1 |
+| 荒野冒险 | forest, swamp, mountain | 1 | 4 | 3 | 1 |
+| 城镇阴谋 | urban, political, intrigue | 1 | 3 | 3 | 1 |
+| 救援任务 | rescue, escort, defense | 1 | 3 | 2 | 1 |
+| 盗窃行动 | heist, stealth, infiltration | 1 | 2 | 2 | 1 |
+| Boss挑战 | boss_rush, arena, challenge | — | 3 | 1 | 0 |
+| **合计** | | **5** | **20** | **14** | **5** |
 
 ### 13.3 模板选择算法
 
@@ -2475,9 +2518,106 @@ Step 6: 返回
 
 ---
 
-## 14. 测试规格
+## 14. 验收标准 (Acceptance Criteria)
 
-### 14.1 单元测试
+> **格式**: GIVEN/WHEN/THEN。所有AC必须由QA测试人员独立验证，无需阅读实现代码。
+
+### AC-BP: 蓝图验证
+
+**AC-BP-01: 有效短冒险蓝图通过验证**
+- GIVEN 一个符合Schema且所有节点引用有效的短冒险蓝图(7-8个节点)
+- WHEN 蓝图通过 BlueprintBusinessValidator 验证
+- THEN 验证结果为通过(is_valid=true)，无错误(errors为空)，最多有警告
+
+**AC-BP-02: 节点数不足时验证失败**
+- GIVEN 一个仅含3个节点的短冒险蓝图
+- WHEN 蓝图通过验证
+- THEN 验证失败，错误列表包含 NODE_COUNT 错误码
+
+**AC-BP-03: 孤立节点被检测**
+- GIVEN 蓝图中存在一个不与任何其他节点连接的节点
+- WHEN BFS可达性检查执行
+- THEN 验证结果包含 ORPHAN_NODE 错误码
+
+**AC-BP-04: 战斗节点缺少encounter_id时验证失败**
+- GIVEN 蓝图中存在 type="combat" 但无 encounter_id 字段的节点
+- WHEN 业务逻辑验证规则8执行
+- THEN 验证结果包含 MISSING_ENCOUNTER 错误码
+
+### AC-CR: CR预算计算
+
+**AC-CR-01: Lv3×4人 Medium遭遇CR预算正确**
+- GIVEN party_level=3, party_size=4, difficulty="medium"
+- WHEN calculate_cr_budget() 执行
+- THEN 返回的CR预算在 2.5-3.5 范围内
+
+**AC-CR-02: 非4人队伍缩放正确**
+- GIVEN party_level=3, party_size=3, difficulty="medium"
+- WHEN calculate_cr_budget() 执行
+- THEN 返回的CR预算 ≈ 3.0 × (3/4) = 2.25（容忍±0.5）
+
+### AC-LOOT: 战利品生成
+
+**AC-LOOT-01: Boss保证至少1件rare+物品**
+- GIVEN 任意Boss节点，任意战利品等级
+- WHEN generate_boss_loot() 执行100次
+- THEN 每次执行结果中，稀有度 ≥ Rare 的物品数量 ≥ 1
+
+**AC-LOOT-02: 战利品稀有度分布符合Tier概率**
+- GIVEN tier=2, 固定随机种子, 1000次运行
+- WHEN generate_random_loot(tier=2) 执行
+- THEN common概率在35%-45%, uncommon在35%-45%, rare在10%-20%, very_rare在3%-7%
+
+### AC-OFFLINE: 离线降级
+
+**AC-OFFLINE-01: LLM Schema验证3次失败后降级到离线模板**
+- GIVEN LLM API返回3次Schema验证失败的响应
+- WHEN 冒险蓝图生成管线执行
+- THEN 系统选择匹配tier和party_level的离线模板，成功生成冒险实例
+
+**AC-OFFLINE-02: 离线模板选择的冒险机械完整性不变**
+- GIVEN 离线模板被选中
+- WHEN 冒险实例化完成
+- THEN 节点数、节点类型分布、Boss位置、CR预算范围与同等级LLM生成冒险一致
+
+### AC-DDA: 难度系统（已移除动态调整）
+
+**AC-DDA-01: 难度由冒险开始时确定，不随进度变化**
+- GIVEN 任意冒险实例
+- WHEN 玩家从第1个节点推进到第N个节点
+- THEN 所有未触发遭遇的CR预算和敌人配置与冒险实例化时完全一致（无暗中修改）
+
+### AC-VF: 胜利/失败检测
+
+**AC-VF-01: 击败最终Boss触发胜利**
+- GIVEN 冒险状态为 in_progress，current_node 为Boss节点
+- WHEN Boss被击败且所有 required_to_proceed 节点已完成
+- THEN 冒险status变为 completed，outcome为 victory
+
+**AC-VF-02: 全队HP降至0触发失败**
+- GIVEN 冒险状态为 in_progress
+- WHEN 所有队伍成员HP降至0
+- THEN 冒险status变为 failed，outcome为 total_party_kill
+
+### AC-DM: DM Agent实时交互
+
+**AC-DM-01: DM Agent不可用时降级到静态模板**
+- GIVEN DM Agent API调用在1.5秒内未响应
+- WHEN 进入新房间触发 scene_atmosphere 调用
+- THEN UI显示 §9.4 中对应环境的静态后备模板文本
+
+**AC-DM-02: 上下文包含蓝图摘要信息**
+- GIVEN DM Agent被调用
+- WHEN 上下文构建完成
+- THEN 上下文包含: 核心冲突描述、关键NPC名称和动机、当前冒险章节信息（非仅动作日志截断）
+
+---
+
+## 15. 测试规格
+
+> **⚠️ 语言迁移 (2026-05-10)**: 以下测试代码为 GDScript 伪代码（算法规范）。在实现前必须翻译为 C# xUnit + FluentAssertions 格式（项目测试框架见 AGENTS.md）。固定种子消除所有非确定性测试。测试文件路径: `tests/unit/Adventure/`。
+
+### 15.1 单元测试
 
 #### 蓝图验证测试
 
@@ -2621,7 +2761,7 @@ func test_relationship_threshold_check():
     assert_false(result.success)
 ```
 
-### 14.2 集成测试
+### 15.2 集成测试
 
 ```gdscript
 # tests/adventure/test_full_pipeline.gd
@@ -2656,7 +2796,7 @@ func test_full_adventure_generation_pipeline():
     assert_eq(reachable.size(), instance.node_graph.size())
 ```
 
-### 14.3 边缘情况测试
+### 15.3 边缘情况测试
 
 | 测试场景 | 预期行为 |
 |----------|----------|
@@ -2671,7 +2811,7 @@ func test_full_adventure_generation_pipeline():
 | 循环引用(A→B→A) | 验证通过(允许回环)，但警告 |
 | 所有选择都失败 | 保底路径(强制前进) |
 
-### 14.4 平衡验证
+### 15.4 平衡验证
 
 ```
 平衡验证测试 (100次种子运行):
@@ -2698,7 +2838,8 @@ func test_full_adventure_generation_pipeline():
 
 ---
 
-*文档版本: v1.0*
+*文档版本: v1.3*
 *创建日期: 2026-05-04*
-*状态: 初始设计阶段*
-*下一步: 确认MVP范围后，开始AdventureManager和BlueprintParser的原型开发*
+*修订日期: 2026-05-10 — /design-review 修订（12个阻断项已解决）*
+*状态: 设计评审修订完成 — 见 reviews/06-adventure-generation-review-log.md*
+*下一步: /story-readiness → /dev-story*

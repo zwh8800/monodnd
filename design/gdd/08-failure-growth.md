@@ -4,8 +4,8 @@
 > **Game**: 《酒馆与命运》(Tavern & Destiny)  
 > **Rules Reference**: DND 5e SRD (经 Roguelike 调整)
 > **Language Policy**: 游戏文本统一采用简体中文，技术标识符使用英文snake_case  
-> **Version**: 1.0  
-> **Status**: 初始设计  
+> **Version**: 1.3  
+> **Status**: 已修订 (MAJOR REVISION — 5项创意决策执行)  
 > **对应GDD版本**: GDD-v1.0 §6
 
 ---
@@ -85,8 +85,10 @@
 | 参数 | 当前值 | 安全范围 | 影响面 |
 |------|:------:|:--------:|--------|
 | 伤疤生成概率(重度) | 5% | 2-10% | 伤疤频率 |
-| 传承点公式 | floor(xp/500) | floor(xp/250~1000) | 遗产价值 |
+| 传承点公式 | level + 5 | level + 3~7 | 遗产价值 |
 | 世界状态挂钩数 | 1-2 | 1-4 | 世界演进深度 |
+| 超时惩罚倍率 | ×0.8 | ×0.6~0.9 | 冒险节奏压力 |
+| 复活成本(gp) | 2,000 | 1,500~3,000 | 死亡可逆性 |
 
 ---
 
@@ -236,19 +238,20 @@ Step 9: 返回酒馆
 #### 2.2.2 参与度乘数
 
 ```
-participation_multiplier = base_multiplier + bonus_multiplier
+participation_multiplier = base_multiplier + team_bonus_multiplier
 
 base_multiplier:
   - 存活至冒险结束: 1.0
   - 在最终 Boss 战中倒地但被救回: 0.9
   - 在最终 Boss 战前倒地且未被救回: 0.7
 
-bonus_multiplier (可叠加):
-  - 最高伤害输出者: +0.1
-  - 最高治疗输出者: +0.1
-  - 完成最多技能检定者: +0.05
+team_bonus_multiplier (可叠加, 奖励团队协作与叙事参与):
   - 存活且从未倒地: +0.1
+  - 救回倒地队友次数最多者: +0.1
+  - 完成最多非战斗技能检定者: +0.05
 ```
+
+> **设计说明 (v1.3)**: 移除了"最高伤害输出者"和"最高治疗输出者"的bonus（v1.2曾有此设计），因为它们在合作体验中引入零和竞争。改为"救回队友"鼓励互助——这与 Pillar 1（"角色驱动的故事"、"这些人我舍不得"）对齐。控制/辅助角色（如施放 Hold Person 或 Bless）不再被系统性惩罚。
 
 #### 2.2.3 目标奖励
 
@@ -264,17 +267,20 @@ example:
   完成 2 个次要目标: 300 × (1 + 0.2) = 360 XP
 ```
 
-#### 2.2.4 速度奖励
+#### 2.2.4 时间惩罚
+
+> **设计说明 (v1.3)**: 移除了速度奖励（v1.2 的 ×1.2/×1.5 加速倍率），因为它鼓励跳过叙事内容直奔 Boss，与 Pillar 1（叙事优先）冲突。改为仅保留超时惩罚——时间是压力源而非奖励源。
 
 ```
-speed_bonus_multiplier = 1.0
+time_penalty_multiplier = 1.0
 
-if adventure_completed_in <= expected_duration * 0.75:
-  speed_bonus_multiplier = 1.2  # 快速完成 +20%
-elif adventure_completed_in <= expected_duration * 0.5:
-  speed_bonus_multiplier = 1.5  # 极速完成 +50%
-elif adventure_completed_in > expected_duration * 1.5:
-  speed_bonus_multiplier = 0.8  # 超时 -20%
+if adventure_completed_in > expected_duration * 1.5:
+  time_penalty_multiplier = 0.8  # 严重超时 -20%
+elif adventure_completed_in > expected_duration * 1.2:
+  time_penalty_multiplier = 0.9  # 轻度超时 -10%
+
+# 正常时间内完成: 无惩罚 (×1.0)
+# 快速完成: 无额外奖励 (鼓励探索而非竞速)
 ```
 
 #### 2.2.5 总 XP 分配算法
@@ -301,12 +307,12 @@ func calculate_xp_for_character(
     var objective_bonus = adventure_meta.side_objectives_completed * 0.10
     total_xp = int(total_xp * (1.0 + min(objective_bonus, 0.30)))
     
-    # Step 4: 速度奖励
-    var speed_mult = get_speed_multiplier(
+    # Step 4: 时间惩罚
+    var time_penalty = get_time_penalty(
         adventure_meta.actual_duration,
         adventure_meta.expected_duration
     )
-    total_xp = int(total_xp * speed_mult)
+    total_xp = int(total_xp * time_penalty)
     
     # Step 5: 冒险完成基础奖励
     var completion_xp = get_completion_xp(adventure_meta.tier)
@@ -336,14 +342,14 @@ func get_completion_xp(tier: String) -> int:
   - 1 个 Hard 遭遇: 600 XP 基础
   - 总基础 XP: 1,500
 
-角色 A (战士, 存活, 最高伤害):
+角色 A (战士, 存活, 从未倒地):
   参与度: 1.0 + 0.1 = 1.1
   目标: 完成 1 个次要目标 (+10%)
-  速度: 正常 (×1.0)
+  时间: 正常 (×1.0)
   冒险完成: +150
   总 XP: (1500 × 1.1 × 1.1) + 150 = 1,815 + 150 = 1,965
 
-角色 B (法师, 存活, 从未倒地):
+角色 B (法师, 存活, 救回队友次数最多):
   参与度: 1.0 + 0.1 = 1.1
   总 XP: (1500 × 1.1 × 1.1) + 150 = 1,965
 
@@ -351,9 +357,9 @@ func get_completion_xp(tier: String) -> int:
   参与度: 0.9
   总 XP: (1500 × 0.9 × 1.1) + 150 = 1,485 + 150 = 1,635
 
-角色 D (牧师, 存活, 最高治疗):
-  参与度: 1.0 + 0.1 = 1.1
-  总 XP: (1500 × 1.1 × 1.1) + 300 = 2,115
+角色 D (牧师, 存活, 从未倒地, 完成最多技能检定):
+  参与度: 1.0 + 0.1 + 0.05 = 1.15
+  总 XP: (1500 × 1.15 × 1.1) + 150 = 1,897.5 → 1,898
 ```
 
 ---
@@ -405,12 +411,15 @@ Step 1: 检查灾难性 (Catastrophic)
     → 大部分死亡，仅剩 1 人
 
 Step 2: 检查严重 (Severe)
-  IF dead_count >= 1 AND dead_count < total_members * 0.75:
-    severity = "severe"
-    → 有角色永久死亡
-  ELSE IF completion_percentage < 0.25 AND retreated == true:
-    severity = "severe"
-    → 早期撤退，几乎未完成任何内容
+   IF dead_count >= 1 AND dead_count < total_members * 0.75:
+     severity = "severe"
+     → 有角色永久死亡
+   ELSE IF completion_percentage < 0.25 AND retreated == true:
+     severity = "severe"
+     → 早期撤退，几乎未完成任何内容
+   ELSE IF completion_percentage < 0.25 AND retreated == false:
+     severity = "severe"
+     → 早期被击败（非主动撤退），几乎未完成任何内容
 
 Step 3: 检查中等 (Moderate)
   IF dead_count == 0 AND unconscious_count >= total_members * 0.5:
@@ -508,14 +517,17 @@ Step 3: 生成惩罚 (程序选择 + LLM 叙事)
   └───────────────────────┬─────────────────────────┘
                           ▼
 Step 4: 应用角色后果
-  ┌─────────────────────────────────────────────────┐
-  │ 根据严重程度:                                    │
-  │   Minor: 无角色后果                              │
-  │   Moderate: 1-2 角色获得伤疤 (见 §4)             │
-  │   Severe: 死亡角色处理 (见 §5) + 存活者伤疤      │
-  │   Catastrophic: 所有角色标记死亡 (见 §5)          │
-  │                                                   │
-  │ 发出信号: scar_acquired / character_died          │
+   ┌─────────────────────────────────────────────────┐
+   │ 根据严重程度:                                    │
+   │   Minor: 无角色后果 (无伤疤, 无死亡)            │
+   │   Moderate: 1-2 角色获得伤疤 (见 §4)             │
+   │   Severe: 死亡角色处理 (见 §5) + 存活者伤疤      │
+   │   Catastrophic: 所有角色标记死亡 (见 §5)          │
+   │                                                   │
+   │ 注意: Minor 失败不会触发伤疤生成——§4.1 Step 2    │
+   │ 的伤疤严重程度判定仅适用于 Moderate+ 失败。      │
+   │                                                   │
+   │ 发出信号: scar_acquired / character_died          │
   └───────────────────────┬─────────────────────────┘
                           ▼
 Step 5: 应用装备后果
@@ -626,20 +638,26 @@ Step 1: 确定主要伤害类型
     primary_damage_type = "physical"  # 默认物理
 
 Step 2: 确定伤疤严重程度
-  match failure_severity:
-    "minor":
-      scar_severity = "light"  # 仅轻度伤疤
-    "moderate":
-      scar_severity = weighted_random({"light": 60, "moderate": 35, "severe": 5})
-    "severe":
-      scar_severity = weighted_random({"light": 30, "moderate": 50, "severe": 20})
-    "catastrophic":
-      scar_severity = weighted_random({"light": 10, "moderate": 40, "severe": 50})
+   # 注意: Minor 失败不生成伤疤 (§3.2 Step 4), 此算法仅在 Moderate+ 失败时调用
+   match failure_severity:
+     "moderate":
+       scar_severity = weighted_random({"light": 60, "moderate": 35, "severe": 5})
+     "severe":
+       scar_severity = weighted_random({"light": 30, "moderate": 50, "severe": 20})
+     "catastrophic":
+       scar_severity = weighted_random({"light": 10, "moderate": 40, "severe": 50})
 
 Step 3: 从对应伤害类型池中筛选候选伤疤
-  candidates = scar_pool[primary_damage_type]
-  candidates = filter(candidates, severity <= scar_severity)
-  candidates = filter(candidates, id NOT IN character.scar_ids)  # 排除已存在
+   candidates = scar_pool[primary_damage_type]
+   candidates = filter(candidates, severity <= scar_severity)
+   candidates = filter(candidates, id NOT IN character.scar_ids)  # 排除已存在
+
+   # Fallback: 如果候选列表为空 (伤害类型池枯竭或全部已拥有)
+   if candidates is empty:
+     if primary_damage_type != "generic":
+       candidates = scar_pool["generic"]  # 降级到通用伤疤池
+     if candidates is still empty:
+       return null  # 不生成伤疤 (所有同类型伤疤已拥有且通用池也枯竭)
 
 Step 4: 加权随机选择
   weights = {
@@ -681,6 +699,12 @@ Step 7: 应用到角色
 
 ### 4.2 完整伤疤效果表
 
+> **设计说明 (v1.3)**: 伤疤补偿已从"可量化的战术优势"降级为"被迫适应的微薄改善"，与 character-system v1.2 对齐。原则：
+> - 伤害抵抗 → 改为豁免优势（非全抵抗）
+> - 黑暗视觉 60尺 → 微光感知 10尺（非全黑暗视觉）
+> - 永久属性增益 → 移除或改为情境性小加成
+> - 补偿不应让权力游戏者"追求伤疤"——它们是叙事性的适应，不是可收集的升级。
+
 #### 4.2.1 火焰伤害伤疤 (FIRE)
 
 | ID | 名称 | 严重程度 | 惩罚 | 补偿 | 外观标记 | 移除方式 |
@@ -689,15 +713,15 @@ Step 7: 应用到角色
 | scar_branded | 烙印 | Moderate | CHA -2 (非威吓社交检定) | 威吓 +3 | 面部烙印 | 特殊任务 |
 | scar_seared_lungs | 炙肺 | Moderate | HP 上限永久 -5 | 对抗吸入性毒素豁免优势 | 呼吸伴随嘶哑声 | 特殊任务 |
 | scar_fire_hair | 焦发 | Light | 第一次被敌人注意时劣势 | 火焰戏法免费 (如 Produce Flame) | 永久烧焦的发梢 | 神殿/时间 |
-| scar_blistered_hands | 灼手 | Light | 巧手 -2, 远程武器攻击 -1 | 徒手攻击附带 1d4 火焰伤害 | 手掌水疱 | 神殿/时间 |
+| scar_blistered_hands | 灼手 | Light | 巧手 -2, 远程武器攻击 -1 | 对抗火焰的豁免优势 | 手掌水疱 | 神殿/时间 |
 
 #### 4.2.2 寒冷伤害伤疤 (COLD)
 
 | ID | 名称 | 严重程度 | 惩罚 | 补偿 | 外观标记 | 移除方式 |
 |----|------|:--------:|------|------|----------|----------|
-| scar_frostbite | 冻伤指节 | Light | 巧手 -2 | 寒冷伤害抵抗 | 手指发蓝 | 神殿/时间 |
+| scar_frostbite | 冻伤指节 | Light | 巧手 -2 | 对抗寒冷的 CON 豁免优势 | 手指发蓝 | 神殿/时间 |
 | scar_chill_bones | 寒骨 | Moderate | 速度 -5 尺 | 察觉 +2 (振动感知增强) | 关节僵硬 | 特殊任务 |
-| scar_cold_veins | 寒血 | Severe | 死亡豁免窗口 -1 轮 (2 轮不治即死) | 1d6 回合 1 次, CHA 检定可震慑 1 敌 | 血管呈蓝色可见 | 特殊任务 |
+| scar_cold_veins | 寒血 | Severe | 死亡豁免窗口 -1 轮 (2 轮不治即死) | 对抗寒冷的豁免优势 | 血管呈蓝色可见 | 特殊任务 |
 | scar_frozen_memory | 冰封记忆 | Light | 历史 -2 | 寒冷环境天候豁免优势 | 银色发丝 | 神殿/时间 |
 
 #### 4.2.3 闪电伤害伤疤 (LIGHTNING)
@@ -705,15 +729,15 @@ Step 7: 应用到角色
 | ID | 名称 | 严重程度 | 惩罚 | 补偿 | 外观标记 | 移除方式 |
 |----|------|:--------:|------|------|----------|----------|
 | scar_nerve_damage | 神经损伤 | Moderate | 先攻 -2 | 闪电伤害不打断专注 | 手部震颤 | 特殊任务 |
-| scar_static_touch | 静电之触 | Light | 徒手接触 NPC 有 10% 几率使其敌意 | 徒手攻击附带 1d4 闪电伤害 | 头发偶尔竖立 | 神殿/时间 |
-| scar_lightning_twitch | 闪电抽动 | Light | DEX 豁免 -1 | 每遭遇 1 次: 反应 AC +1 持续 1 轮 | 肌肉偶尔抽搐 | 神殿/时间 |
+| scar_static_touch | 静电之触 | Light | 徒手接触 NPC 有 10% 几率使其敌意 | 对抗电击的豁免优势 | 头发偶尔竖立 | 神殿/时间 |
+| scar_lightning_twitch | 闪电抽动 | Light | DEX 豁免 -1 | 先攻 +1 (仅在雷暴/闪电环境中) | 肌肉偶尔抽搐 | 神殿/时间 |
 | scar_heart_arrythmia | 心脉紊乱 | Moderate | CON 豁免 -1 | 感知心电图 (察觉 +2 对抗伏击) | 颈部血管闪蓝光 | 特殊任务 |
 
 #### 4.2.4 黯蚀伤害伤疤 (NECROTIC)
 
 | ID | 名称 | 严重程度 | 惩罚 | 补偿 | 外观标记 | 移除方式 |
 |----|------|:--------:|------|------|----------|----------|
-| scar_withered_limb | 枯肢 | Severe | STR -2 (永久) | 获得 60 尺黑暗视觉 | 手臂萎缩/灰白 | 特殊任务 |
+| scar_withered_limb | 枯肢 | Severe | STR -2 (永久) | 获得 10 尺微光感知 | 手臂萎缩/灰白 | 特殊任务 |
 | scar_soul_scar | 魂痕 | Moderate | 第 1 次死亡豁免自动失败 | 对亡灵 +2 AC | 胸口灰白斑痕 | 特殊任务 |
 | scar_life_drain_echo | 生命回响 | Moderate | HP 上限永久 -10 | 每次击杀获得 +1 临时 HP | 眼下黑圈 | 特殊任务 |
 | scar_spectral_mark | 灵痕 | Light | 对驱散/放逐豁免劣势 | 可感知 60 尺内亡灵存在 | 皮肤上飘忽的灰色符文 | 神殿/时间 |
@@ -723,7 +747,7 @@ Step 7: 应用到角色
 | ID | 名称 | 严重程度 | 惩罚 | 补偿 | 外观标记 | 移除方式 |
 |----|------|:--------:|------|------|----------|----------|
 | scar_paranoia | 偏执狂 | Moderate | 短休获益有 50% 几率失败 | 对抗突袭免疫 | 时刻环顾四周 | 特殊任务 |
-| scar_broken_mind | 破碎心智 | Severe | INT -2 (永久) | 异怪语获得, 心灵伤害抵抗 | 神情恍惚 | 特殊任务 |
+| scar_broken_mind | 破碎心智 | Severe | INT -2 (永久) | 异怪语获得, 对抗心灵的豁免优势 | 神情恍惚 | 特殊任务 |
 | scar_nightmare_plagued | 梦魇缠身 | Moderate | 长休 50% 不消除疲乏 | 短休额外恢复 1 个 Hit Die | 严重黑眼圈 | 特殊任务 |
 | scar_psychic_scar | 心灵裂痕 | Light | WIS 豁免 -1 | 对魅惑/恐慌豁免优势 | 眉间深深皱纹 | 神殿/时间 |
 
@@ -732,20 +756,20 @@ Step 7: 应用到角色
 | ID | 名称 | 严重程度 | 惩罚 | 补偿 | 外观标记 | 移除方式 |
 |----|------|:--------:|------|------|----------|----------|
 | scar_battle_hardened | 老兵之手 | Light | 主手武器攻击 -1 | 近战威吓 +2 | 手臂布满伤疤 | 神殿/时间 |
-| scar_lost_eye | 独眼 | Moderate | 察觉 -2, 远程攻击劣势 (>30 尺) | 获得 60 尺黑暗视觉 | 独眼/眼罩 | 特殊任务 |
+| scar_lost_eye | 独眼 | Moderate | 察觉 -2, 远程攻击劣势 (>30 尺) | 获得 10 尺微光感知 | 独眼/眼罩 | 特殊任务 |
 | scar_limp | 跛行 | Moderate | 速度 -10 尺 | 倒地后站立仅需 5 尺 | 用手杖/明显跛行 | 特殊任务 |
 | scar_missing_finger | 断指 | Light | 巧手 -2 | 获得徒手攻击熟练项 | 断一指 | 神殿/时间 |
 | scar_broken_ribs | 旧伤肋骨 | Light | CON -1 | 受到暴击时伤害 -3 | 呼吸伴疼痛/偶尔捂胸 | 神殿/时间 |
 | scar_shattered_jaw | 碎颚 | Moderate | 说服/欺瞒 -2 | 威吓 +2, 可吃非食物物质 | 下颌畸形 | 特殊任务 |
-| scar_severed_ear | 缺耳 | Light | 察觉 -1 | 对音波伤害抵抗 | 缺一只耳朵 | 神殿/时间 |
+| scar_severed_ear | 缺耳 | Light | 察觉 -1 | 对抗雷鸣的豁免优势 | 缺一只耳朵 | 神殿/时间 |
 | scar_spinal_twist | 脊弯 | Light | 跳跃距离减半 | 不会被推倒 | 姿势微驼 | 神殿/时间 |
 
 #### 4.2.7 毒/酸伤害伤疤 (POISON/ACID)
 
 | ID | 名称 | 严重程度 | 惩罚 | 补偿 | 外观标记 | 移除方式 |
 |----|------|:--------:|------|------|----------|----------|
-| scar_acid_scarred | 酸蚀 | Moderate | CHA -2 | 酸伤害抵抗 | 面部/皮肤腐蚀痕迹 | 特殊任务 |
-| scar_toxin_tolerance | 毒抗 | Light | 治疗药水效果 -50% | 中毒伤害抵抗 | 皮肤微绿 | 神殿/时间 |
+| scar_acid_scarred | 酸蚀 | Moderate | CHA -2 | 对抗酸的豁免优势 | 面部/皮肤腐蚀痕迹 | 特殊任务 |
+| scar_toxin_tolerance | 毒抗 | Light | 治疗药水效果 -50% | 对抗中毒的豁免优势 | 皮肤微绿 | 神殿/时间 |
 | scar_chemical_burns | 化学灼伤 | Light | 巧手 -1, 表演 -1 | 酸/毒豁免优势 | 手部漂白斑痕 | 神殿/时间 |
 
 #### 4.2.8 通用伤疤 (GENERIC)
@@ -887,19 +911,20 @@ Step 4: 死亡处理
   前置条件: 酒馆声望 >= Lv7 (解锁神殿)
   
   成本:
-    - 1,000 gp
-    - 稀有材料组件 (如: 凤凰羽毛/龙鳞/精灵泪)
+    - 2,000 gp
+    - 极稀有材料组件 (如: 凤凰羽毛/龙鳞/精灵泪 — 需通过传奇级冒险获取)
   
   时间:
-    - 角色在 1 次冒险后返回 (期间不可用)
+    - 角色在 2 次冒险后返回 (期间不可用)
   
   副作用:
-    - 返回时获得永久 debility: CON -1
-    - 仅在死亡后 3 次冒险内有效 (超过则无法复活)
+    - 返回时获得永久 debility: CON -1, STR -1
+    - 仅在死亡后 2 次冒险内有效 (超过则无法复活)
   
   限制:
     - 每个角色只能被复活 1 次
     - 灾难性失败 (全灭) 中死亡的角色无法复活
+    - 同一存档中最多复活 2 个角色
 ```
 
 ---
@@ -919,13 +944,14 @@ Step 4: 死亡处理
 
 ```
 物品状态等级 (Item Condition Levels):
-  Pristine (完好) → Worn (磨损) → Damaged (损坏) → Broken (破碎) → Destroyed (销毁)
+   Pristine (完好) → Good (良好) → Worn (磨损) → Damaged (损坏) → Broken (破碎) → Destroyed (销毁)
 
-  Pristine: 100% 效果
-  Worn: 90% 效果, 视觉轻微磨损
-  Damaged: 75% 效果, 视觉明显损坏
-  Broken: 50% 效果, 需要修复才能使用
-  Destroyed: 0% 效果, 物品消失
+   Pristine: 100% 效果
+   Good: 95% 效果, 轻微使用痕迹
+   Worn: 90% 效果, 视觉轻微磨损
+   Damaged: 75% 效果, 视觉明显损坏
+   Broken: 50% 效果, 需要修复才能使用
+   Destroyed: 0% 效果, 物品消失
 ```
 
 ### 6.3 物品销毁概率
@@ -1151,34 +1177,30 @@ func apply_knowledge_tag_bonus(
 
 ### 7.5 传承点 (Heritage Points) 消费
 
+> **设计说明 (v1.3)**: 传承点总量已从 `floor(xp/500) + points_from_level`（Lv5≈21HP）改为 `level + 5`（Lv5=10HP），以兑现"微薄遗物"承诺。消费成本相应重算——高价值选项（feat）需要更多传承点，让玩家在有限预算内做有意义的选择。
+
 | 传承点成本 | 效果 | 持续时间 |
 |:----------:|------|----------|
 | 1 HP | 下次冒险开始时 +5 临时 HP | 1 次冒险 |
-| 1 HP | 下次冒险开始时 +50 起始金币 | 永久 |
+| 1 HP | 下次冒险开始时 +30 起始金币 | 永久 |
 | 2 HP | 下次冒险获得 1 项额外技能熟练 | 1 次冒险 |
-| 2 HP | 下次冒险起始等级 +1 (但 XP 获取 -20%) | 永久 |
-| 3 HP | 下次冒险开始时额外 1 个 1 环法术位 | 1 次冒险 |
-| 3 HP | 继承 1 件绑定装备 | 永久 |
-| 5 HP | 获得 1 个 minor feat (如: Lucky, Tough) | 永久 |
+| 4 HP | 下次冒险起始等级 +1 (但 XP 获取 -20%) | 永久 |
+| 4 HP | 额外 1 个 1 环法术位 (仅限施法者) | 1 次冒险 |
+| 5 HP | 继承 1 件绑定装备 | 永久 |
+| 7 HP | 获得 1 个 minor feat (如: Lucky, Tough) | 永久 |
 
 ### 7.6 传承点计算公式
 
+> **设计说明 (v1.3)**: 传承点公式已从 `floor(xp/500) + points_from_level` 改为 `level + 5`，与 character-system v1.2 统一。这确保传承始终是"微薄遗物"而非"高价值遗产"——"死亡有重量"意味着死亡的代价远大于传承的收获。
+
 ```
-heritage_points = points_from_xp + points_from_level
-
-points_from_xp = floor(dead_character.xp / 500)
-
-points_from_level:
-  Level 1-5:   1 HP
-  Level 6-10:  2 HP
-  Level 11-15: 3 HP
-  Level 16-20: 4 HP
+heritage_points = level + 5
 
 示例:
-  Lv5 Fighter, 10,400 XP:
-    points_from_xp = floor(10400 / 500) = 20 HP
-    points_from_level = 1 HP (Lv5 属于 1-5 区间)
-    total = 21 HP
+  Lv5 Fighter: 5 + 5 = 10 HP
+  Lv10 Wizard: 10 + 5 = 15 HP
+  Lv15 Cleric: 15 + 5 = 20 HP
+  Lv20 Barbarian: 20 + 5 = 25 HP
 ```
 
 ---
@@ -1469,8 +1491,8 @@ User:
 
 ```
 世界状态存储:
-  文件路径: user://world_state.json
-  格式: JSON (见 §9.1 Schema)
+   文件路径: {ApplicationData}/world_state.json (MonoGame: Environment.SpecialFolder.ApplicationData)
+   格式: JSON (见 §9.1 Schema)
   
   加载时机:
     - 游戏启动时加载
@@ -1617,7 +1639,7 @@ User:
 |----------|:--------:|------|
 | 冒险完成奖励 | 50-500 gp | 基于冒险等级和难度 |
 | 敌人掉落 | 5-50 gp/敌人 | 基于敌人 CR |
-| 物品出售 | 基础价值 ×50% | 受声望影响 (见下) |
+| 物品出售 | 基础价值 × 30% × 稀有度乘数 × 状态调整 | 受声望影响 (见下) |
 | 任务奖励 | 100-1,000 gp | 特殊任务/支线任务 |
 | 制作出售 | 成本 ×150% | 炼金台/铁匠铺制作 |
 
@@ -1954,23 +1976,23 @@ TEST 1: 基础遭遇 XP 计算
 
 TEST 2: 参与度乘数 - 存活
   Input: survived=true, knocked_out=false
-  Expected: 1.0
+  Expected: 1.0 (base) + 0.1 (从未倒地) = 1.1
 
-TEST 3: 参与度乘数 - 最高伤害
-  Input: highest_damage=true
+TEST 3: 参与度乘数 - 救回队友最多
+  Input: most_revives=true
   Expected: 1.0 + 0.1 = 1.1
 
 TEST 4: 目标奖励 - 2 个次要目标
   Input: side_objectives=2
   Expected: 1.0 + 0.2 = 1.2
 
-TEST 5: 速度奖励 - 快速完成
-  Input: actual=60min, expected=90min
-  Expected: 60 <= 90*0.75=67.5 → 1.2
+TEST 5: 时间惩罚 - 正常完成
+  Input: actual=90min, expected=90min
+  Expected: actual <= expected*1.2 → 无惩罚 → 1.0
 
-TEST 6: 总 XP 计算
-  Input: 3 medium encounters (avg_level=3), survived, 1 side objective
-  Expected: (300×3) × 1.0 × 1.1 + 300 = 990 + 300 = 1290
+TEST 6: 总 XP 计算 (v1.3 更新: 参与度和完成奖励已修正)
+  Input: 3 medium encounters (avg_level=3), survived+从未倒地, 1 side objective, 短冒险
+  Expected: (300×3) × 1.1 × 1.1 + 150 = 1,089 + 150 = 1,239
 ```
 
 #### Test Suite: 严重程度判定
@@ -1995,20 +2017,25 @@ TEST 10: 中等 - 低完成度
 TEST 11: 轻微 - 高完成度
   Input: dead=0, unconscious=1, completion=80%
   Expected: "minor"
+
+TEST 12: 严重 - 低完成度被击败 (非撤退)
+  Input: dead=0, unconscious=2, total=4, completion=20%, retreated=false
+  Expected: "severe"
+  → completion < 25% 且非主动撤退: 仍判 Severe
 ```
 
 #### Test Suite: 伤疤选择
 
 ```
-TEST 12: 伤害类型筛选
+TEST 13: 伤害类型筛选
   Input: damage_type="fire", existing_scar_ids=[]
   Expected: 返回火焰伤疤池中的候选
 
-TEST 13: 排除已存在伤疤
+TEST 14: 排除已存在伤疤
   Input: damage_type="fire", existing_scar_ids=["scar_fire_trauma"]
   Expected: 候选中不包含 scar_fire_trauma
 
-TEST 14: 严重程度筛选
+TEST 15: 严重程度筛选
   Input: failure_severity="moderate"
   Expected: scar_severity 为 "light" (60%), "moderate" (35%), 或 "severe" (5%)
 ```
@@ -2016,31 +2043,32 @@ TEST 14: 严重程度筛选
 #### Test Suite: 金币经济
 
 ```
-TEST 15: 物品出售价格
+TEST 16: 物品出售价格
   Input: base_value=100, rarity="common", condition="pristine", reputation="known"
   Expected: 100 × 1 × 0.3 × 1.0 × 1.0 = 30
 
-TEST 16: 修复成本
-  Input: condition_level=2, item_level=3
-  Expected: (10 + 20) × (1 + 0.3) = 30 × 1.3 = 39
+TEST 17: 修复成本
+  Input: condition_levels_to_repair=2, item_level=3
+  Formula: base_repair_cost(per_level) = 10gp; cost = (condition_levels × 10) × (1 + item_level × 0.1)
+  Expected: (2 × 10) × (1 + 3 × 0.1) = 20 × 1.3 = 26 gp
 
-TEST 17: 失败金币损失
-  Input: party_gold=500, severity="moderate"
-  Expected: 500 × 0.5 = 250 损失
+TEST 18: 失败金币损失 (v1.4 修正：分级固定值)
+  Input: party_avg_level=3, severity="moderate"
+  Expected: 50 gp 损失 (Lv3-4 Moderate = 50gp, 参见 GDD-v1.md 金币损失分级表)
 ```
 
 #### Test Suite: 声望阈值
 
 ```
-TEST 18: 声望等级判定
+TEST 19: 声望等级判定
   Input: reputation=25
   Expected: tier="known"
 
-TEST 19: 声望变化
+TEST 20: 声望变化
   Input: old=15, change=+10
   Expected: new=25, tier crossed from "novice" to "known"
 
-TEST 20: 声望下限
+TEST 21: 声望下限
   Input: reputation=5, change=-10
   Expected: new=0 (不会变为负数)
 ```
@@ -2048,16 +2076,16 @@ TEST 20: 声望下限
 #### Test Suite: 传承点
 
 ```
-TEST 21: 传承点计算 - Lv5
-  Input: level=5, xp=10400
-  Expected: points_from_xp=20, points_from_level=1, total=21
+TEST 22: 传承点计算 - Lv5 (v1.3: level+5)
+  Input: level=5
+  Expected: 5 + 5 = 10 HP
 
-TEST 22: 传承点消费
-  Input: available=21, spend=3
-  Expected: available=18, spent=3
+TEST 23: 传承点消费
+  Input: available=10, spend=5
+  Expected: available=5, spent=5
 
-TEST 23: 传承点不足
-  Input: available=2, spend=3
+TEST 24: 传承点不足
+  Input: available=10, spend=14
   Expected: 返回 false
 ```
 
@@ -2078,7 +2106,7 @@ TEST 25: 完整失败结算流程 (Minor)
   Given: 4 人队伍，1 人倒地，完成 80%
   Step 1: 触发失败结算
   Step 2: 验证严重程度 = "minor"
-  Step 3: 验证金币损失 30%
+  Step 3: 验证金币损失（分级固定值，见 GDD-v1.md §13.2）
   Step 4: 验证无伤疤生成
   Step 5: 验证声望减少 5
 
@@ -2343,7 +2371,8 @@ BALANCE 5: 声望增长
 
 ---
 
-*文档版本: v1.0*  
+*文档版本: v1.3*  
 *创建日期: 2026-05-04*  
-*状态: 初始设计阶段*  
-*下一步: 确认平衡参数后进入开发*
+*修订日期: 2026-05-10 (v1.3 — MAJOR REVISION: 5项创意决策执行)*  
+*状态: 已修订 (待重新审查)*  
+*下一步: `/design-review 08-failure-growth.md --depth lean` 重新审查*

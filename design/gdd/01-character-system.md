@@ -105,16 +105,16 @@
 | **失败与成长系统** | 伤疤写入、传承点、永久状态 | ✅ `08-failure-growth.md` |
 | **LLM集成网关** | 角色叙事数据作为Prompt上下文 | ✅ `02-llm-integration.md` |
 | **UI系统** | 角色面板、装备界面、关系界面 | ✅ `09-ui-ux-design.md` |
-| **条件效果系统** | 14种DND 5e条件的施加/移除 | ❌ 未设计 |
-| **世界状态系统** | 角色对世界的影响记录 | ❌ 未设计 |
-| **敌人AI系统** | 读取角色属性以决策目标 | ❌ 未设计 |
-| **存档系统** | 角色数据序列化/反序列化 | ❌ 未设计 |
+| **条件效果系统** | 14种DND 5e条件的施加/移除 | ✅ `10-condition-effects-system.md` |
+| **世界状态系统** | 角色对世界的影响记录 | ⚠️ 已放弃 (cross-review 2026-05-09 A3) |
+| **敌人AI系统** | 读取角色属性以决策目标 | ✅ `11-enemy-ai-system.md` |
+| **存档系统** | 角色数据序列化/反序列化 | ✅ `design/quick-specs/save-system-2026-05-09.md` |
 
 #### 1.6.3 跨文档对齐记录
 
 | 本GDD章节 | 对应文档 | 对齐状态 | 备注 |
 |-----------|----------|:--------:|------|
-| §8.3 传承点公式 | `08-failure-growth.md` §7.6 | ✅ 已对齐 | 统一为 `floor(xp/500)` |
+| §8.3 传承点公式 | `08-failure-growth.md` §7.6 | ⚠️ 待对齐 | 本GDD使用 `level + 5` 线性公式；failure-growth §7.6 成本表需同步更新 |
 | §7.2 伤疤效果 | `08-failure-growth.md` §4 | ⚠️ 待对齐 | 伤疤消除成本需同步更新 |
 | §2.4.1 XP获取 | `08-failure-growth.md` §2.2 | ✅ 已对齐 | XP计算由failure-growth统一管理 |
 | §2.8.2 疲乏系统 | `04-combat-system.md` §9.2 | ✅ 已对齐 | 3级简化与GDD §5.3一致 |
@@ -131,19 +131,20 @@
 | **自由分配点** | 3 | 2-4 | 角色独特性 | 2点=微小差异, 4点=显著差异 |
 | **关系变化值（常态）** | ±1 | ±1 | 关系发展速度 | 不建议超过±2 |
 | **关系变化值（重大事件）** | ±2~3 | ±2~3 | 关系剧变感 | 超过±3会过于剧烈 |
-| **关系衰减** | 无 | 0~1/30天 | 关系维护需求 | 添加1/30天衰减增加真实感 |
+| **关系衰减（trust）** | 1/30天 | 1/15~1/60天 | 信任维护需求 | 信任衰减较慢——"人不会轻易忘记恩情" |
+| **关系衰减（conflict）** | 1/15天 | 1/7~1/30天 | 冲突消解速度 | 冲突衰减较快——"人更容易忘记争执" |
 | **伤疤严重度权重（轻度）** | 70% | 50-80% | 轻度伤疤频率 | 降低会增加中/重度伤疤 |
 | **伤疤严重度权重（中度）** | 25% | 15-35% | 中度伤疤频率 | — |
 | **伤疤严重度权重（重度）** | 5% | 2-10% | 重度伤疤频率 | 超过10%会过于惩罚 |
-| **传承点公式** | floor(xp/500) | floor(xp/250~1000) | 死亡遗产价值 | 分母越大，遗产越微薄 |
-| **传承点: 额外金币** | 1点=50GP | 25-100GP | 起始经济优势 | — |
-| **传承点: 等级+1** | 3点 | 2-5点 | 起始等级优势 | 成本越高，死亡代价越重 |
-| **传承点: 绑定装备** | 5点 | 3-8点 | 装备传承 | — |
+| **传承点公式** | `level + 5` | `level + 3 ~ level + 8` | 死亡遗产价值 | Lv5=10点(500GP)，Lv10=15点，Lv20=25点。始终"微薄遗物" |
+| **传承点: 额外金币** | 1点=50GP (最多兑换2次) | 1-3次 | 起始经济优势 | 硬上限防止通胀——任何等级最多+100GP继承 |
+| **传承点: 等级+1** | 5点 | 4-7点 | 起始等级优势 | 成本越高，死亡代价越重 |
+| **传承点: 绑定装备** | 8点 | 5-10点 | 装备传承 | — |
 | **死亡豁免轮数** | 3轮 | 2-4轮 | 死亡紧迫感 | 2轮=极高压力, 4轮=较宽松 |
 | **疲乏等级上限** | 3级 | 3-6级 | 疲劳管理负担 | 3级=简化, 6级=原版5e |
-| **冒险完成奖励（短）** | 150 XP | 100-300 | 短冒险回报 | — |
-| **冒险完成奖励（中）** | 750 XP | 500-1500 | 中冒险回报 | — |
-| **冒险完成奖励（长）** | 2500 XP | 1500-5000 | 长冒险回报 | — |
+| **冒险完成奖励（短）** | 150 XP | 100-300 | 短冒险回报 | ⚠️ 只读镜像——实际XP由 failure-growth §2.2 统一计算 |
+| **冒险完成奖励（中）** | 750 XP | 500-1500 | 中冒险回报 | ⚠️ 只读镜像——实际XP由 failure-growth §2.2 统一计算 |
+| **冒险完成奖励（长）** | 2500 XP | 1500-5000 | 长冒险回报 | ⚠️ 只读镜像——实际XP由 failure-growth §2.2 统一计算 |
 | **MVP等级上限** | Lv5 | Lv3-Lv7 | 内容量 | Lv3=极简, Lv7=更多内容 |
 
 ---
@@ -200,7 +201,14 @@
     "race": "dwarf",
     "gender": "male",
     "age": 67,
-    "personality_tags": ["固执", "忠诚", "嗜酒"],
+    "personality": {
+      "attribute_hint": "坚毅",
+      "class_archetype": "守护者",
+      "race_stereotype": "固执",
+      "life_experience": "曾在矮人王国铁炉堡担任守卫队副官，在一次兽人突袭中失去了队友",
+      "fear_weakness": "害怕再次失去战友",
+      "speech_style": "寡言但句句精炼，偶尔冒出矮人谚语"
+    },
     "backstory": "曾是矮人王国铁炉堡的守卫队副官，在一次兽人突袭中失去了队友...",
     "appearance_description": "红棕色胡须编成三股辫，左眉有一道旧刀疤。从不脱下他的锁子甲...",
     "personal_goal": "寻找失落的神器——铁炉之心",
@@ -236,6 +244,7 @@
     "saving_throw_proficiencies": ["str", "con"],
     "death_saving_throws": {
       "rounds_without_healing": 0,
+      "death_failures": 0,
       "stable": false
     },
     "exhaustion_level": 0,
@@ -314,8 +323,8 @@
   },
 
   "relationships": {
-    "char_player": { "value": 0, "label": "neutral", "type": "none" },
-    "char_elara": { "value": 3, "label": "friendly", "type": "comrade" }
+    "char_player": { "trust": 2, "conflict": 0, "labels": [] },
+    "char_elara": { "trust": 3, "conflict": 0, "labels": [{"type": "comrade", "name": "战友"}] }
   },
 
   "conditions": [],
@@ -345,20 +354,20 @@
 
 | 衍生值 | 公式 | 示例（Lv3 Fighter / STR 16 / DEX 10 / CON 14） | SRD标记 |
 |--------|------|------|:---:|
-| HP最大值 | Lv1: 职业Hit Die最大值 + CON调整值<br>Lv2+: 上一级HP + Hit Die期望值 + CON调整值<br>**每级HP增加至少+1**（即使公式结果为0或负数） | Lv1: 10 + 2 = **12**<br>Lv2: 12 + 6(期望) + 2 = **20**<br>Lv3: 20 + 6 + 2 = **28**<br>极端示例: CON=1 Wizard: 6+(-5)=**1**, Lv2: max(1, 1+4-5)=**1** | `[SRD-FULL + 5e PHB p.15 minimum]` |
+| HP最大值 | Lv1: 职业Hit Die最大值 + CON调整值<br>Lv2+: 上一级HP + max(1, Hit Die期望值 + CON调整值)<br>**每级HP增加至少+1**（5e PHB p.15规则：增量取 max(1, 掷骰+CON_mod)） | Lv1: 10 + 2 = **12**<br>Lv2: 12 + max(1, 6(期望)+2) = **20**<br>Lv3: 20 + max(1, 6+2) = **28**<br>极端示例: CON=1 Wizard Lv1: 6+(-5)=**1**, Lv2: 1+max(1,4-5)=**2**, Lv20: **20** | `[SRD-FULL + 5e PHB p.15 minimum]` |
 | AC | 基于护甲公式（见Section 2.1.3） | 锁子甲: **16** | `[SRD-FULL]` |
 | 先攻调整值 | DEX调整值 + 其他来源加成 | DEX 10 -> **+0** | `[SRD-FULL]` |
 | 熟练加值 | `floor((level - 1) / 4) + 2` | Lv3: `floor(2/4) + 2 = 0 + 2 =` **+2** | `[SRD-FULL]` |
 | 被动感知 | `10 + WIS调整值 + (熟练则+PB)` | 熟练: `10 + 1 + 2 =` **13** | `[SRD-FULL]` |
 | 被动调查 | `10 + INT调整值 + (熟练则+PB)` | 未熟练: `10 + (-1) =` **9** | `[SRD-FULL]` |
 | 负重（槽位数） | 基于STR score（见Section 2.1.4） | STR 16 -> **16 背包槽** | `[CUSTOM: 槽位制替代重量制]` |
-| 跳跃距离（尺） | 助跑: STR score<br>立定: STR score / 2 | 助跑: **16 尺** | `[SRD-MODIFIED: 5e原版是STR score*2]` |
+| 跳跃距离（尺） | 助跑: STR score<br>立定: STR score / 2 | 助跑: **16 尺** | `[SRD-FULL]` |
 | 死亡豁免 | 双轨制：①每轮rounds_without_healing+1，≥3即死亡；②HP=0时受到任何伤害→death_failures+2，≥3即死亡 | - | `[CUSTOM: 替代5e原版3成功/3失败]` |
 | 法术豁免DC | `8 + 施法属性调整值 + 熟练加值` | Wizard Lv5 INT 16: `8 + 3 + 3 =` **14** | `[SRD-FULL]` |
 | 法术攻击加值 | `施法属性调整值 + 熟练加值` | Wizard Lv5 INT 16: `3 + 3 =` **+6** | `[SRD-FULL]` |
 | 武器攻击加值 | `熟练加值 + 力量调整值(近战) 或 敏捷调整值(远程/灵巧)` | Fighter Lv3 战斧: `2 + 3 =` **+5** | `[SRD-FULL]` |
 | 武器伤害 | `武器伤害骰 + 力量调整值(近战) 或 敏捷调整值(远程/灵巧)` | 战斧: `1d8 + 3` | `[SRD-FULL]` |
-| 专注检定DC | `max(10, 受到伤害值 / 2)` | 受到15伤害: `max(10, 7) =` **10**<br>受到30伤害: `max(10, 15) =` **15** | `[SRD-FULL]` |
+| 专注检定DC | `max(10, floor(受到伤害值 / 2))` (向下取整) | 受到15伤害: `max(10, 7) =` **10**<br>受到30伤害: `max(10, 15) =` **15** | `[SRD-FULL]` |
 
 #### 2.1.3 AC计算公式 `[SRD-FULL]`
 
@@ -1172,7 +1181,7 @@ Lv1-5职业进阶:
 | Arcane Recovery (Wizard) | 短休额外恢复 ceil(Level/2) 总环位, 单环不超过5 | 同 |
 
 计算示例:
-- Lv5 Wizard短休: 恢复1环位全部(4个) + Arcane Recovery恢复 ceil(5/2)=3环(可选1环+2环)
+- Lv5 Wizard短休: 恢复1环位 ceil(4/2)=2个 + Arcane Recovery恢复 ceil(5/2)=3环(可选1环+2环)
 - Lv5 Warlock短休: 恢复全部2个3环位
 - Lv5 Cleric短休: 恢复1环位全部(4个), 2-3环在长休才恢复
 
@@ -1448,9 +1457,35 @@ Passive Insight = 10 + WIS_mod + (if proficient -> +PB)
 ---
 
 
-## 4. 关系系统数据模型
+## 4. 关系系统数据模型 `[CUSTOM]`
+
+> **核心设计变更 (v2.0)**: 从单轴标量模型重构为双轴独立模型，以解决 §1A.2 关系测试的核心缺陷。
+
+### 设计理由
+
+旧系统使用单一标量值 `value`（-5 ~ +5）表达关系，将"信任"和"冲突"折叠到同一轴上。这导致两种截然不同的关系状态在数值上不可区分：
+
+| 场景 | 旧系统 value | 实际关系 | 系统理解 |
+|------|:-----------:|----------|----------|
+| 两个陌生冒险者，从未互动 | 0 | 陌路 | 中立 ✓ |
+| 两个并肩作战20次的战友，但在最后一次冒险中因战利品分配激烈争吵 | 0 | 信任但争吵的战友 | 中立 ✗ |
+
+双轴模型的核心洞察：**信任和冲突是两个独立的心理维度**。信任来自合作、救援、分享——它告诉角色"我可以把后背交给这个人"。冲突来自摩擦、背叛、争论——它告诉角色"我和这个人相处有火药味"。两者可以共存：两个在战场上无数次互相掩护的老兵可能依然为每一件战利品的归属而争吵不休。
+
+### 双轴定义
+
+| 轴 | 英文 | 范围 | 含义 | 积累来源 |
+|----|------|:----:|------|----------|
+| **信任** | trust | -5 ~ +5 | "我愿意依赖这个人" | 救援、合作、分享、支援、性格一致 |
+| **冲突** | conflict | -5 ~ +5 | "我和这个人之间有过节" | 误伤、背叛、抢夺、争吵、见死不救 |
+
+两个轴**各自独立累积、独立衰减**。共计 **121 种可能的关系状态**（11 × 11 = 121），替代旧系统的 11 种。
+
+---
 
 ### 4.1 关系数据结构 `[CUSTOM]`
+
+每个角色持有一张以 `character_id` 为键的关系映射表，每个关系条目包含双轴数值、事件历史和标签：
 
 ```json
 {
@@ -1459,16 +1494,26 @@ Passive Insight = 10 + WIS_mod + (if proficient -> +PB)
     "char_player": {
       "character_id": "char_player",
       "character_name": "亚瑟·晨星",
-      "value": 3,
+      "trust": 3,
+      "conflict": 1,
       "history": [
         {
-          "event": "saved_from_death_save",
+          "event": "rescued_from_0hp",
+          "axis": "trust",
           "change": 2,
           "adventure_id": "adv_001",
           "timestamp": "2026-05-04T12:30:00Z"
         },
         {
-          "event": "shared_loot_preference",
+          "event": "combo_kill",
+          "axis": "trust",
+          "change": 1,
+          "adventure_id": "adv_001",
+          "timestamp": "2026-05-04T12:35:00Z"
+        },
+        {
+          "event": "loot_dispute",
+          "axis": "conflict",
           "change": 1,
           "adventure_id": "adv_001",
           "timestamp": "2026-05-04T12:45:00Z"
@@ -1478,7 +1523,6 @@ Passive Insight = 10 + WIS_mod + (if proficient -> +PB)
         {
           "type": "comrade",
           "name": "战友",
-          "acquired_at_value": 3,
           "acquired_timestamp": "2026-05-04T12:30:00Z"
         }
       ]
@@ -1486,94 +1530,251 @@ Passive Insight = 10 + WIS_mod + (if proficient -> +PB)
     "char_elara": {
       "character_id": "char_elara",
       "character_name": "艾拉拉·月歌",
-      "value": -2,
-      "history": [],
-      "labels": []
+      "trust": 4,
+      "conflict": 3,
+      "history": [
+        {
+          "event": "took_damage_for_ally",
+          "axis": "trust",
+          "change": 3,
+          "adventure_id": "adv_003",
+          "timestamp": "2026-05-06T09:00:00Z"
+        },
+        {
+          "event": "argument",
+          "axis": "conflict",
+          "change": 2,
+          "adventure_id": "adv_005",
+          "timestamp": "2026-05-08T14:00:00Z"
+        },
+        {
+          "event": "saved_then_abandoned",
+          "axis": "both",
+          "change_trust": 2,
+          "change_conflict": 1,
+          "adventure_id": "adv_007",
+          "timestamp": "2026-05-09T11:00:00Z"
+        }
+      ],
+      "labels": [
+        {
+          "type": "rival_comrade",
+          "name": "争友",
+          "acquired_timestamp": "2026-05-08T14:00:00Z"
+        }
+      ]
     }
   }
 }
 ```
 
-### 4.2 关系阈值与效果
+**字段说明：**
 
-| 数值 | 关系标签 | 战斗效果 | 叙事效果 |
-|:----:|----------|----------|----------|
-| <= -5 | Nemesis (宿敌) | 邻接攻击-1命中, 对宿敌攻击+1伤害 | 嘲讽对话, 可触发"决斗"事件 |
-| -4 ~ -1 | Hostile (不和) | 无法使用"援助"动作, 不接受援助 | 冷淡对话 |
-| 0 | Neutral (中立) | 无特殊效果 | 正常对话 |
-| 1 ~ 4 | Friendly (友好) | 可执行"援助"动作(附赠, 给予队友下次攻击优势) | 友好对话 |
-| >= 5 | Bonded (牵绊) | 战友: 邻接+1命中; 恋人: 邻接+1AC; 师徒: 可分享熟练项 | 专属对话, 营地亲密场景 |
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `trust` | int (-5 ~ +5) | 信任值。正值表示信赖对方，负值表示不信任 |
+| `conflict` | int (-5 ~ +5) | 冲突值。正值表示存在过节/摩擦，负值表示无冲突 |
+| `history[]` | array | 关系变化事件历史。每个事件记录所属轴(`axis`: `"trust"` / `"conflict"` / `"both"`)、变化量和时间戳 |
+| `labels[]` | array | 当前激活的关系标签。Bonded 类型标签包含 `sub_type` 字段 |
 
-### 4.3 关系变化触发规则
+**注意事项：**
+- 关系是**非对称的**：A 对 B 的 trust/conflict 与 B 对 A 的 trust/conflict 独立存储。双向高信任（A→B trust ≥ 4 **且** B→A trust ≥ 4）是牵绊（Bonded）的必要条件。
+- `history` 数组按时间顺序追加，不删除。用于关系网络视图的历史追溯和 LLM 叙事上下文生成。
+- 当一个角色死亡时，其所有关系条目**冻结**（不再衰减、不再触发事件），但数据保留用于传记和传承叙事。
 
-#### 战斗中 (每场战斗限每个事件类型1次)
+---
+
+### 4.2 关系类型与效果 `[CUSTOM]`
+
+#### 4.2.1 双轴判定矩阵
+
+关系类型由 trust 和 conflict 的交叉阈值判定：
+
+| trust↓ / conflict→ | conflict ≤ 2 | conflict ≥ 3 |
+|---------------------|:----------:|:----------:|
+| **trust ≥ 3** | **战友** (Comrade) | **争友** (Rival-Comrade) |
+| **trust ≤ 0** | 陌路 (Stranger) | **宿敌** (Nemesis) |
+
+**中间地带**（trust = 1~2 且 conflict ≤ 2，或 trust = 1~2 且 conflict ≥ 3）：不产生特殊战斗效果，但 trust/conflict 数值仍影响 LLM 叙事生成（对话语气、事件选项等）。
+
+**信任负值区**（trust = -5 ~ -1 且 conflict ≤ 2）：角色之间存在不信任但无重大冲突——叙事中表现为冷淡/戒备态度。
+
+#### 4.2.2 各类型详细效果
+
+| 关系类型 | 英文 | 触发条件 | 战斗效果 | 叙事效果 |
+|----------|------|----------|----------|----------|
+| **战友** | Comrade | trust ≥ 3 且 conflict ≤ 2 | 邻接攻击 +1 命中 | 默契对话, "援助"动作可用 |
+| **争友** | Rival-Comrade | trust ≥ 3 且 conflict ≥ 3 | ① 邻接攻击 +1 命中<br>② 对同一目标攻击 +1 伤害（竞争性加成） | 拌嘴式配合对话, 可触发"决斗切磋"事件 |
+| **宿敌** | Nemesis | trust ≤ 0 且 conflict ≥ 3 | ① 邻接攻击 -1 命中<br>② 对宿敌已标记目标攻击 +1 伤害 | 嘲讽对话, 可触发"对决"事件, 无法使用"援助"动作 |
+| **陌路** | Stranger | （默认/不满足以上阈值） | 无特殊效果 | 正常/平淡对话 |
+| **牵绊** | Bonded | 双向 trust 之和 ≥ 8<br>且满足子类型条件（见 §4.4） | 根据子类型（见下表） | 专属对话, 营地亲密场景 |
+| **创伤牵绊** | Trauma | 满足创伤触发条件（见 §4.4） | 覆盖其他战斗加成, 施加回避惩罚（见下表） | 复杂情感对话, 过去阴影被触及 |
+
+**Bonded 子类型战斗效果：**
+
+| 子类型 | 触发条件（在 Bonded 基础上） | 战斗效果 |
+|--------|------------------------------|----------|
+| 战友（牵绊级） | coop_kills ≥ 3 | 邻接攻击 +1 命中 |
+| 恋人 | shared_rest_events ≥ 2 且 compatible_personalities | 邻接 +1 AC |
+| 师徒 | training_event_completed | 可分享师傅的一项技能熟练（每场遭遇1次） |
+
+**Trauma 战斗效果：**
+
+| 效果 | 触发条件 | 机制 |
+|------|----------|------|
+| 回避惩罚 | 创伤源头角色（被目睹濒死的角色）生命值 < 50% | 创伤持有者无法主动移动到与源头角色相邻的格子；若已在相邻位置，攻击骰和豁免骰获得劣势 |
+| 过度保护 | 源头角色生命值 < 25% | 回避惩罚解除，改为：创伤持有者必须移动到源头角色相邻位置（若可到达），且对该角色的"援助"动作消耗从附赠动作降为免费动作 |
+
+#### 4.2.3 类型优先级
+
+当角色对同时满足多个类型的触发条件时，按以下优先级裁决：
+
+```
+Trauma（最高） > Bonded > Rival-Comrade > Comrade/Nemesis > Stranger（最低）
+```
+
+- **Trauma 总是覆盖**：一旦触发，其他所有战斗加成/减成被替换为 Trauma 效果。
+- **Bonded 覆盖 Comrade/Rival-Comrade**：当双向信任之和达到 Bonded 阈值后，之前的关系类型（战友/争友）被 Bonded 取代。
+- **Rival-Comrade 与 Comrade/Nemesis**：由 trust/conflict 交叉阈值自动判定，不会同时存在。
+
+---
+
+### 4.3 关系变化触发规则 `[CUSTOM]`
+
+所有关系变化事件按**影响的轴**分类。程序负责检测事件并计算变化量；LLM 仅负责生成对应的叙事文本。
+
+#### 4.3.1 信任轴 (trust) 触发事件
+
+##### 战斗中（每场战斗每个事件类型限 1 次）
 
 | 触发事件 | 变化值 | 条件/说明 |
 |----------|:------:|-----------|
-| 从0HP中救回队友 (治疗至HP>0) | **+2** | - |
-| 治疗受伤(<50%HP)队友 | **+1** | 战斗中, 每个被治疗者限1次 |
-| 承受原本命中队友的伤害 (如借机打断/保护) | **+3** | 每场战斗限1次 |
-| AOE法术误伤队友 | **-2** | 队友受到伤害 |
-| 队友0HP时选择攻击而非施救 (当轮有治疗能力时) | **-3** | - |
-| 1轮内配合击杀同一敌人 | **+1** | 每敌人限1次 |
-| 抢夺队友已标记的击杀 | **-1** | 队友已标记目标, 由他人完成最后一击 |
+| 从 0HP 中救回队友（治疗至 HP > 0） | **trust +2** | — |
+| 治疗受伤（< 50% HP）队友 | **trust +1** | 每个被治疗者限 1 次 |
+| 承受原本命中队友的伤害（如借机打断/保护） | **trust +3** | 每场战斗限 1 次 |
+| 1 轮内配合击杀同一敌人 | **trust +1** | 每敌人限 1 次 |
 
-#### 冒险中
+##### 冒险中
 
 | 触发事件 | 变化值 | 说明 |
 |----------|:------:|------|
-| 做出与对方性格标签一致的选择 | **+1** | 如"忠诚"队友看到玩家遵守承诺 |
-| 做出与对方性格标签相悖的选择 | **-1** | 如"正直"队友看到玩家偷窃 |
-| 分享战利品给特定队友 | **+2** | 主动将物品给予对方 |
-| 抢夺队友想要的战利品 | **-3** | 分配时选择对方喜欢的物品 |
-| 选择支援队友的检定 | **+1** | "援助"帮助对方完成技能检定 |
-| 有能力却不救助队友 (冒险事件中) | **-2** | - |
+| 做出与对方性格标签一致的选择 | **trust +1** | 如"忠诚"队友看到玩家遵守承诺 |
+| 分享战利品给特定队友 | **trust +2** | 主动将物品给予对方 |
+| 选择支援队友的检定 | **trust +1** | "援助"帮助对方完成技能检定 |
 
-#### 酒馆中
+##### 酒馆中
 
 | 触发事件 | 变化值 | 说明 |
 |----------|:------:|------|
-| 同种族闲聊事件 | **+1** | 酒馆自然触发 |
-| 对立信仰/阵营事件 | **-2** | 触发后玩家可调解 |
-| 训练事件 (师徒) | **+3** | 一方传授技能 |
-| 争吵事件 | **-1 ~ -3** | 玩家调解成功可减至-1或消除 |
-| 共同饮酒事件 | **+1** | 酒馆自然触发 |
-| 偏袒一方 (争吵/决斗中) | **+1偏 / -1另** | 玩家选择 |
+| 同种族闲聊事件 | **trust +1** | 酒馆自然触发 |
+| 训练事件（师徒） | **trust +3** | 一方传授技能 |
+| 共同饮酒事件 | **trust +1** | 酒馆自然触发 |
+| 偏袒一方（争吵/决斗中支持） | **trust +1（被支持方）** | 玩家选择 |
 
-### 4.4 关系类型触发条件
+#### 4.3.2 冲突轴 (conflict) 触发事件
 
-关系>=5时, 根据互动历史触发特定关系类型判定:
+##### 战斗中（每场战斗每个事件类型限 1 次）
 
-```json
-{
-  "comrade": {
-    "name": "战友",
-    "trigger": "coop_kills >= 3 AND value >= 5",
-    "combat_bonus": { "adjacent_attack_bonus": 1 },
-    "description": "并肩作战让你们配合默契"
-  },
-  "lovers": {
-    "name": "恋人",
-    "trigger": "shared_rest_events >= 2 AND compatible_personalities AND value >= 5",
-    "combat_bonus": { "adjacent_ac_bonus": 1 },
-    "description": "你们的心跳在战场上共振"
-  },
-  "mentor_student": {
-    "name": "师徒",
-    "trigger": "training_event_completed AND value >= 5",
-    "combat_bonus": { "shared_proficiency": "mentor_skill", "duration": "once_per_encounter" },
-    "description": "师徒之间的默契超越语言"
-  },
-  "trauma": {
-    "name": "创伤",
-    "trigger": "witnessed_ally_near_death AND value_once_exceeded_5",
-    "combat_bonus": { "avoidance_penalty": "single_combat_avoidance_if_triggered" },
-    "description": "过去的阴影让你们的关系变得复杂"
-  }
-}
+| 触发事件 | 变化值 | 条件/说明 |
+|----------|:------:|-----------|
+| AOE 法术误伤队友 | **conflict +2** | 队友受到伤害 |
+| 队友 0HP 时选择攻击而非施救（当轮有治疗能力时） | **conflict +3** | — |
+| 抢夺队友已标记的击杀 | **conflict +1** | 队友已标记目标，由他人完成最后一击 |
+
+##### 冒险中
+
+| 触发事件 | 变化值 | 说明 |
+|----------|:------:|------|
+| 做出与对方性格标签相悖的选择 | **conflict +1** | 如"正直"队友看到玩家偷窃 |
+| 抢夺队友想要的战利品 | **conflict +3** | 分配时选择对方喜欢的物品 |
+| 有能力却不救助队友（冒险事件中） | **conflict +2** | — |
+
+##### 酒馆中
+
+| 触发事件 | 变化值 | 说明 |
+|----------|:------:|------|
+| 对立信仰/阵营事件 | **conflict +2** | 触发后玩家可调解（成功 → 变化减半取整） |
+| 争吵事件 | **conflict +1 ~ +3** | 玩家调解成功可减至 +1 或消除（0） |
+| 偏袒一方（争吵/决斗中反对） | **conflict +1（被反对方）** | 玩家选择 |
+
+#### 4.3.3 双轴事件（同时影响 trust 和 conflict）
+
+| 触发事件 | trust 变化 | conflict 变化 | 说明 |
+|----------|:----------:|:-------------:|------|
+| 从死亡中救回但之后在战斗中抛弃 | **+2** | **+1** | 同一场战斗中：先触发"从 0HP 救回"事件，后触发"有能力却不救助"事件 |
+| 背叛信任（剧情事件） | **-1** | **+2** | 程序化剧情事件触发（如被 NPC 利用信任关系） |
+
+#### 4.3.4 事件触发限制
+
+| 限制 | 规则 |
+|------|------|
+| 战斗中每个事件类型 | 每场战斗每个事件类型对**同一对角色**限触发 1 次 |
+| 单次变化上限 | 单次事件变化量 ≤ ±3（防止单次剧变） |
+| 跨战斗累积 | 不受限制——一次冒险中的多场战斗可多次触发同类型事件 |
+| 已死亡角色 | 不触发任何新事件；现有关系冻结 |
+
+---
+
+### 4.4 关系类型触发条件与衰减 `[CUSTOM]`
+
+#### 4.4.1 双轴衰减规则
+
+| 衰减规则 | trust 轴 | conflict 轴 |
+|----------|:--------:|:------------:|
+| 衰减速率 | 每 30 天 -1（向 0 回归） | 每 15 天 -1（向 0 回归） |
+| 衰减方向 | 正值 → 减 1；负值 → 加 1 | 正值 → 减 1；负值 → 加 1 |
+| 停止条件 | 到达 0 时停止 | 到达 0 时停止 |
+
+**特殊衰减规则：**
+
+| 条件 | 衰减调整 |
+|------|----------|
+| 关系标签为 "lovers" 或 "mentor_student"（Bonded 子类型） | trust 衰减减半（每 60 天 -1），conflict 衰减不变 |
+| 角色死亡 | 所有关系条目**冻结**，不再衰减 |
+| 角色在同一队伍中完成冒险 | 该次冒险期间 trust 不衰减（"共同经历"维持信任） |
+| 角色离开队伍超过 90 天（闲置） | trust 衰减加速为每 15 天 -1（"疏远"效应） |
+
+> **设计理由**: conflict 衰减比 trust 快 2 倍（15 天 vs 30 天），反映"人们更容易忘记争执而非忘记恩情"的心理现实。
+
+#### 4.4.2 类型宽限期规则
+
+当 trust/conflict 值变化导致当前关系类型不再满足阈值条件时，系统进入 30 天宽限期：
+
+| 阶段 | 时间窗口 | 标签 | 效果 |
+|------|----------|:----:|------|
+| 激活期 | 阈值满足期间 | ✅ 显示 | ✅ 生效 |
+| 宽限期 | 阈值不再满足后 0~30 天 | ✅ 保留（仅用于叙事，注"疏远中"） | ❌ 失效 |
+| 恢复期 | 宽限期内阈值重新满足 | ✅ 显示 | ✅ 恢复 |
+| 过期 | 宽限期结束且阈值仍未满足 | ❌ 移除 | ❌ — |
+
+- Trauma **永不宽限**——一旦触发条件消失（源头角色死亡或信任降至 < 3），Trauma 立即移除。
+- 每个标签独立追踪自己的宽限期。
+
+#### 4.4.3 关系类型转移示例
+
 ```
+初始状态: trust=0, conflict=0  →  陌路 (Stranger)
 
-**关系类型转移规则**: 当关系值再次变化导致关系类型不再满足条件时，30天内关系类型保留但效果消失(仅保留标签用于叙事)。关系回到阈值后恢复效果。
+冒险 1: 并肩作战，互救多次
+  事件: rescued_from_0hp (+2 trust), combo_kill (+1×2 trust)
+  结果: trust=4, conflict=0  →  战友 (Comrade)
+  效果: 邻接+1命中
+
+冒险 2: 战利品分配引发争吵
+  事件: loot_dispute (+3 conflict), argument (+2 conflict)
+  结果: trust=4, conflict=5  →  争友 (Rival-Comrade)
+  效果: 邻接+1命中 + 对同一目标+1伤害(竞争)
+  叙事: "你们为了一把魔法剑吵得面红耳赤，但上了战场依然默契无间"
+
+30天后 (decay): trust=3, conflict=3  →  仍为 争友 (Rival-Comrade)
+再30天后 (decay): trust=2, conflict=1  →  陌路 (Stranger)
+  但 trust=2 的中间值提供叙事线索: "曾经的战友，如今渐行渐远"
+
+冒险 3: 再次并肩作战
+  事件: rescued_from_0hp (+2 trust), combo_kill (+1 trust)
+  结果: trust=5, conflict=1  →  战友 (Comrade)
+   → 若对方也对己方 trust ≥ 4 (双向之和 ≥ 8) → 可能触发 Bonded 判定
+```
 
 ---
 
@@ -2099,13 +2300,9 @@ Phase 3: 完整实现
 | ID | 名称 | 惩罚 | 补偿 | 外观标记 |
 |----|------|------|------|----------|
 | scar_battle_hardened | 老兵之手 | 主手武器攻击-1 | — | 手臂布满伤疤 |
-| scar_lost_eye | 独眼 | 察觉-2, 远程攻击劣势(>30尺) | 获得30尺黑暗视觉 | 独眼/眼罩 |
-| scar_limp | 跛行 | 速度-10尺 | 倒地后站立仅需5尺 | 用手杖/明显跛行 |
-| scar_missing_finger | 断指 | 巧手-2 | 获得徒手攻击熟练项 | 断一指 |
-| scar_broken_ribs | 旧伤肋骨 | CON-1 | 受到暴击时伤害-1 | 呼吸伴疼痛/偶尔捂胸 |
-| scar_shattered_jaw | 碎颚 | 说服/欺瞒-2 | — | 下颌畸形 |
-| scar_severed_ear | 缺耳 | 察觉-1 | — | 缺一只耳朵 |
-| scar_spinal_twist | 脊弯 | 跳跃距离减半 | 不会被推倒 | 姿势微驼 |
+| scar_lost_eye | 独眼 | 察觉-2, 远程攻击劣势(>30尺) | 获得**10尺**微光感知（仅近处；已有黑暗视觉者+10尺） | 独眼/眼罩 |
+| scar_limp | 跛行 | 速度-10尺 | 倒地后站立仅需5尺移动（而非半速） | 用手杖/明显跛行 |
+| scar_spinal_twist | 脊弯 | 跳跃距离减半 | 被推撞时STR豁免获得优势（非免疫） | 姿势微驼 |
 
 #### 毒/酸伤害伤疤
 
@@ -2263,15 +2460,16 @@ Prompt: 根据以下战斗数据, 为角色生成伤疤的叙事描述。
       {
         "cost": 1,
         "effect": "新角色获得额外50起始金币",
-        "used": false
+        "max_uses": 2,
+        "used": 0
       },
       {
-        "cost": 3,
+        "cost": 5,
         "effect": "新角色起始等级+1 (但战斗经验获取-20%)",
         "used": false
       },
       {
-        "cost": 5,
+        "cost": 8,
         "effect": "继承一件已绑定的魔法装备",
         "used": false
       }
@@ -2288,8 +2486,8 @@ Prompt: 根据以下战斗数据, 为角色生成伤疤的叙事描述。
 |------------|------|------|
 | 1个技能 | 自动 | 新角色获得该技能熟练 (若同职业可选专精) |
 | 知识标签 | 基于冒险日志中的关键事件 | 遇到类似场景/敌人时获得数值加成 |
-| 传承点数 | floor(dead_character_total_xp / 500) | 可用于购买传承加成 |
-| 绑定装备 | 消耗3传承点 | 选1件同调中的魔法装备传递 |
+| 传承点数 | `legacy_points = dead_character_level + 5` | 可用于购买传承加成 |
+| 绑定装备 | 消耗8传承点 | 选1件同调中的魔法装备传递 |
 | 英雄传记 | 自动生成 | LLM根据完整冒险日志生成, 存入英雄之壁 |
 
 ### 8.4 知识标签效果示例
@@ -2468,29 +2666,40 @@ TEST 28: 麻痹包含失能
 #### Test Suite: Relationship Threshold Crossing
 
 ```
-TEST 29: 阈值从2跨越到5
-  Given: value=2, Friendly
-  Change: +3 (shared_loot + saved_from_death)
-  Expected: value=5, Bonded
+TEST 29: 信任轴阈值从 2 跨越到 5
+  Given: trust=2, conflict=1 (陌路)
+  Event: rescued_from_0hp (+2 trust) + shared_loot (+2 trust) 
+  Expected: trust=6→capped at 5, conflict=1 → Comrade (战友)
 
-TEST 30: 阈值从-3跨越到-5
-  Given: value=-3, Hostile
-  Change: -2 (betrayed_trust)
-  Expected: value=-5, Nemesis
+TEST 30: 冲突轴跨越宿敌阈值
+  Given: trust=0, conflict=2 (陌路)
+  Event: loot_dispute (+3 conflict) + argument (+2 conflict)
+  Expected: trust=0, conflict=7→capped at 5 → Nemesis (宿敌)
 
-TEST 31: 阈值从-6提升到-4
-  Given: value=-6, Nemesis
-  Change: +2 (saved_in_combat)
-  Expected: value=-4, Hostile
+TEST 31: 宿敌冲突衰减回到陌路
+  Given: trust=0, conflict=5 (Nemesis)
+  After 30 days: conflict=3, trust=0 → 仍为 Nemesis
+  After 45 days: conflict=2, trust=0 → 陌路 (Stranger)
 
-TEST 32: 关系类型判定
-  Given: value=5, coop_kills=4
-  Expected: 触发 comrade 关系类型
+TEST 32: 争友 (Rival-Comrade) 类型判定
+  Given: trust=4, conflict=4
+  Expected: 触发 rival_comrade 关系类型
+  效果: 邻接+1命中 + 对同一目标+1伤害
 
-TEST 33: 关系类型条件消失
-  Given: comrade, value=5
-  Change: -1
-  Expected: value=4 -> Friendly, 关系类型保留但效果消失 (30天宽限)
+TEST 33: 宽限期标签保留但效果消失
+  Given: Comrade (trust=3, conflict=1)
+  Event: argument (+2 conflict) → trust=3, conflict=3
+  Expected: Rival-Comrade 激活; Comrade 标签进入宽限期(标签保留, 效果消失)
+  
+TEST 33b: 宽限期内阈值恢复
+  Given: Comrade 在宽限期内 (第15天)
+  Event: rescued_from_0hp 触发 → trust 增加但 conflict 不变
+  Expected: 若 trust 反而下降后回升且 conflict 再次 ≤ 2，宽限期重置
+
+TEST 34: 双向 trust 之和判定 Bonded
+  Given: A→B trust=4, B→A trust=4 (mutual sum=8)
+  且 coop_kills ≥ 3
+  Expected: 触发 Bonded (牵绊), sub_type=comrade
 ```
 
 ### 9.2 集成测试场景
@@ -2520,15 +2729,18 @@ TEST 36: 多角色战斗交互
     - Fighter: DEX save failure = full damage
   Verify: 正确应用Evasion和普通豁免规则
 
-TEST 37: 关系变化 -> 战斗加成
-  Given: Fighter与Rogue关系值=5, 类型=comrade
+TEST 37: 双轴关系变化 → 战斗加成
+  Given: Fighter与Rogue, trust=3, conflict=1 (Comrade)
   Verify: 两人相邻时, Fighter攻击+1命中
-  Given: 关系因误伤降到4
-  Verify: +1命中效果消失
+  Event: rogue_argument (+2 conflict) 
+  Given: trust=3, conflict=3 → Rival-Comrade
+  Verify: 邻接+1命中保留 + 对同一目标额外+1伤害
+  Event: 30天衰减后: trust=2, conflict=2 → 陌路 (Stranger)
+  Verify: 所有战斗效果消失
 
-TEST 38: 升级 -> 法术位恢复
+TEST 38: 升级 → 法术位恢复
   Given: Lv3 Wizard, 短休
-  Verify: 1环法术位恢复到 ceil(4/2)=2 (一半向上取整)
+  Verify: 1环法术位恢复到 ceil(4/2)=2 (一半向上取整，与§2.5.4规则对齐)
   Verify: Arcane Recovery 恢复 ceil(3/2)=2环位 (可选1环+1环 or 一个2环)
 
 TEST 39: 死亡豁免新规则
@@ -2595,10 +2807,11 @@ EDGE 14: 同一角色重复受到相同类型伤害
   -> 选项: 不生成新伤疤 / 替换为更重的火焰伤疤 / 叠加 (不同ID)
   -> 本游戏策略: 选不同ID的同类伤疤(如从惧焰变为炙肺), 或加重现有伤疤
 
-EDGE 15: 伤疤补偿>惩罚
-  -> 如独眼: -2察觉 + 60尺黑暗视觉
-  -> 对于已有黑暗视觉的Dwarf: 黑暗视觉范围扩大到120尺
-  -> 对于无黑暗视觉的Human: 新增60尺黑暗视觉
+EDGE 15: 伤疤补偿叠加
+   -> 如独眼: -2察觉 + 10尺微光感知
+   -> 对于已有darkvision的Dwarf: 微光感知范围扩大10尺(变为70尺 darkvision + 10尺微光)
+   -> 对于无darkvision的Human: 新增10尺微光感知——仅够看清近处，远不如种族级60尺darkvision
+   -> 设计原则：补偿始终是"极有限"的，不应使伤疤成为可追求的目标
 ```
 
 ### 9.4 平衡验证公式 `[CUSTOM]`
@@ -2639,43 +2852,75 @@ CR建议值 = PPI * 0.5 (Easy) 到 PPI * 1.3 (Deadly)
 ## 10. 验收标准 (Acceptance Criteria)
 
 > **本节定义角色系统"完成"的标准。所有标准必须通过QA验证后，系统才能标记为"已实现"。**
+>
+> **测试命名规范**: 所有单元测试使用 `MethodName_Scenario_ExpectedResult` (AAA模式)，如 `CalculateAbilityModifier_Score16_Returns3`。
 
 ### 10.1 核心功能验收
 
 | # | 验收标准 | 测试方法 | 通过条件 |
 |---|----------|----------|----------|
-| AC-1 | 角色创建管线完整运行 | 端到端测试 | 选择种族+职业→生成完整角色数据→写入SQLite→读取一致 |
-| AC-2 | 属性生成产生可感知差异 | 多次生成同种族同职业 | 10次生成中至少3次的主属性值不同（因自由点分配） |
-| AC-3 | HP公式永远不会产生≤0 | 单元测试 | CON=1到CON=20的所有极端值测试通过 |
-| AC-4 | 伤疤系统以惩罚为主 | 代码审查 | 80%+伤疤无补偿，剩余补偿值为原始值的50% |
-| AC-5 | 传承点公式与failure-growth对齐 | 跨文档验证 | 两个GDD使用相同公式：floor(xp/500) |
-| AC-6 | Personality生成5维度 | LLM输出验证 | 5个维度全部非空且互不相同 |
+| AC-STAT-1 | 属性调整值计算公式正确 | 单元测试 | `floor((score - 10) / 2)`: score=3→-4, 10→0, 16→3, 20→5, 1→-5 |
+| AC-STAT-2 | 熟练加值公式与查表一致 | 单元测试 | Lv1=2, Lv4=2, Lv5=3, Lv9=4, Lv13=5, Lv17=6, Lv20=6 |
+| AC-STAT-3 | 技能调整值正确计算（熟练/专精/未熟练） | 单元测试 | 熟练: `ability_mod + PB`; 专精: `ability_mod + PB×2`; 未熟练: `ability_mod` |
+| AC-STAT-4 | HP公式每级增加至少+1 | 单元测试 | Lv1 Wizard CON=1: HP=1; Lv2: 1+max(1,4-5)=2; Lv20: 20 (递增验证) |
+| AC-STAT-5 | AC计算正确（无甲/轻甲/中甲/重甲/盾牌） | 单元测试 | Chain Mail(16)+Shield(2)=18; Studded Leather(12)+DEX+3=15; Half Plate(15)+DEX+4→cap2=17 |
+| AC-STAT-6 | 武器攻击加值与伤害公式正确 | 单元测试 | 近战: PB+STR_mod; 远程/灵巧: PB+DEX_mod; 伤害: 武器骰+相应属性调整值 |
+| AC-STAT-7 | 法术DC与法术攻击加值正确 | 单元测试 | DC = 8 + 施法属性_mod + PB; 攻击加值 = 施法属性_mod + PB |
+| AC-STAT-8 | 先攻、被动察觉、被动调查计算公式正确 | 单元测试 | 先攻=DEX_mod; 被动察觉=10+WIS_mod+(熟练则+PB) |
+| AC-CREATE-1 | 角色创建管线：标准数组+3自由点+种族加成+验证 | 端到端测试 | 属性在3-20范围内（Lv1上限20）；属性总和=标准数组15+14+13+12+10+8+3+种族加成 |
+| AC-CREATE-2 | 自由点分配使用随机数生成器，非硬编码 | 单元测试 | 30次生成中至少5个不同属性被选为自由点目标 |
+| AC-CREATE-3 | 创建角色数据写入SQLite后读取完全一致 | 集成测试 | JSON round-trip: 序列化→写入→读取→反序列化→所有字段与原值匹配 |
+| AC-LEVEL-1 | Lv1→Lv2升级执行所有10个步骤（§2.4.2） | 集成测试 | 升级后：PB不变(2)，HP增加，获得Lv2特性(Action Surge/Arcane Tradition)，发射`character_leveled_up`事件 |
+| AC-LEVEL-2 | Lv4→Lv5升级触发PB跃变(+2→+3)与新特性 | 集成测试 | Fighter: 获得Extra Attack; Wizard: 解锁3环法术位; Rogue: Sneak Attack=3d6+Uncanny Dodge |
+| AC-LEVEL-3 | ASI三选项均正确生效 | 单元测试 | 选项1: +2单属性(上限20); 选项2: +1两项不同属性; 选项3: 选择专长(触发`level_up_asi`事件) |
+| AC-DEATH-1 | death_failures计数器正确递增与重置 | 单元测试 | 0HP+受伤: death_failures+2; ≥3→死亡; 治疗HP>0→重置为0 |
+| AC-DEATH-2 | rounds_without_healing计数器正确递增 | 单元测试 | 每轮开始+1; ≥3→死亡; 治疗HP>0→重置为0 |
+| AC-DEATH-3 | 双轨优先级正确：death_failures≥3优先于rounds_without_healing | 单元测试 | 同帧触发时先判定death_failures |
+| AC-DEATH-4 | 医疗检定DC 10可稳定（停止两计数器） | 单元测试 | stable=true后不再递增计数器 |
+| AC-INV-1 | 背包槽位公式 `10 + max(0, STR_mod)×2` | 单元测试 | STR 8→10槽, 10→10, 16→16, 20→20 |
+| AC-INV-2 | 超限惩罚：速度减半，无法疾跑 | 集成测试 | 背包满(10/10槽)+拾取新物品→移动速度×0.5; 丢弃→立即恢复 |
+| AC-INV-3 | 装备槽位约束：双手武器占双槽，STR门控重甲，未熟练惩罚 | 单元测试 | 双手武器→main+off均被占用; Chain Mail需要STR≥13; 未熟练→攻击/属性/豁免劣势 |
+| AC-INV-4 | 同调上限3件，超限无法同调 | 单元测试 | 已同调3件+新同调物品→提示先取消同调 |
+| AC-REL-1 | 双轴关系值独立跟踪：trust与conflict互不干扰 | 单元测试 | trust+2不影响conflict; conflict+3不影响trust |
+| AC-REL-2 | 交叉阈值类型判定正确（Comrade/Rival-Comrade/Nemesis/Stranger） | 单元测试 | trust=3,conflict=1→Comrade; trust=4,conflict=4→Rival-Comrade; trust=0,conflict=5→Nemesis |
+| AC-REL-3 | Bonded触发条件：双向trust之和≥8 | 集成测试 | A→B trust=4 + B→A trust=4 → Bonded; A→B trust=5 + B→A trust=2 → 不触发 |
+| AC-REL-4 | 宽限期：标签保留30天但效果消失 | 集成测试 | 第1天→标签显示+效果生效; 第2天(阈值不再满足)→标签保留(疏远中)+效果失效; 第32天→标签移除 |
+| AC-REL-5 | 单次关系变化≤±3 | 单元测试 | 所有关系变化事件产生的增量绝对值 ≤ 3 |
+| AC-SCHEMA-1 | 完整角色数据通过JSON Schema验证 | 自动化测试 | 所有必填字段存在，枚举值有效，数值在范围内 |
+| AC-SCHEMA-2 | LLM叙事生成通过Schema验证（LLM可用时） | 集成测试 | 20次生成中≥19次(95%)通过JSON Schema; ≤3次重试后≥99% |
+| AC-SCHEMA-3 | 预置模板通过Schema验证（LLM不可用时） | 单元测试 | 所有离线预置角色模板100%通过JSON Schema |
 
 ### 10.2 数值平衡验收
 
 | # | 验收标准 | 测试方法 | 通过条件 |
 |---|----------|----------|----------|
-| AC-7 | Lv1→5升级节奏合理 | 模拟计算 | 9-15次短冒险达到Lv5（4.5-7.5小时） |
-| AC-8 | PPI公式产生合理CR | 边界测试 | Lv1 solo: CR 2-5; Lv3 4人: CR 2-6; Lv20 4人: CR 13-17 |
-| AC-9 | 伤疤严重度分布符合权重 | 统计测试 | 100次生成中：轻度60-80%，中度15-35%，重度2-10% |
-| AC-10 | 关系变化不会导致单次剧变 | 代码审查 | 单次关系变化≤±3 |
+| AC-BAL-1 | 传承点公式 `level + 5` | 单元测试 | Lv5=10点, Lv10=15点, Lv20=25点 |
+| AC-BAL-2 | 金币继承硬上限2次（最多+100 GP） | 单元测试 | 尝试第3次购买→被拒绝; max_gold_bonus = 100 |
+| AC-BAL-3 | 伤疤严重度分布符合Tuning Knobs权重 | 统计测试 | 1,000次生成: 轻度50-80%, 中度15-35%, 重度2-10%（引用§1.7调参表值, 95%置信区间） |
+| AC-BAL-4 | 无补偿伤疤占比≥80% | 自动化测试 | 加载所有伤疤定义, 验证纯惩罚伤疤 ≥ 80%（当前26/32=81.25%） |
+| AC-BAL-5 | 伤疤补偿值≤基线值50% | 自动化测试 | 每项补偿伤疤的补偿效果数值 ≤ 基线参考值×0.5 |
+| AC-BAL-6 | 关系衰减正确：trust每30天-1, conflict每15天-1 | 单元测试 | 模拟时间推进，验证两轴的独立衰减速率和方向 |
 
 ### 10.3 叙事质量验收
 
 | # | 验收标准 | 测试方法 | 通过条件 |
 |---|----------|----------|----------|
-| AC-11 | LLM角色生成通过Schema验证 | 自动化测试 | 100次生成中≥95次通过JSON Schema验证 |
-| AC-12 | 角色backstory≥50字符 | 自动化测试 | 所有生成的backstory长度≥50字符 |
-| AC-13 | Personality标签互不相同 | 自动化测试 | 5个维度的值互不相同 |
-| AC-14 | 伤疤叙事符合"惩罚为主"哲学 | 人工审查 | 伤疤叙事不暗示"获得超能力" |
+| AC-NAR-1 | Personality 6维度完整存储（非3标签） | 自动化测试 | 所有角色在SQLite中存储完整personality对象: attribute_hint/class_archetype/race_stereotype/life_experience/fear_weakness/speech_style全部非空 |
+| AC-NAR-2 | Personality 5核心维度互不相同 | 自动化测试 | 5个核心维度值(排除race_stereotype)互不重复 |
+| AC-NAR-3 | 角色backstory≥50字符 | 自动化测试 | LLM生成和预置模板均满足≥50字符 |
+| AC-NAR-4 | LLM角色生成通过Schema验证（LLM可用时） | 集成测试 | 见 AC-SCHEMA-2 |
+| AC-NAR-5 | 离线预置模板角色满足所有叙事质量要求 | 自动化测试 | 预置模板: backstory≥50字符; personality 5维度互不相同; 6维度完整 |
 
 ### 10.4 性能验收
 
+> **参考硬件**: Mac Mini M1 (2020, 8GB RAM) 或同等规格。CI环境允许2×参考预算。
+
 | # | 验收标准 | 测试方法 | 通过条件 |
 |---|----------|----------|----------|
-| AC-15 | 角色JSON序列化<5ms | 性能测试 | 100次序列化平均<5ms |
-| AC-16 | 角色JSON反序列化<10ms | 性能测试 | 100次反序列化平均<10ms |
-| AC-17 | SQLite查询<1ms | 性能测试 | 单次角色查询<1ms |
+| AC-PERF-1 | 角色JSON序列化性能 | 性能测试 | 参考硬件: 100次序列化中位时间 < 5ms; CI: < 10ms |
+| AC-PERF-2 | 角色JSON反序列化性能 | 性能测试 | 参考硬件: 100次反序列化中位时间 < 10ms; CI: < 20ms |
+| AC-PERF-3 | SQLite单次角色查询性能 | 性能测试 | 参考硬件: 单次查询中位时间 < 1ms; CI: < 2ms |
+| AC-PERF-4 | 连续10次角色创建+存储无内存泄漏 | 性能测试 | 第10次创建内存占用与第1次差异 < 10% |
 
 ---
 
@@ -2685,3 +2930,4 @@ CR建议值 = PPI * 0.5 (Easy) 到 PPI * 1.3 (Deadly)
 |------|------|------|
 | v1.0 | 2026-05-04 | 初始版本 |
 | v1.1 | 2026-05-09 | 设计评审修订：新增Player Fantasy/Dependencies/Tuning Knobs/Acceptance Criteria章节；修复HP公式最小值地板；对齐传承点定义；重写伤疤设计哲学；属性生成引入受控随机性；修复PPI公式；扩展Personality维度；补全缺失公式 |
+| v1.2 | 2026-05-10 | `/design-review` 修订（MAJOR REVISION → 修订中）：①关系系统改为双维度trust+conflict模型；②Personality数据模型从3标签扩展为6维度完整对象；③传承点公式改为 `level+5` 线性公式，金币购买硬上限2次；④伤疤补偿降级（独眼10尺微光感知/脊弯推撞优势非免疫/跛行5尺站立）；⑤death_failures字段补全；⑥文档笔误修正6处（短休示例/跳跃标记/专注取整/对齐标记/依赖状态/HP示例）；⑦验收标准§10全面重写；⑧调参表XP奖励标注为只读镜像 |

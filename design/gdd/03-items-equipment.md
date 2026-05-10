@@ -4,8 +4,8 @@
 > **Game**: 《酒馆与命运》(Tavern & Destiny)  
 > **Rules Reference**: DND 5e SRD
 > **Language Policy**: 游戏文本统一采用简体中文，技术标识符使用英文snake_case  
-> **Version**: 1.0 — MVP + Phase 2 scope  
-> **Status**: 初始设计
+> **Version**: 1.2 — MVP + Phase 2 scope  
+> **Status**: 设计评审修订中 (MAJOR REVISION — 阻断项修复)
 
 ---
 
@@ -76,7 +76,7 @@
 |------|------|----------|
 | **发现的惊喜** | 每次战利品掉落都可能是改变构筑方向的契机 | 稀有物品不只是"更强"，而是"不同"——它们打开新的玩法可能性 |
 | **选择的重量** | 装备决策有真实的机会成本 | 同调上限（3件）、槽位互斥、双手武器占两槽——每个"是"都意味着一个"否" |
-| **物品的故事** | 魔法物品有自己的来历和传说 | LLM 生成的 flavor text、诅咒的隐藏叙事、灵魂绑定的传承故事 |
+| **物品的故事** | 魔法物品有自己的来历和传说 | 程序化叙事组合系统生成的基线描述 + LLM Copywriter Agent 的在线增强 — 每件物品都承载着独一无二的叙事身份 |
 | **使用的后果** | 耐久度和灵魂绑定让物品有生命周期 | 物品会损坏、会丢失、会传承——它们不是静态数值，而是有生命的伙伴 |
 
 ### 设计测试
@@ -87,7 +87,7 @@
 
 2. **选择测试** — 装备这件物品是否意味着放弃另一件？如果没有机会成本，物品就没有意义。同调槽位（最多3件）、装备槽位互斥、双手武器规则都是为了制造有意义的选择。
 
-3. **故事测试** — 这件物品能否承载一个故事？（来历、传说、诅咒）一把"炽焰长剑"不如一把"曾属于堕落圣骑士的、在黑暗中低语的长剑"。LLM 的职责就是为物品注入叙事灵魂。
+3. **故事测试** — 这件物品能否承载一个故事？（来历、传说、诅咒）一把"炽焰长剑"不如一把"曾属于堕落圣骑士的、在黑暗中低语的长剑"。程序化叙事系统为每件物品生成独特的基线故事，LLM Copywriter Agent 在线时进一步丰富叙事深度。
 
 4. **构筑测试** — 这件物品是否能让玩家思考新的构筑方向？一把附带火焰伤害的武器可能让玩家重新考虑火系法术的搭配；一件提供潜行优势的护甲可能让战士考虑更隐秘的战术。
 
@@ -155,6 +155,7 @@
     },
     "value_gp": {
       "type": "integer",
+      "minimum": 1,
       "description": "基础金币价值（未含稀有度加成）"
     },
     "icon_path": {
@@ -163,6 +164,7 @@
     },
     "level_requirement": {
       "type": "integer",
+      "minimum": 1,
       "default": 1,
       "description": "最低角色等级要求（部分传奇/神器物品）"
     },
@@ -276,17 +278,15 @@
           "type": "integer",
           "description": "基础 AC 值"
         },
-        "ac_formula": {
-          "type": "string",
-          "description": "AC 计算公式字符串，用于系统解析。如 '11 + dex_mod'（皮甲）、'14 + min(dex_mod, 2)'（胸甲）、'18'（全身板甲）"
-        },
         "max_dex_bonus": {
           "type": "integer",
+          "minimum": 0,
           "nullable": true,
           "description": "敏捷调整值上限。轻甲无上限(null)、中甲最大为 2、重甲为 0"
         },
         "strength_requirement": {
           "type": "integer",
+          "minimum": 0,
           "nullable": true,
           "description": "力量属性最低要求。未满足时移动速度 -10尺。通常仅重甲需要"
         },
@@ -420,7 +420,7 @@
       "type": "object",
       "description": "耐久度数据块",
       "properties": {
-        "max_durability": { "type": "integer", "default": 100 },
+        "max_durability": { "type": "integer", "minimum": 1, "default": 100 },
         "current_durability": { "type": "integer", "default": 100 },
         "condition_level": {
           "type": "string",
@@ -476,7 +476,26 @@
         }
       }
     }
-  }
+  },
+
+  "allOf": [
+    {
+      "if": { "properties": { "type": { "const": "weapon" } } },
+      "then": { "required": ["weapon"] }
+    },
+    {
+      "if": { "properties": { "type": { "const": "armor" } } },
+      "then": { "required": ["armor"] }
+    },
+    {
+      "if": { "properties": { "type": { "const": "shield" } } },
+      "then": { "required": ["shield"] }
+    },
+    {
+      "if": { "properties": { "type": { "enum": ["potion", "scroll"] } } },
+      "then": { "required": ["consumable"] }
+    }
+  ]
 }
 ```
 
@@ -593,30 +612,30 @@
 
 #### 轻甲 (Light Armor)
 
-| id | 名称 | 基础AC | AC公式 | 重量 | 潜行劣势 | 价值(gp) |
-|----|------|--------|--------|------|----------|----------|
-| `item_padded` | 棉甲 | 11 | `11 + dex_mod` | 8 | true | 5 |
-| `item_leather` | 皮甲 | 11 | `11 + dex_mod` | 10 | false | 10 |
-| `item_studded_leather` | 镶钉皮甲 | 12 | `12 + dex_mod` | 13 | false | 45 |
+| id | 名称 | 基础AC | 敏捷上限 | 重量 | 潜行劣势 | 价值(gp) |
+|----|------|--------|---------|------|----------|----------|
+| `item_padded` | 棉甲 | 11 | null | 8 | true | 5 |
+| `item_leather` | 皮甲 | 11 | null | 10 | false | 10 |
+| `item_studded_leather` | 镶钉皮甲 | 12 | null | 13 | false | 45 |
 
 #### 中甲 (Medium Armor)
 
-| id | 名称 | 基础AC | AC公式 | 重量 | 力量要求 | 潜行劣势 | 价值(gp) |
-|----|------|--------|--------|------|----------|----------|----------|
-| `item_hide` | 兽皮甲 | 12 | `12 + min(dex_mod, 2)` | 12 | — | false | 10 |
-| `item_chain_shirt` | 链甲衫 | 13 | `13 + min(dex_mod, 2)` | 20 | — | false | 50 |
-| `item_scale_mail` | 鳞甲 | 14 | `14 + min(dex_mod, 2)` | 45 | — | true | 50 |
-| `item_breastplate` | 胸甲 | 14 | `14 + min(dex_mod, 2)` | 20 | — | false | 400 |
-| `item_half_plate` | 半身板甲 | 15 | `15 + min(dex_mod, 2)` | 40 | — | true | 750 |
+| id | 名称 | 基础AC | 敏捷上限 | 重量 | 力量要求 | 潜行劣势 | 价值(gp) |
+|----|------|--------|---------|------|----------|----------|----------|
+| `item_hide` | 兽皮甲 | 12 | 2 | 12 | — | false | 10 |
+| `item_chain_shirt` | 链甲衫 | 13 | 2 | 20 | — | false | 50 |
+| `item_scale_mail` | 鳞甲 | 14 | 2 | 45 | — | true | 50 |
+| `item_breastplate` | 胸甲 | 14 | 2 | 20 | — | false | 400 |
+| `item_half_plate` | 半身板甲 | 15 | 2 | 40 | — | true | 750 |
 
 #### 重甲 (Heavy Armor)
 
-| id | 名称 | 基础AC | AC公式 | 重量 | 力量要求 | 潜行劣势 | 价值(gp) |
-|----|------|--------|--------|------|----------|----------|----------|
-| `item_ring_mail` | 环甲 | 14 | `14` | 40 | — | true | 30 |
-| `item_chain_mail` | 链甲 | 16 | `16` | 55 | STR 13 | true | 75 |
-| `item_splint` | 板条甲 | 17 | `17` | 60 | STR 15 | true | 200 |
-| `item_plate` | 全身板甲 | 18 | `18` | 65 | STR 15 | true | 1500 |
+| id | 名称 | 基础AC | 敏捷上限 | 重量 | 力量要求 | 潜行劣势 | 价值(gp) |
+|----|------|--------|---------|------|----------|----------|----------|
+| `item_ring_mail` | 环甲 | 14 | 0 | 40 | — | true | 30 |
+| `item_chain_mail` | 链甲 | 16 | 0 | 55 | STR 13 | true | 75 |
+| `item_splint` | 板条甲 | 17 | 0 | 60 | STR 15 | true | 200 |
+| `item_plate` | 全身板甲 | 18 | 0 | 65 | STR 15 | true | 1500 |
 
 #### 盾牌 (Shields)
 
@@ -656,7 +675,7 @@
 |------|--------|----------|------|-----------|-----------|----------|
 | 普通敌人掉落 | 70% | 25% | 4% | 1% | 0% | 0% |
 | 精英敌人掉落 | 40% | 35% | 18% | 5% | 2% | 0% |
-| Boss 掉落 | 20% | 30% | 25% | 15% | 8% | 2% |
+| Boss 掉落 | 0% | 35% | 30% | 20% | 11% | 4% |
 | 宝箱/隐藏区域 | 50% | 30% | 15% | 4% | 1% | 0% |
 | 任务奖励 | 30% | 35% | 25% | 8% | 2% | 0% |
 | 商店出售 | 70% | 30% | 0% | 0% | 0% | 0% |
@@ -667,7 +686,7 @@
 |------|--------|----------|------|-----------|-----------|----------|
 | 普通敌人掉落 | 50% | 35% | 12% | 2.5% | 0.5% | 0% |
 | 精英敌人掉落 | 25% | 30% | 28% | 12% | 4% | 1% |
-| Boss 掉落 | 10% | 20% | 30% | 20% | 15% | 5% |
+| Boss 掉落 | 0% | 22% | 33% | 22% | 17% | 6% |
 | 宝箱/隐藏区域 | 35% | 30% | 22% | 10% | 2.5% | 0.5% |
 | 任务奖励 | 20% | 30% | 28% | 15% | 6% | 1% |
 | 商店出售 | 60% | 40% | 0% | 0% | 0% | 0% |
@@ -679,7 +698,7 @@
 |------|--------|----------|------|-----------|-----------|----------|
 | 普通敌人掉落 | 35% | 35% | 20% | 7% | 2.5% | 0.5% |
 | 精英敌人掉落 | 15% | 25% | 30% | 18% | 9% | 3% |
-| Boss 掉落 | 5% | 15% | 25% | 25% | 20% | 10% |
+| Boss 掉落 | 0% | 16% | 26% | 26% | 21% | 11% |
 | 宝箱/隐藏区域 | 20% | 28% | 28% | 16% | 6% | 2% |
 | 任务奖励 | 10% | 20% | 30% | 22% | 14% | 4% |
 | 商店出售 | 50% | 50% | 0% | 0% | 0% | 0% |
@@ -717,17 +736,21 @@ Procedure:
 **示例 (短冒险 Boss 掉落)**:
 
 ```
-P = {common: 0.20, uncommon: 0.30, rare: 0.25, very_rare: 0.15, legendary: 0.08, artifact: 0.02}
+P = {common: 0.00, uncommon: 0.35, rare: 0.30, very_rare: 0.20, legendary: 0.11, artifact: 0.04}
 
 roll = 0.47:
-  common:    0.47 < 0.20? No
-  uncommon:  0.47 < 0.50? Yes → 返回 uncommon
+  common:    0.47 < 0.00? No
+  uncommon:  0.47 < 0.35? No
+  rare:      0.47 < 0.65? Yes → 返回 rare
 
 roll = 0.72:
-  common:    0.72 < 0.20? No
-  uncommon:  0.72 < 0.50? No
-  rare:      0.72 < 0.75? Yes → 返回 rare
+  common:    0.72 < 0.00? No
+  uncommon:  0.72 < 0.35? No
+  rare:      0.72 < 0.65? No
+  very_rare: 0.72 < 0.85? Yes → 返回 very_rare
 ```
+
+> **Boss 稀有度覆盖规则**: 若 `source_type == "boss"` 且掷骰返回 `common`，自动重掷（消耗品类除外）。见 §9.4。
 
 ### 3.4 稀有度与魔法属性关系
 
@@ -887,34 +910,59 @@ Dual Wielder 专长 (Phase 2):
 
 ## 5. 附魔系统
 
-### 5.1 附魔数据模型 (Enchantment)
+### 5.1 设计理念：机制 > 数值
+
+> **核心信条**: 附魔的目标不是让数字变大，而是改变玩家对战斗的思考方式。一件好的魔法物品应该让玩家重新审视自己的构筑——"我能用这件物品做到什么以前做不到的事？"而非"我比刚才多了 +2 伤害"。
+
+本游戏的附魔设计遵循以下分布目标：
+
+| 附魔类型 | 占比目标 | 设计原则 |
+|----------|:--------:|----------|
+| **机制附魔** 🔧 | ≥ 50% | 改变行为模式：行动经济、目标规则、条件触发、资源流转、站位博弈 |
+| **数值附魔** | ≤ 30% | 保留经典元素伤害和少量属性加值，但每种元素最多 2 个变体 |
+| **混合附魔** ⚡ | ~20% | 元素伤害 + 微小机制骑乘效果（减速、击倒、减防等） |
+
+**反支柱对齐**: 本设计直接回应 §1A 中的反支柱约束——"物品不应该只是 '+X 数值' 的数值棍"。每件附魔必须有独特的行为身份，而非单纯的数值提升。
+
+### 5.2 附魔数据模型 (Enchantment)
 
 ```json
 {
-  "id": "ench_fire_damage_1",
+  "id": "ench_cleaving",
   "affix_type": "prefix",
-  "name_affix": "炽焰",
-  "name_affix_en": "Flaming",
+  "name_affix": "横扫",
+  "name_affix_en": "Cleaving",
   "tier": 1,
   "rarity_requirement": "uncommon",
   "stack_limit": 1,
   "compatible_types": ["weapon"],
-  "incompatible_enchantments": ["ench_frost_damage_1", "ench_frost_damage_2"],
+  "incompatible_enchantments": [],
+  "weapon_restriction": "melee_only",
   "effect": {
     "stat_modifiers": {},
-    "damage_bonus": {
-      "type": "fire",
-      "dice": "1d6",
-      "description": "命中时额外造成 1d6 火焰伤害"
-    },
-    "on_hit_effect": null,
-    "special_ability": null
+    "damage_bonus": null,
+    "on_hit_effect": "cleave_adjacent",
+    "special_ability": "命中时对攻击目标相邻的另一个敌人造成武器基础伤害（不计属性调整值和附魔加成）",
+    "mechanical_category": "targeting"
   },
   "curse": null
 }
 ```
 
-### 5.2 附魔槽数量生成算法
+附魔效果新增分类字段 `mechanical_category`，用于生成算法按冒险主题偏重：
+
+| 分类 | 说明 | 示例效果 |
+|------|------|----------|
+| `targeting` | 改变攻击目标规则 | 溅射/连锁/相位穿透/射程延伸 |
+| `action_economy` | 改变行动经济 | 额外攻击/反应触发/附赠动作/招架 |
+| `positioning` | 改变站位博弈 | 推拉/传送/区域控制/残影陷阱 |
+| `conditional` | 条件触发机制 | 低血量阈值/击杀链/标记爆发/叠加 |
+| `resource` | 资源流转 | 法术位恢复/吸血/临时HP |
+| `turn_order` | 回合顺序 | 抢先/延迟/跳过回合 |
+| `elemental` | 元素伤害（纯数值为主） | 火焰/寒冰/闪电等伤害骰 |
+| `stat_boost` | 属性加值（纯数值） | +X攻击/伤害/AC/豁免/抗性 |
+
+### 5.3 附魔槽数量生成算法
 
 ```
 Algorithm: GenerateEnchantmentSlots(rarity)
@@ -938,81 +986,215 @@ Procedure:
     case "artifact":   return rand_range(2, 5)
 ```
 
-### 5.3 附魔缀词系统
+> MVP 阶段不包含耐久度系统，因此槽位生成不依赖物品条件等级。Phase 2 引入耐久度后，broken 状态物品的附魔槽暂时失效但不改变槽数。
 
-#### 前缀表 (Prefix) — 武器
+### 5.4 附魔缀词表
 
-| ID | 前缀 | 英文 | 位阶 | 稀有度要求 | 效果 | 冲突 |
-|----|------|------|------|-----------|------|------|
-| `ench_keen` | 锋利的 | Keen | 1 | uncommon | crit_range 扩展为 19-20 | — |
-| `ench_flame_1` | 炽焰的 | Flaming | 1 | uncommon | 命中额外 +1d6 火焰伤害 | 寒冰类 |
-| `ench_frost_1` | 霜痕的 | Frost | 1 | uncommon | 命中额外 +1d6 寒冰伤害 | 炽焰类 |
-| `ench_shock_1` | 震击的 | Shocking | 1 | uncommon | 命中额外 +1d6 闪电伤害 | — |
-| `ench_venom_1` | 毒牙的 | Venomous | 1 | uncommon | 命中额外 +1d6 毒素伤害，DC 13 CON 豁免 | — |
-| `ench_radiant_1` | 光耀的 | Radiant | 1 | uncommon | 命中额外 +1d6 光耀伤害 | 黯蚀类 |
-| `ench_necrotic_1` | 黯蚀的 | Necrotic | 1 | uncommon | 命中额外 +1d6 黯蚀伤害 | 光耀类 |
-| `ench_giant_slayer` | 巨人之祸 | Giant's Bane | 2 | rare | 对巨人(giant)类型额外 +2d6 伤害 | — |
-| `ench_dragon_slayer` | 龙之祸 | Dragon's Bane | 2 | rare | 对龙类(dragon)额外 +2d6 伤害 | — |
-| `ench_undead_slayer` | 亡灵之祸 | Undead's Bane | 2 | rare | 对亡灵(undead)额外 +2d6 伤害 | — |
-| `ench_vampiric_1` | 吸血之 | Vampiric | 2 | rare | 暴击回复 1d6 HP | — |
-| `ench_holy` | 神圣的 | Holy | 3 | very_rare | 命中额外 +2d6 光耀伤害，对邪魔/亡灵 +3d6 | 黯蚀类 |
-| `ench_unholy` | 亵渎的 | Unholy | 3 | very_rare | 命中额外 +2d6 黯蚀伤害，对天界生物 +3d6 | 光耀类 |
-| `ench_storm` | 风暴之 | Tempest | 3 | very_rare | 命中额外 +1d8 闪电 + 1d8 雷鸣 | — |
-| `ench_legendary_keen` | 削金断玉的 | Vorpal | 4 | legendary | crit_range 18-20，自然20触发斩首效果 | — |
-| `ench_inferno` | 地狱火的 | Hellfire | 4 | legendary | 命中额外 +3d6 火焰伤害，忽视火焰抗性 | 寒冰类 |
-| `ench_time_stop` | 时光的 | Chronal | 5 | artifact | 暴击时目标失一回合 | — |
+> **阅读指南**：🔧 = 纯机制附魔 | ⚡ = 混合附魔（元素+机制骑乘） | 无标记 = 纯数值附魔
 
-#### 后缀表 (Suffix) — 武器
+#### 5.4.1 武器前缀表 (Weapon Prefixes)
 
-| ID | 后缀 | 英文 | 位阶 | 稀有度要求 | 效果 |
-|----|------|------|------|-----------|------|
-| `ench_of_accuracy_1` | 精准之 | of Accuracy | 1 | uncommon | 攻击掷骰 +1 |
-| `ench_of_power_1` | 力量之 | of Power | 1 | uncommon | 伤害掷骰 +1 |
-| `ench_of_warding_1` | 守护之 | of Warding | 1 | uncommon | 持有者 AC +1 |
-| `ench_of_haste` | 疾风之 | of Haste | 2 | rare | 先攻 +3 |
-| `ench_of_accuracy_2` | 精魂之 | of Precision | 2 | rare | 攻击掷骰 +2 |
-| `ench_of_power_2` | 巨力之 | of Might | 2 | rare | 伤害掷骰 +2 |
-| `ench_of_life_steal` | 噬命之 | of Life Steal | 2 | rare | 每次命中回复 1d4 HP |
-| `ench_of_critical` | 毁灭之 | of Ruin | 3 | very_rare | 暴击倍数 +1 (若最大化规则，改为 +1d6 暴击附加) |
-| `ench_of_accuracy_3` | 天神之 | of Divinity | 3 | very_rare | 攻击掷骰 +3 |
-| `ench_of_power_3` | 泰坦之 | of Titans | 3 | very_rare | 伤害掷骰 +3 |
-| `ench_of_echo` | 回响之 | of Echoes | 4 | legendary | 攻击命中后获得额外一次附赠攻击 |
-| `ench_of_annihilation` | 湮灭之 | of Annihilation | 5 | artifact | 暴击时额外 +4d6 力场伤害 |
+##### Tier 1 — 不凡 (Uncommon)
 
-#### 前缀表 (Prefix) — 护甲/盾牌
+| ID | 前缀 | 英文 | 位阶 | 稀有度 | 兼容类型 | 效果 | 分类 | 冲突 |
+|----|------|------|:----:|--------|----------|------|------|------|
+| `ench_cleaving` | 横扫的 | Cleaving | 1 | uncommon | 近战武器 | 🔧 命中时，对目标相邻的另一个敌人造成武器基础伤害（不计属性调整值和附魔加成） | targeting | — |
+| `ench_forceful` | 击退的 | Forceful | 1 | uncommon | 近战武器 | 🔧 命中时目标 STR 豁免（DC=8+熟练+力量调整），失败则被推开 10 尺 | positioning | — |
+| `ench_snaring` | 绞杀之 | Snaring | 1 | uncommon | 全部武器 | 🔧 命中时目标移动速度 -10 尺，持续至你的下一回合开始 | positioning | — |
+| `ench_returning` | 归返的 | Returning | 1 | uncommon | 投掷武器 | 🔧 投掷后立即返回手中，可在同一回合内反复投掷（配合额外攻击） | action_economy | — |
+| `ench_flame_1` | 炽焰的 | Flaming | 1 | uncommon | 全部武器 | 命中额外 +1d6 火焰伤害 | elemental | 寒冰类 |
+| `ench_frost_1` | 霜痕的 | Frost | 1 | uncommon | 全部武器 | ⚡ 命中额外 +1d6 寒冰伤害，目标速度 -5 尺至其下回合开始 | elemental | 炽焰类 |
+| `ench_shock_1` | 震击的 | Shocking | 1 | uncommon | 全部武器 | ⚡ 命中额外 +1d6 闪电伤害。若目标穿着金属护甲，攻击掷骰获得优势 | elemental | — |
 
-| ID | 前缀 | 英文 | 位阶 | 稀有度要求 | 效果 |
-|----|------|------|------|-----------|------|
-| `ench_resist_fire_1` | 耐火之 | Fire Resistant | 1 | uncommon | 火焰抗性 |
-| `ench_resist_cold_1` | 耐寒之 | Frost Resistant | 1 | uncommon | 寒冰抗性 |
-| `ench_resist_lightning_1` | 绝缘之 | Lightning Resistant | 1 | uncommon | 闪电抗性 |
-| `ench_reinforced_1` | 强化的 | Reinforced | 1 | uncommon | 基础 AC +1 |
-| `ench_shadow_1` | 暗影之 | of Shadows | 2 | rare | 潜行检定优势 |
-| `ench_ether_1` | 以太之 | Ethereal | 2 | rare | 每短休 1 次：消耗反应，物理攻击失手 |
-| `ench_spell_resist` | 咒抗之 | Spellward | 3 | very_rare | 法术豁免优势 |
-| `ench_fortification` | 不屈之 | Fortified | 3 | very_rare | 免疫暴击 |
-| `ench_reinforced_2` | 不朽的 | Impervious | 3 | very_rare | 基础 AC +2 |
-| `ench_invulnerability` | 无敌的 | of Invulnerability | 4 | legendary | 每日1次：1分钟内非魔法武器伤害免疫 |
-| `ench_god_skin` | 神皮之 | Godskin | 5 | artifact | AC +3，所有豁免+2 |
+> Tier 1 统计: 🔧机制 4 + ⚡混合 2 = 6 (86%) | 纯元素 1 (14%)
 
-### 5.4 附魔堆叠规则
+##### Tier 2 — 稀有 (Rare)
+
+| ID | 前缀 | 英文 | 位阶 | 稀有度 | 兼容类型 | 效果 | 分类 | 冲突 |
+|----|------|------|:----:|--------|----------|------|------|------|
+| `ench_keen` | 锋利的 | Keen | 2 | rare | 全部武器 | 🔧 暴击范围扩展为 19-20 | conditional | — |
+| `ench_vampiric_1` | 吸血之 | Vampiric | 2 | rare | 全部武器 | 🔧 暴击时回复 1d8 HP（近战）/ 1d4 HP（远程） | resource | — |
+| `ench_berserker` | 狂怒的 | Berserker | 2 | rare | 全部武器 | 🔧 每回合首次击杀敌人后，获得一次额外攻击（每战斗限 3 次） | action_economy | — |
+| `ench_executioner` | 处决之 | Executioner | 2 | rare | 全部武器 | 🔧 对生命值低于 30% 的目标，攻击掷骰具有优势 | conditional | — |
+| `ench_soul_brand` | 魂印的 | Soul Brand | 2 | rare | 全部武器 | 🔧 暴击时在目标身上施加「魂印」标记（持续至战斗结束）。你下回合首次命中该目标额外造成 2d6 黯蚀伤害并移除标记 | conditional | — |
+| `ench_displacing` | 移位的 | Displacing | 2 | rare | 全部武器 | 🔧 暴击时，可与目标交换位置（双方体型差 ≤1 级） | positioning | — |
+| `ench_radiant_1` | 光耀的 | Radiant | 2 | rare | 全部武器 | ⚡ 命中额外 +1d6 光耀伤害。对亡灵/邪魔额外 +1d8 | elemental | 黯蚀类 |
+| `ench_necrotic_1` | 黯蚀的 | Necrotic | 2 | rare | 全部武器 | ⚡ 命中额外 +1d6 黯蚀伤害。对天界生物额外 +1d8 | elemental | 光耀类 |
+| `ench_venom_1` | 毒牙的 | Venomous | 2 | rare | 全部武器 | ⚡ 命中额外 +1d8 毒素伤害，DC 15 CON 豁免，失败则中毒 1 轮 | elemental | — |
+
+> Tier 2 统计: 🔧机制 6 + ⚡混合 3 = 9 (100%)
+
+##### Tier 3 — 极稀有 (Very Rare)
+
+| ID | 前缀 | 英文 | 位阶 | 稀有度 | 兼容类型 | 效果 | 分类 | 冲突 |
+|----|------|------|:----:|--------|----------|------|------|------|
+| `ench_echo_strike` | 共鸣的 | Echo Strike | 3 | very_rare | 近战武器 | 🔧 每回合一次，命中后对触及范围内另一敌人造成该次伤害的 50% | targeting | — |
+| `ench_phase_blade` | 相位之 | Phase Blade | 3 | very_rare | 全部武器 | 🔧 无视目标的护甲 AC（仅计算敏捷加值和魔法加值）。对虚体生物伤害翻倍 | targeting | — |
+| `ench_soul_drain` | 噬魂之 | Soul Drain | 3 | very_rare | 全部武器 | 🔧 击杀敌人时，恢复一个已消耗的 3 环或以下法术位（每长休限 1 次） | resource | — |
+| `ench_reactive` | 反应的 | Reactive | 3 | very_rare | 近战武器 | 🔧 敌人对你造成伤害时，可用反应对其进行一次借机攻击 | action_economy | — |
+| `ench_storm` | 风暴之 | Storm | 3 | very_rare | 全部武器 | ⚡ 命中额外 +1d8 闪电伤害。若本回合曾命中该目标，则 CON 豁免（DC 15），失败则被击倒 | elemental | — |
+| `ench_corrosive` | 腐蚀的 | Corrosive | 3 | very_rare | 全部武器 | ⚡ 命中额外 +1d6 强酸伤害。目标 AC 永久 -2（不叠加，至战斗结束） | elemental | — |
+
+> Tier 3 统计: 🔧机制 4 + ⚡混合 2 = 6 (100%)
+
+##### Tier 4 — 传说 (Legendary)
+
+| ID | 前缀 | 英文 | 位阶 | 稀有度 | 兼容类型 | 效果 | 分类 | 冲突 |
+|----|------|------|:----:|--------|----------|------|------|------|
+| `ench_time_rip` | 时裂的 | Time Rip | 4 | legendary | 全部武器 | 🔧 暴击时，目标失去其下一回合的动作（每长休限 2 次）。不死生物和构装体对此免疫 | turn_order | — |
+| `ench_echo_blade` | 残影之 | Echo Blade | 4 | legendary | 近战武器 | 🔧 每回合一次，命中后在你位置留下灵体残影。至下回合开始前，若有敌人进入残影 5 尺范围，残影自动对其发动一次武器攻击（使用你的攻击加值） | positioning | — |
+| `ench_inferno` | 地狱火的 | Hellfire | 4 | legendary | 全部武器 | ⚡ 命中额外 +3d6 火焰伤害，忽视火焰抗性。免疫火焰的生物改为承受一半伤害 | elemental | 寒冰类 |
+
+> Tier 4 统计: 🔧机制 2 + ⚡混合 1 = 3 (100%)
+
+##### Tier 5 — 神器 (Artifact)
+
+| ID | 前缀 | 英文 | 位阶 | 稀有度 | 兼容类型 | 效果 | 分类 | 冲突 |
+|----|------|------|:----:|--------|----------|------|------|------|
+| `ench_doom` | 末日之 | Doombringer | 5 | artifact | 全部武器 | 🔧 每长休一次：宣布一次攻击为「末日宣告」。若命中，目标 CON 豁免（DC 20），失败则 HP 降至 0（传奇生物改为 10d10 力场伤害） | conditional | — |
+| `ench_legacy` | 传承的 | Legacy | 5 | artifact | 全部武器 | 🔧 熟练加值翻倍（仅攻击掷骰）。每次击杀获得 2d4 临时 HP | conditional | — |
+
+> Tier 5 统计: 🔧机制 2 = 2 (100%)
+
+**武器前缀总计: 26 个** — 🔧机制 18 (69%) + ⚡混合 5 (19%) + 纯数值 3 (12%)
+
+#### 5.4.2 武器后缀表 (Weapon Suffixes)
+
+##### Tier 1 — 不凡 (Uncommon)
+
+| ID | 后缀 | 英文 | 位阶 | 稀有度 | 兼容类型 | 效果 | 分类 |
+|----|------|------|:----:|--------|----------|------|------|
+| `ench_of_reach` | 延伸之 | of Reach | 1 | uncommon | 近战武器 | 🔧 武器获得 reach 属性。若已有 reach，额外 +5 尺 | targeting |
+| `ench_of_recall` | 回手之 | of Recall | 1 | uncommon | 投掷武器 | 🔧 投掷后立即飞回手中。若投掷造成暴击，下一投掷攻击获得优势 | action_economy |
+| `ench_of_warding_1` | 守护之 | of Warding | 1 | uncommon | 全部武器 | 持有者 AC +1 | stat_boost |
+
+##### Tier 2 — 稀有 (Rare)
+
+| ID | 后缀 | 英文 | 位阶 | 稀有度 | 兼容类型 | 效果 | 分类 |
+|----|------|------|:----:|--------|----------|------|------|
+| `ench_of_pursuit` | 追击之 | of Pursuit | 2 | rare | 全部武器 | 🔧 敌人主动离开你的触及范围时，可用反应移动至多 15 尺追击（不消耗移动力） | positioning |
+| `ench_of_flurry` | 连击之 | of Flurry | 2 | rare | 全部武器 | 🔧 若攻击命中且未暴击，可消耗反应进行一次额外攻击（每战斗限 1 次） | action_economy |
+| `ench_of_life_steal` | 噬命之 | of Life Steal | 2 | rare | 全部武器 | 🔧 每次命中回复 1 HP（近战）；每回合首次命中回复 1d4 HP（远程） | resource |
+| `ench_of_haste` | 疾风之 | of Haste | 2 | rare | 全部武器 | 🔧 先攻检定 +3 | turn_order |
+
+##### Tier 3 — 极稀有 (Very Rare)
+
+| ID | 后缀 | 英文 | 位阶 | 稀有度 | 兼容类型 | 效果 | 分类 |
+|----|------|------|:----:|--------|----------|------|------|
+| `ench_of_echo` | 回响之 | of Echoes | 3 | very_rare | 全部武器 | 🔧 使用攻击动作后，可消耗附赠动作进行一次额外武器攻击（不与双持叠加） | action_economy |
+| `ench_of_momentum` | 惯势之 | of Momentum | 3 | very_rare | 全部武器 | 🔧 连续命中同一目标时，每次后续攻击伤害 +1d4，可叠加至 +3d4。切换目标或失手则重置 | conditional |
+| `ench_of_rupture` | 崩裂之 | of Rupture | 3 | very_rare | 全部武器 | 🔧 暴击时，目标护甲/盾牌 AC 加值 -1（可叠加至 -3，至战斗结束） | conditional |
+
+##### Tier 4 — 传说 (Legendary)
+
+| ID | 后缀 | 英文 | 位阶 | 稀有度 | 兼容类型 | 效果 | 分类 |
+|----|------|------|:----:|--------|----------|------|------|
+| `ench_of_windfury` | 风怒之 | of Windfury | 4 | legendary | 全部武器 | 🔧 暴击时立即对该目标进行一次额外攻击（不消耗动作，每回合限 1 次）。该额外攻击也可触发风怒 | action_economy |
+| `ench_of_parry` | 格挡之 | of Parry | 4 | legendary | 近战武器 | 🔧 每回合一次，被近战攻击命中时可用反应招架：掷攻击检定 vs 敌方攻击检定，成功则伤害减半 | action_economy |
+
+##### Tier 5 — 神器 (Artifact)
+
+| ID | 后缀 | 英文 | 位阶 | 稀有度 | 兼容类型 | 效果 | 分类 |
+|----|------|------|:----:|--------|----------|------|------|
+| `ench_of_annihilation` | 湮灭之 | of Annihilation | 5 | artifact | 全部武器 | ⚡ 暴击时额外 +4d6 力场伤害，被暴击者 CON 豁免（DC 18），失败则被击晕 1 轮 | conditional |
+
+**武器后缀总计: 15 个** — 🔧机制 13 (87%) + ⚡混合 1 (7%) + 纯数值 1 (7%)
+
+#### 5.4.3 护甲/盾牌前缀表 (Armor & Shield Prefixes)
+
+##### Tier 1 — 不凡 (Uncommon)
+
+| ID | 前缀 | 英文 | 位阶 | 稀有度 | 兼容类型 | 效果 | 分类 |
+|----|------|------|:----:|--------|----------|------|------|
+| `ench_resist_fire_1` | 耐火之 | Fire Resistant | 1 | uncommon | armor, shield | 火焰伤害抗性 | stat_boost |
+| `ench_resist_cold_1` | 耐寒之 | Frost Resistant | 1 | uncommon | armor, shield | 寒冰伤害抗性 | stat_boost |
+| `ench_resist_lightning_1` | 绝缘之 | Lightning Resistant | 1 | uncommon | armor, shield | 闪电伤害抗性 | stat_boost |
+| `ench_thorns` | 荆棘之 | Thorns | 1 | uncommon | armor | 🔧 被近战攻击命中时，攻击者受到 1d4 穿刺伤害 | conditional |
+| `ench_grounding` | 稳固之 | Grounding | 1 | uncommon | armor | 🔧 免疫强制移动（推/拉/传送类效果）。对抗击倒的豁免具有优势 | positioning |
+
+> Tier 1 统计: 🔧机制 2 + 纯数值 3 = 5（抗性是 DND 核心机制，保留合理数量）
+
+##### Tier 2 — 稀有 (Rare)
+
+| ID | 前缀 | 英文 | 位阶 | 稀有度 | 兼容类型 | 效果 | 分类 |
+|----|------|------|:----:|--------|----------|------|------|
+| `ench_mirror_plate` | 镜面之 | Mirror Plate | 2 | rare | armor, shield | 🔧 对抗射线/光束/魔法飞弹类法术时，攻击方具有劣势。反弹 1 环及以下射线法术（每短休 1 次） | conditional |
+| `ench_ether_1` | 以太之 | Ethereal | 2 | rare | armor | 🔧 每短休 1 次：消耗反应，使一次物理攻击完全失手 | action_economy |
+| `ench_shadow_1` | 暗影之 | of Shadows | 2 | rare | armor | 🔧 潜行检定优势。昏暗/黑暗环境中远程攻击对你具有劣势 | conditional |
+| `ench_spellward` | 咒抗之 | Spellward | 2 | rare | armor, shield | 🔧 对抗法术的豁免检定具有优势 | conditional |
+| `ench_kinship` | 同袍之 | Kinship | 2 | rare | armor | 🔧 5 尺内盟友被攻击时，可用反应为其提供 +2 AC（至该次攻击结算完毕） | action_economy |
+| `ench_preservation` | 自愈之 | Preservation | 2 | rare | armor | 🔧 每战斗一次：HP 降至 30% 以下时自动触发，回复 2d8+2 HP | conditional |
+
+> Tier 2 统计: 🔧机制 6 (100%)
+
+##### Tier 3 — 极稀有 (Very Rare)
+
+| ID | 前缀 | 英文 | 位阶 | 稀有度 | 兼容类型 | 效果 | 分类 |
+|----|------|------|:----:|--------|----------|------|------|
+| `ench_fortification` | 不屈之 | Fortified | 3 | very_rare | armor | 🔧 免疫暴击。受到超过 30 点的单次伤害时，超出部分减半 | conditional |
+| `ench_necromantic_aura` | 死灵之 | Necromantic Aura | 3 | very_rare | armor | 🔧 击杀敌人时，以你为中心 10 尺内所有敌人 WIS 豁免（DC 15），失败则恐慌 1 轮 | conditional |
+| `ench_wind_cloak` | 风行之 | Wind Cloak | 3 | very_rare | armor | 🔧 每战斗一次：被命中时可消耗反应传送到 30 尺内可见的未被占据空间。不触发借机攻击 | positioning |
+
+> Tier 3 统计: 🔧机制 3 (100%)
+
+##### Tier 4 — 传说 (Legendary)
+
+| ID | 前缀 | 英文 | 位阶 | 稀有度 | 兼容类型 | 效果 | 分类 |
+|----|------|------|:----:|--------|----------|------|------|
+| `ench_invulnerability` | 无敌的 | of Invulnerability | 4 | legendary | armor | 🔧 每日 1 次（动作激活）：1 分钟内非魔法武器伤害免疫 | conditional |
+| `ench_phoenix_mantle` | 凤凰之 | Phoenix Mantle | 4 | legendary | armor | 🔧 HP 降至 0 时（非即死）自动消耗：回复至 HP 一半，对 15 尺内所有敌人造成 4d6 火焰伤害。触发后附魔永久消失，物品保留 | conditional |
+
+> Tier 4 统计: 🔧机制 2 (100%)
+
+##### Tier 5 — 神器 (Artifact)
+
+| ID | 前缀 | 英文 | 位阶 | 稀有度 | 兼容类型 | 效果 | 分类 |
+|----|------|------|:----:|--------|----------|------|------|
+| `ench_world_bearer` | 擎天之 | World Bearer | 5 | artifact | armor | 🔧 获得伤害阈值 10（低于 10 的单次伤害降至 0）。STR 豁免自动成功。每长休一次：可主动吸收一次范围攻击——以你为中心 30 尺内所有友方免受该次伤害，你承受全部伤害 | conditional |
+
+> Tier 5 统计: 🔧机制 1 (100%)
+
+**护甲前缀总计: 17 个** — 🔧机制 14 (82%) + 纯数值 3 (18%)
+
+#### 5.4.4 整体统计
+
+| 类别 | 🔧 机制 | ⚡ 混合 | 纯数值 | 总计 | 机制+混合占比 |
+|------|:------:|:------:|:------:|:----:|:------------:|
+| 武器前缀 | 18 | 5 | 3 | 26 | 88% |
+| 武器后缀 | 13 | 1 | 1 | 15 | 93% |
+| 护甲前缀 | 14 | 0 | 3 | 17 | 82% |
+| **总计** | **45** | **6** | **7** | **58** | **88%** |
+
+> ✅ 机制+混合附魔占比 88%，远超 ≥50% 的设计目标。纯数值附魔（纯元素伤害骰和属性加值）仅占 12%。
+
+### 5.5 附魔堆叠规则
 
 ```
 堆叠规则:
   1. 同一 ID 的附魔不可叠加 (stack_limit = 1)
-     - 例外: tier 递增的同类附魔（如 "炽焰" vs "地狱火"），高 tier 覆盖低 tier
+     - 例外: tier 递增的同类附魔（如 "炽焰" (T1) vs "地狱火" (T4)），高 tier 覆盖低 tier
+
   2. 冲突附魔不可共存
      - 火焰 vs 寒冰 (对立元素不可共存)
      - 光耀 vs 黯蚀 (对立能量不可共存)
+     - 同分类机制限制: 同一物品最多拥有 2 个同 mechanical_category 的附魔
+       （防止全堆「action_economy」附魔导致单回合过多动作）
+
   3. 相同来源的数值加值(bonus)取最高值，不累加
      - 例: 两件物品各提供 "攻击掷骰+1"，只取最大的 +1，不累加为 +2
      - 例外: 不同来源的加值可叠加 (物品加值 + 法术加值 + 职业特性)
+
   4. 附魔效果的应用顺序:
      implicit (物品固有) → prefix (前缀附魔) → suffix (后缀附魔)
-     后应用的数值类效果若与前面冲突，高值覆盖低值，不累加
+     机制附魔独立结算——不存在「覆盖」概念（机制附魔解锁的是行为选项，非数值域）
+
+  5. 机制附魔冲突判断:
+     - 同 mechanical_category 的机制附魔不「冲突」，但限制为最多 2 个
+     - 不同 mechanical_category 的附魔自由组合
+     - 例: 一件武器可以有「横扫」(targeting) + 「吸血」(resource) + 「追击」(positioning)
 ```
 
-### 5.5 随机附魔生成算法
+### 5.6 随机附魔生成算法
 
 ```
 Algorithm: ApplyRandomEnchantments(item)
@@ -1032,47 +1214,72 @@ Procedure:
      a. 决定附魔类型:
         - 槽1: 优先前缀 (80% prefix, 20% suffix)
         - 槽2: 优先后缀 (30% prefix, 70% suffix)
-        - 槽3: 隐含 (100% implicit)
+        - 槽3+: 隐含 (100% implicit)
 
-     b. 从对应类型的附魔池中筛选候选:
+     b. 物品类型分流:
+        根据 item.type 决定使用哪个附魔池:
+        - weapon → 武器前缀表 + 武器后缀表
+        - armor / shield → 护甲前缀表
+        - 其他可附魔类型 → 通用池
+
+     c. 从对应类型的附魔池中筛选候选:
         candidates = enchantments.filter(e =>
           e.rarity_requirement <= item.rarity
           AND e.compatible_types.contains(item.type)
+          AND 若 e.weapon_restriction == "melee_only" → item.weapon_range == "melee"
+          AND 若 e.weapon_restriction == "thrown_only" → item.properties.contains("thrown")
           AND item.enchantments 中不含 e.incompatible_enchantments
           AND item.enchantments 中不含相同 e.id
           AND item.enchantments 中不含与 e 冲突的附魔
+          AND item.enchantments 中同 mechanical_category 的附魔 < 2
         )
-        // 按位阶 (tier) 加权随机选择
-        // tier 权重: 若 item.rarity == rarity_requirement → weight=5
-        //            若 item.rarity > rarity_requirement 一个等级 → weight=3
-        //            若 item.rarity > rarity_requirement 多个等级 → weight=1
 
-     c. 从 candidates 中按加权随机选择附魔 enchantment
+     d. 按位阶 (tier) 加权随机选择:
+        // tier 权重: 若 item.rarity == rarity_requirement → weight = 5
+        //            若 item.rarity > rarity_requirement 一个等级 → weight = 3
+        //            若 item.rarity > rarity_requirement 多个等级 → weight = 1
+        // 额外权重: mechanical_category 多样性加分
+        //            若候选中有与已选附魔不同 mechanical_category 的 → weight × 1.5
+
         weighted_roll = weighted_random(candidates, weight_fn)
 
-     d. 应用附魔: item.magical.enchantments.append(enchantment)
+     e. 应用附魔: item.magical.enchantments.append(enchantment)
 
-  4. 返回 item
+  4. 生成附魔物品名称:
+     name = prefix_affix.name + " " + item.name + " " + suffix_affix.name
+     例: "横扫的" + "长剑" + "追击之" → 「横扫的长剑追击之」
+
+  5. 返回 item
 ```
 
-### 5.6 诅咒机制
+### 5.7 诅咒机制
 
 诅咒是负面附魔，通常出现在看似强大的物品上。**诅咒在鉴定 (Identify) 之前不可见**。
+
+> **MVP 说明**: MVP 阶段所有物品默认为 pristine 状态、无耐久度消耗。诅咒物品的「不可丢弃」效果在 MVP 中保留，耐久度相关的诅咒效果（如 `curse_durability_decay`）推迟至 Phase 2。
 
 ```
 诅咒规则:
   1. 诅咒物品在装备时自动同调（强制同调，不占同调槽但不可主动解除）
+
   2. 诅咒效果可能包括:
-     - curse_disadvantage: 特定检定额外劣势
-     - curse_damage_vulnerability: 对特定伤害类型易伤
-     - curse_bloodlust: 战斗中必须攻击最近目标（含队友），WIS DC 15 豁免跳过
-     - curse_greed: 不可主动丢弃或出售该物品
-     - curse_mute: 无法施放言语成分法术
-     - curse_nightmare: 长休只恢复一半 HP
+      - curse_disadvantage: 特定检定额外劣势
+      - curse_damage_vulnerability: 对特定伤害类型易伤
+      - curse_bloodlust: 战斗中必须攻击最近目标（含队友），WIS DC 15 豁免跳过
+      - curse_greed: 不可主动丢弃或出售该物品
+      - curse_mute: 无法施放言语成分法术
+      - curse_nightmare: 长休只恢复一半 HP
+      - curse_durability_decay: 每次战斗额外退化 5% 耐久度 (Phase 2 启用)
+
   3. 诅咒只能通过以下方式移除:
-     - 酒馆神殿的 "移除诅咒" 服务 (声望 Lv.7 解锁)
-     - 冒险中找到的 "移除诅咒" 卷轴
-     - 牧师/圣武士施放 Remove Curse 法术 (Phase 3)
+      - 酒馆神殿的「移除诅咒」服务 (声望 Lv.7 解锁)
+      - 冒险中找到的「移除诅咒」卷轴
+      - 牧师/圣武士施放 Remove Curse 法术 (Phase 3)
+
+  4. 附魔与诅咒共存规则:
+      - 诅咒不占附魔槽——诅咒物品仍可拥有正常附魔
+      - 同一件物品可以同时有 2 个正面附魔 + 1 个隐藏诅咒
+      - 诅咒在鉴定时与附魔一同揭示
 
 诅咒物品生成概率 (物品稀有度 ≥ rare 时):
   Rare: 5% 概率附带隐藏诅咒
@@ -1081,120 +1288,180 @@ Procedure:
   Artifact: 15%
 ```
 
+---
+
+## 5A. 鉴定系统 (Identification System)
+
+### 5A.1 概述
+
+鉴定系统决定玩家是否能看到魔法物品的完整属性。未鉴定的魔法物品保持神秘感，迫使玩家在"冒险使用未知物品"与"花费资源鉴定"之间做出选择。
+
+### 5A.2 需要鉴定的物品
+
+| 物品类型 | 是否需要鉴定 | 说明 |
+|----------|:----------:|------|
+| Common 物品 | 否 | 自动鉴定 — 无魔法属性需要揭示 |
+| Uncommon 及以上稀有度 | 是 | 所有魔法物品需要鉴定后才能使用附魔效果 |
+| 诅咒物品 | 是 | 诅咒在鉴定前完全隐藏 |
+| 任务物品 | 否 | 任务关键物品自动识别 |
+
+> **设计说明**：稀有度颜色仍然显示在物品边框上（玩家知道这是魔法物品，但不知道具体属性和附魔内容）。
+
+### 5A.3 鉴定机制
+
+#### 短休鉴定 (Short Rest Identification)
+
+在短休期间，角色可以尝试鉴定背包中的魔法物品。
+
+```
+短休鉴定规则:
+  - 每次短休可尝试鉴定 1 件魔法物品
+  - 使用 Intelligence (Arcana) 技能检定
+  - 若角色没有 Arcana 熟练项，仍可尝试（使用纯 INT 调整值）
+  - 检定 DC 基于物品稀有度:
+
+  | 稀有度 | 鉴定 DC |
+  |--------|:-------:|
+  | Uncommon | 12 |
+  | Rare | 15 |
+  | Very Rare | 18 |
+  | Legendary | 22 |
+  | Artifact | 25 |
+
+  - 成功: 物品完全鉴定 — 所有附魔、属性加成和诅咒揭示
+  - 失败: 物品保持未鉴定状态，可在下次短休重试
+  - 同一次短休期间不能对同一件物品重试
+```
+
+#### 酒馆鉴定服务 (Tavern Identification)
+
+酒馆提供付费鉴定服务，无需技能检定，100% 成功。
+
+```
+酒馆鉴定费用:
+
+| 稀有度 | 鉴定费用 (gp) |
+|--------|:------------:|
+| Uncommon | 25 gp |
+| Rare | 50 gp |
+| Very Rare | 100 gp |
+| Legendary | 250 gp |
+| Artifact | 500 gp |
+
+费用说明:
+  - 鉴定费用与物品价值成正比（约为稀有度乘数 × base_value 的 1/3）
+  - 批量鉴定 (3件及以上): 享受 20% 折扣
+  - 酒馆声望 Lv.6+ 解锁 "鉴定折扣": 所有鉴定费用减半
+```
+
+#### 鉴定卷轴 (Identify Scroll)
+
+鉴定卷轴是消耗品，使用后自动鉴定背包中的 1 件物品（无需检定）。
+
+```
+鉴定卷轴属性:
+  - 类型: scroll (消耗品)
+  - 稀有度: Uncommon
+  - 价格: 图书馆售价 40 gp
+  - 获取途径:
+    - 图书馆商店购买 (声望 Lv.5 解锁)
+    - 冒险宝箱掉落 (稀有度 uncommon 池)
+    - 任务奖励 (剧情相关)
+  - 使用: 在背包中选择鉴定卷轴 → 选择目标未鉴定物品 → 即时鉴定
+  - 不会在鉴定过程中消耗额外资源
+```
+
+### 5A.4 未鉴定物品的行为
+
+未鉴定物品有一套特殊的交互规则，平衡神秘感与风险：
+
+```
+未鉴定物品行为规则:
+
+  1. 装备规则:
+     - 可装备未鉴定物品至任何合法槽位
+     - 但附魔效果（damage_bonus、stat_modifiers、on_hit_effect、
+       special_ability）全部不激活
+     - 基础属性仍生效: 武器基础伤害骰、护甲基础 AC 等
+
+  2. 诅咒规则 (关键风险!):
+     - 诅咒在装备时即激活，即使物品未鉴定
+     - 玩家不知道物品被诅咒——只知道"这件物品感觉不对劲"
+     - 诅咒效果详情见 §5.6
+
+  3. 显示规则:
+     - 物品名称显示: "未鉴定的 [物品类型]" (如 "未鉴定的长剑")
+     - 稀有度颜色边框仍显示（玩家知道是魔法物品的程度）
+     - 附魔栏位显示为 "???" 
+     - Tooltip 显示: "此物品蕴含未知的魔法力量，需要鉴定后才能了解其真正能力"
+
+  4. 堆叠/交易规则:
+     - 未鉴定物品可正常放入背包、出售、丢弃
+     - 出售给商店时，商店按"未鉴定"价格购买 (比鉴定后价格低 40%)
+     - 堆叠消耗品若未鉴定，每个独立单位都需要鉴定
+
+  5. 鉴定后:
+     - 物品名称更新为真实名称（含附魔前缀/后缀）
+     - 所有属性、附魔效果完全揭示
+     - 诅咒（如有）揭示
+     - 已装备的物品鉴定后立即激活附魔效果
+```
+
+### 5A.5 多人协助鉴定
+
+```
+协助鉴定规则（可选）:
+
+  - 若队伍中有其他角色拥有 Arcana 熟练项，可协助鉴定者
+  - 协助者在短休中放弃自己的鉴定机会
+  - 鉴定者获得优势（掷两次 d20，取高者）
+  - 一次鉴定最多 1 人协助
+
+  示例:
+    战士（无 Arcana，INT 10）尝试鉴定 Rare 长剑 (DC 15):
+      d20 + 0 vs DC 15 → 成功率 30%
+    法师（Arcana 熟练，INT 16）协助战士:
+      d20 + 0 with advantage vs DC 15 → 成功率 51%
+    如果法师自己鉴定:
+      d20 + 5 (INT+3, prof+2) vs DC 15 → 成功率 55%
+```
+
+### 5A.6 鉴定系统流程图
+
+```
+Item acquired (rarity ≥ uncommon)
+  │
+  ├─→ 稀有度颜色边框显示
+  │   名称: "未鉴定的 [类型]"
+  │
+  ├─→ 玩家选择鉴定方式:
+  │   ├─→ 短休鉴定 (免费, Arcana DC)
+  │   │   成功 → 物品完全鉴定
+  │   │   失败 → 下次短休重试
+  │   │
+  │   ├─→ 酒馆鉴定 (付费, 100%成功)
+  │   │   支付 gp → 即时鉴定
+  │   │
+  │   └─→ 鉴定卷轴 (消耗品, 100%成功)
+  │       使用卷轴 → 即时鉴定
+  │
+  └─→ 鉴定结果:
+       ├─→ 魔法属性揭示
+       ├─→ 附魔效果激活
+       └─→ 诅咒（如有）揭示
+```
 
 ---
 
-## 6. 耐久度系统
+## 6. 耐久度系统 (Phase 2)
 
-### 6.1 条件等级
+耐久度系统推迟至 Phase 2 实现。MVP 阶段所有物品默认为 pristine 状态，不考虑装备磨损。装备维修费用在 MVP 阶段不适用。详细设计见本 GDD v1.2+。
 
-| 等级 | 英文 | 耐久度范围 | AC影响 | 伤害/攻击影响 | 修复成本 (价值%) | 图标边框 |
-|------|------|-----------|--------|-------------|-----------------|----------|
-| Pristine | pristine | 100% | 无影响 | 无影响 | — | 无色 |
-| Good | good | 75–99% | 无影响 | 无影响 | 10% | 黄色 |
-| Worn | worn | 50–74% | -1 AC | -1 伤害 | 25% | 橙色 |
-| Damaged | damaged | 25–49% | -2 AC | -1 伤害掷骰, -1 攻击掷骰 | 50% | 红色 |
-| Broken | broken | 0% | 物品无法使用 | 物品无法使用 | 100% (或不可修复) | 深红 |
-
-### 6.2 退化规则
-
-```
-退化触发条件:
-  1. 战斗使用:
-     - 武器: 每次暴击失手 (自然1) → 退化 5%
-     - 护甲: 每次受到暴击 → 退化 3%
-     - 盾牌: 每次成功格挡 → 退化 1%
-     - 每次战斗 (所有装备) → 退化 1% (战斗磨损)
-  2. 环境:
-     - 强酸/火焰/寒冰的环境伤害 → 所有装备退化 2–10% (取决于伤害强度)
-     - 陷阱 (尖刺/碾压) → 护甲退化 5–15%
-  3. 冒险失败惩罚:
-     - 中等失败: 随机 1-2 件装备退化 25%
-     - 严重失败: 随机 2-3 件装备退化 50%
-     - 灾难性失败: 所有装备退化至 broken
-
-退化计算公式:
-  durability_loss = degradation_amount × (100 / max_durability)
-  current_durability = max(current_durability - durability_loss, 0)
-  condition_level = DetermineConditionLevel(current_durability, max_durability)
-```
-
-### 6.3 条件对物品性能的影响
-
-```
-性能修正公式:
-
-武器:
-  若 condition_level == "worn":
-    damage_roll -= 1
-  若 condition_level == "damaged":
-    damage_roll -= 1
-    attack_roll -= 1
-  若 condition_level == "broken":
-    武器不可使用 (equippable = false)
-
-护甲:
-  若 condition_level == "worn":
-    ac_bonus -= 1
-  若 condition_level == "damaged":
-    ac_bonus -= 2
-  若 condition_level == "broken":
-    护甲不可使用 (equippable = false)
-```
-
-### 6.4 修复系统
-
-```
-修复流程:
-  1. 玩家在酒馆铁匠铺选择要修复的物品
-  2. 显示修复成本和所需材料:
-
-     修复成本(gp) = item.value_gp × rarity_multiplier × condition_fix_rate
-     - rarity_multiplier: common=1, uncommon=3, rare=10, very_rare=30, legendary=100, artifact=500
-       (使用 §3.1 统一稀有度乘数)
-     - condition_fix_rate = (100 - current_durability) / 100 * rate_per_tier
-       rate_per_tier: pristine→0%, good→0.10, worn→0.25, damaged→0.50, broken→1.00
-
-     材料需求:
-     - 从 worn 修复到 good: 基础材料 ×1
-     - 从 damaged 修复到 good: 基础材料 ×2 + 稀有材料 ×1
-     - 从 broken 修复到 good: 基础材料 ×3 + 稀有材料 ×2 + 铁砧费用
-
-  3. 修复时间:
-     - 至 good 状态: 瞬时 (1 酒馆场景帧)
-     - 至 worn 状态: 1 次短休时长
-     - 从 broken 修复: 1 次长休时长
-
-修复示例:
-  一把稀有 (rare) 长剑 (value_gp=15) 处于 damaged (35%):
-  基础修复成本 = 15 × 10 × 0.50 = 75 gp
-  需要: 铁矿 ×2 + 秘银锭 ×1
-
-  一把 Uncommon 长剑 (value_gp=15) 处于 worn (60%):
-  基础修复成本 = 15 × 3 × 0.25 = 11.25 → 11 gp
-```
-
-### 6.5 物品损坏 (Broken)
-
-```
-Broken 状态效果:
-  - 物品不可装备 (equippable = false)
-  - 仍在背包中占用空间
-  - 不可在战斗中使用
-  - 附魔效果全部失效 (即使是神器)
-
-可修复性:
-  - Common/Uncommon: 几乎总是可修复
-  - Rare/Very Rare: 可修复，但提示 "此物品修复后将失去所有附魔" (50% 概率保留)
-  - Legendary: 需特殊任务材料才可修复
-  - Artifact: 不可修复 — 损坏即永久失去
-
-永久破坏:
-  当 broken 物品再次受到用于退化的伤害时:
-    - Common/Uncommon: 10% 概率永久破坏 (物品从背包中删除)
-    - Rare/Very Rare: 5% 概率
-    - Legendary/Artifact: 不触发 (需特殊事件)
-```
+> **原设计概要（Phase 2 实现参考）**：
+> - **条件等级**: pristine (100%) → good (75-99%) → worn (50-74%, -1 AC/-1 dmg) → damaged (25-49%, -2 AC/-1 atk/-1 dmg) → broken (0%, 不可使用)
+> - **退化触发**: 武器自然1→-5%, 护甲被暴击→-3%, 每场战斗→-1%, 环境伤害→2-10%
+> - **修复**: 铁匠铺修复，成本 = LookupRepairBasePrice(rarity, tier) × (100-durability)/100（查表见 §12.2）
+> - **永久破坏**: broken 物品再次受退化伤害时有概率永久破坏
 
 ---
 
@@ -1392,21 +1659,26 @@ Rare+ 制作成本公式:
   制作总成本 = 基础物品成本 + 稀有材料成本 + 附魔加工费
 
   其中:
-    基础物品成本 = base_value × 基础稀有度乘数 (common×1 或 uncommon×3)
+    基础物品成本 = LookupBasePrice(basic_item.rarity, basic_item.base_price_tier)
+                  （查表 §12.2「稀有度层级基础成本表」— "商店售价" 列）
     稀有材料成本 = Σ(材料.掉落数量权重 × 材料.稀有度) — 不可购买，仅冒险掉落
-    附魔加工费 = target_rarity_multiplier × base_value × 0.3
+    附魔加工费 = LookupBasePrice(target_rarity, basic_item.base_price_tier) × 0.3
+                （查表 §12.2「稀有度层级基础成本表」— "修复基础成本" 列）
+
+  注意: 旧公式中使用 target_rarity_multiplier × base_value，已被稀有度层级基础成本表替代。
+  此变更消除了同一稀有度不同物品之间高达 750 倍的价格差异。
 
   成本平价验证:
-    制作总成本 ≈ base_value × target_rarity_multiplier × 0.8~1.0
+    制作总成本 ≈ LookupBasePrice(target_rarity, tier) × 0.8~1.0
     即制作成本约为目标稀有度商店售价的 80%~100%（若商店出售的话）
 
-  示例 — 制作一把 Rare 炽焰长剑:
-    基础物品: 长剑 (common) = 15 × 1 = 15 gp
+  示例 — 制作一把 Rare 炽焰长剑 (Medium tier):
+    基础物品: 长剑 (Common/Medium) = 50 gp (查表)
     稀有材料: 秘银锭 ×2 (冒险掉落, 不可购买) + 火焰精华 ×1 (冒险掉落)
-    附魔加工费: 10 × 15 × 0.3 = 45 gp
-    制作总成本: 15 + 0 (材料不可定价) + 45 = 60 gp
-    对比 Rare 长剑理论售价: 15 × 10 = 150 gp
-    制作节省: 60% (但需要冒险获取稀有材料)
+    附魔加工费: 200 × 0.3 = 60 gp (查表 Rare/Medium 修复基础成本 = 200)
+    制作总成本: 50 + 0 (材料不可定价) + 60 = 110 gp
+    对比 Rare 长剑 (Medium) 理论售价: 1000 gp (查表)
+    制作节省: 89% (但需要冒险获取稀有材料)
 ```
 
 #### Rare+ 铁匠铺配方
@@ -1498,6 +1770,40 @@ Procedure:
   Step 5 — 返回完整战利品列表
 ```
 
+#### 辅助函数定义
+
+```
+Algorithm: CalculateValue(item)
+
+  根据物品稀有度和类型查表返回基础金币价值。
+
+  查表逻辑:
+    base_price = LookupBasePrice(item.rarity, item.base_price_tier)
+               // 查表 §12.2「稀有度层级基础成本表」— "商店售价" 列
+    enchantment_bonus = Σ(enchantment.tier × 50 gp)  // 每个附魔 tier 增加 50 gp
+    return base_price + enchantment_bonus
+
+  注意: 此函数不应用于定价系统（§12.2），仅用于战利品生成时计算物品基础价值。
+        shop_price 和 sell_price 使用独立的稀有度层级基础成本表。
+```
+
+```
+Algorithm: RollAttunementRequirement(rarity)
+
+  概率掷骰（见 §3.4 同调需求概率表）:
+
+    switch rarity:
+      case "common":     return false
+      case "uncommon":   return randf() < 0.10   // 10% 概率需要同调
+      case "rare":       return randf() < 0.40   // 40%
+      case "very_rare":  return randf() < 0.70   // 70%
+      case "legendary":  return true             // 100%
+      case "artifact":   return true             // 100%
+
+  注意: 同调需求不影响物品的基础属性（武器伤害骰、护甲 AC 均可用），
+       仅限制魔法属性（附魔效果）的激活。
+```
+
 ### 9.2 物品类型权重表
 
 #### 按稀有度和遭遇类型
@@ -1567,6 +1873,8 @@ Boss Loot 特殊规则:
      - Boss 必定掉落至少 1 件与 Boss 主题相关的物品
        (例: 火焰巨龙 → 火焰抗性护甲或炽焰武器)
      - Boss 不掉落 common 稀有度物品 (除非是消耗品)
+       **注意: Boss 稀有度概率表中 Common 概率为 0%。若稀有度掷骰由于边缘情况返回
+       common，自动重掷（消耗品类除外，消耗品允许 common 掉落）。**
 
   2. Boss 专属战利品池:
      每个 Boss 有 unique_drop_pool (1-3 件专属物品):
@@ -1650,110 +1958,564 @@ Algorithm: RollGems(adventure_tier, cr_range)
 
 ---
 
-## 10. LLM 物品描述生成
+## 10. 物品描述生成系统 (Item Description System)
 
-### 10.1 Copywriter Agent 角色定义
+### 10.1 概述
 
-遵循 GDD §7 中定义的 LLM Agent 架构，Copywriter Agent 负责为物品生成叙事 flavor text。**Copywriter Agent 不决定物品数值**，仅生成描述文案。
-
-### 10.2 输入 Schema
+物品描述生成采用**双层架构**：底层为**程序化叙事组合系统**（离线可用，无需 LLM），上层为**Copywriter Agent 增强层**（在线时提供更丰富、更个性化的描述）。
 
 ```
-Agent: Copywriter Agent
-调用时机: 物品生成 (战利品/制作/商店) 时
-频率: 每次新物品（有缓存优化）
-Token预算: 1000 input / 300 output
-模型: 轻量模型 (GPT-3.5 / Claude Haiku)
-
-输入 Schema (copywriter_request.json):
+┌─────────────────────────────────────────────┐
+│              Copywriter Agent (在线增强)      │
+│   ────────────────────────────────────────  │
+│   当 LLM 可用时，Agent 生成个性化长篇描述       │
+│   输入: 物品数据 + 角色上下文 + 冒险上下文      │
+└──────────────────┬──────────────────────────┘
+                   │ 覆盖 (若可用)
+┌──────────────────▼──────────────────────────┐
+│         程序化叙事组合引擎 (基线)             │
+│   ────────────────────────────────────────  │
+│   模板系统 + 来源上下文 + 附魔视觉描述符        │
+│   始终可用，无需网络，零延迟                   │
+└─────────────────────────────────────────────┘
 ```
+
+> **架构原则**: 遵循 GDD §4.2 的反支柱要求——游戏必须完全离线可玩。程序化系统是基线，LLM 是附加增强。所有物品描述在无网络环境下仍能生成有叙事深度的文本。
+
+### 10.2 物品描述模板引擎
+
+#### 模板槽位系统
+
+每条物品描述由以下槽位组合而成：
+
+| 槽位 | 标识符 | 数据来源 | 说明 |
+|------|--------|----------|------|
+| `[material]` | 材质描述 | 物品数据 `material` 字段 | 物品的材质描述，如"钢制"、"寒铁"、"秘银" |
+| `[origin]` | 来源描述 | `item.source` + `item.source_name` | 物品来自何处，由来源上下文表注入 |
+| `[condition_visual]` | 品相描述 | `item.condition_level` (Phase 2) | 物品的外观状态，如"崭新的"、"有磨损痕迹的" |
+| `[enchantment_visual]` | 附魔视觉 | `item.enchantments[].visual_descriptor` | 附魔的外观描述（见 §10.5） |
+| `[rarity_flavor]` | 稀有度风味 | 模板池（按稀有度分级） | 稀有度级别的叙事 flavor，有 4-6 个变体 |
+
+#### 模板格式
+
+模板使用占位符标记法：
+
+```
+"{template_prefix}[rarity_flavor]{template_suffix}。[enchantment_visual]。{closing}"
+```
+
+**示例组合**:
+
+```
+输入:
+  material = "钢制"
+  rarity = "rare"
+  source = "boss_loot", source_name = "冰霜妖灵领主"
+  enchantment_visual = "剑身上燃烧着永不熄灭的魔法火焰"
+
+处理:
+  1. 从 rare 模板池随机选择: "这把[material]武器的前任主人是一位[name]..."
+  2. 注入 material: "这把钢制武器的前任主人是一位..."
+  3. 注入 source context: "...冰霜妖灵领主..."
+  4. 附魔视觉: "剑身上燃烧着永不熄灭的魔法火焰"
+  5. 最终生成并附加
+
+输出 (简体中文):
+  "这把钢制武器的前任主人是一位冰霜妖灵领主，剑身上至今仍残留着它冰冷的意志。剑身上燃烧着永不熄灭的魔法火焰。"
+```
+
+### 10.3 模板池按稀有度分级
+
+每个稀有度等级有 4-6 个模板变体，系统从对应池中随机选择（结合物品类型微调）。
+
+#### Common (普通 — 功能性描述)
+
+```
+模板池 (6 个变体):
+  1. "一把{品质形容词}[material][item_type]。"
+  2. "一件{做工描述}的[material][item_type]，在冒险者中很常见。"
+  3. "[material]锻造的{item_type}，朴实但可靠。"
+  4. "标准的[material][item_type]，磨得恰到好处。"
+  5. "{工艺评价}[item_type]，适合任何冒险者。"
+  6. "[material][item_type]，{用途简述}。"
+
+品质形容词池: "普通的" | "标准的" | "耐用的" | "实用的" | "简洁的" | "粗犷的"
+做工描述池: "制作扎实" | "打造精良" | "铸造得体" | "锻造到位"
+工艺评价池: "一件朴素的" | "一把趁手的" | "一件结实的"
+用途简述池: "经过实战检验的设计" | "世代传承的经典造型" | "旅行者最信赖的选择"
+```
+
+#### Uncommon (非凡 — 工匠叙事)
+
+```
+模板池 (5 个变体):
+  1. "一把制作精良的[material][item_type]，{工匠特征}。"
+  2. "这件[material][item_type]出自{工匠类型}之手，{细节描述}。"
+  3. "[material][item_type]，{视觉细节}，显然是刻意为之。"
+  4. "这不是普通的[item_type]——{与众不同之处}。"
+  5. "一件{品质感}的[material][item_type]，{来历暗示}。"
+
+工匠特征池: "刃口在光下泛着寒光" | "每一处细节都经过精心打磨" | "平衡感完美" | "握把处雕刻着精致花纹"
+工匠类型池: "一位不知名的老铁匠" | "某位武器大师" | "一位隐居的锻造师"
+细节描述池: "锋刃处隐约可见层层叠叠的锻打纹路" | "护手处镶嵌着几颗不起眼的宝石" | "表面的打磨痕迹细腻而均匀"
+视觉细节池: "表面微微泛着不同寻常的光泽" | "在特定角度下闪烁着微光" | "比看上去要轻盈得多"
+与众不同之处池: "它的平衡感让人想起精灵工匠的传说" | "握持时有一种说不出的舒适感" | "似乎天生适合你的手型"
+品质感池: "透着不凡品质" | "隐约散发魔力"
+来历暗示池: "虽然看上去朴素，但它曾陪伴一位老兵走过无数战场" | "前任主人想必对它爱护有加"
+```
+
+#### Rare (稀有 — 传奇暗示)
+
+```
+模板池 (5 个变体):
+  1. "这把[material]武器的前任主人是一位[source_name]，{遗留特征}。"
+  2. "[source_context_prefix][material][item_type]，{传说元素}。"
+  3. "这把[item_type]的[部位]上刻着古老的符文，{符文效果暗示}。"
+  4. "一件来自[source_name]的[material][item_type]，{历史痕迹}。"
+  5. "[rarity_prefix][material][item_type]，{能力暗示}。"
+
+遗留特征池: "上面至今仍残留着它的一部分力量" | "握持时能感受到前任主人的意志" | "它似乎仍在寻找新的主人"
+传说元素池: "传说中曾被用来对抗过黑暗中的某些东西" | "在无数诗篇中被提及的名字" | "它的传奇在冒险者酒馆中代代相传"
+部位池: "剑身" | "锋刃" | "握柄" | "护手" | "弓臂"
+符文效果暗示池: "在月光下会微微发光" | "触碰时会感到一阵温暖" | "周围的空气似乎微微扭曲"
+历史痕迹池: "上面有几道意义不明的刻痕" | "经历了数十场战斗却毫发无损" | "岁月的痕迹反而增添了它的威严"
+rarity_prefix池: "传说中的" | "令人敬畏的" | "罕见的"
+能力暗示池: "似乎能感应到持有者的战斗意志" | "在战斗中会发出低沉的嗡鸣" | "仿佛有自己的想法"
+```
+
+#### Very Rare (极稀有 — 敬畏叙事)
+
+```
+模板池 (4 个变体):
+  1. "即使是最老练的冒险者，见到这把[material][item_type]时也不由自主地屏住呼吸。{史诗描述}。"
+  2. "[source_context_prefix][material][item_type]，{神秘起源}。"
+  3. "这把[item_type]如同一件活物——{拟人描述}。"
+  4. "没有人确切知道这把[material][item_type]的来历。{未解之谜}。"
+
+史诗描述池: "它的光芒几乎令人不敢直视" | "每一次它出鞘都像是某个重大事件的开端" | "空气中弥漫着一种无法言说的压迫感"
+神秘起源池: "有人说它在末日战争中曾被诸神使用过" | "它出现在预言中的次数比任何武器都多" | "它的锻造者早已被人遗忘，但它本身永远不会"
+拟人描述池: "它在等待合适的持有者，已经等待了数百年" | "它轻轻地颤动着，仿佛在呼吸" | "它似乎能够理解持有者的情绪和意图"
+未解之谜池: "一个流行的理论是，它来自世界之外的某个地方" | "唯一确定的是，它比大多数王国都更古老" | "所有试图研究它的人，最终只得到更多的问题"
+```
+
+#### Legendary (传奇 — 神话叙事)
+
+```
+模板池 (4 个变体):
+  1. "古老的神话中，这把[material][item_type]是由{神话工匠}锻造，{神话用途}。"
+  2. "这是[material][item_type]中的传奇——{神话描述}。"
+  3. "每一位曾在历史上留下名字的英雄，{英雄关联}。每一代人都在等待它再次被举起。"
+  4. "凡人只配暂借它的力量，而非拥有它。{天命暗示}。"
+
+神话工匠池: "火神本人在世界诞生之初" | "一位拒绝死亡的神匠" | "第一代矮人王用山之心"
+神话用途池: "用来斩断命运的丝线" | "击败最初的混沌之物" | "为凡人世界划定边界"
+神话描述池: "它的名字被刻在星空中" | "时间本身在它的锋刃前都要绕道" | "史诗因它而被书写，王国因它而兴衰"
+英雄关联池: "都曾触摸过这件物品，留下自己的一部分灵魂" | "都寻找过它，但只有真正配得上的才能找到"
+天命暗示池: "它选择持有者，而非持有者选择它" | "命运在它被举起的那一刻就已经改写"
+```
+
+#### Artifact (神器 — 宇宙叙事)
+
+```
+模板池 (4 个变体):
+  1. "这不是一件物品。{宇宙断言}。"
+  2. "这把[material][item_type]的名字刻在世界本身的结构之中。{宇宙描述}。"
+  3. "凡人无法完全理解[material][item_type]的真正本质。{无法理解}。"
+  4. "这是{宇宙定位}的最后一件[material][item_type]——{终末描述}。"
+
+宇宙断言池: "它是一段被凝固的时间，一个被赋予形状的思想" | "它是造物主留下的工具，用以塑造现实本身"
+宇宙描述池: "它在一切开始之前就已存在" | "见过它的人无法用语言形容——因为语言本身不足以承载它的意义"
+无法理解池: "那些声称理解的人，不是在说谎，就是已经疯了" | "它的力量来源超越了已知的所有魔法学派"
+宇宙定位池: "创世之初被铸造的七件" | "多元宇宙中仅存的"
+终末描述池: "它的存在本身就是一个谜题，一次挑战，一个承诺——无论哪个都是凡人无法拒绝的" | "当它找到真正的持有者时，某个时代将宣告终结"
+```
+
+### 10.4 来源上下文注入
+
+模板根据物品来源 (`item.source`) 注入不同的叙事上下文。来源信息从物品数据和冒险上下文中提取。
+
+| 来源类型 | `item.source` | 上下文注入逻辑 | 示例注入文本 |
+|----------|---------------|---------------|-------------|
+| Boss 掉落 | `boss_loot` | 注入 `source_name` + boss 相关的遗留特征 | `"仍然带着[source_name]临死前的冰冷气息"` `"从[source_name]的宝库中获得的战利品"` |
+| 任务奖励 | `quest_reward` | 注入任务完成的纪念语境 | `"上面刻着'感谢你拯救了[location]——[quest_giver_name]'"` `"作为[quest_name]的纪念而铸造"` |
+| 制作出品 | `crafted` | 注入铁匠标记/制作日期 | `"护手处刻着铁匠的个人标记"` `"在[tavern_name]的铁匠铺中锻造于[日期]"` |
+| 宝箱发现 | `chest` | 注入发现地点语境 | `"在[location]的深处被发现的"` `"被遗忘在[location]的一个角落里，不知多久"` |
+| 商店购买 | `shop` | 简洁的"购入"描述 | `"从[shop_name]购入的全新装备"` `"经[shopkeeper_name]鉴定为真品"` |
+| 敌人数落 | `common_enemy` | 战斗残留痕迹 | `"上面还残留着上一场战斗的痕迹"` `"某个不知名敌人的随身武器"` |
+
+**来源描述词库**（按来源类型分类的随机词条，每个类型 3-5 个变体）：
+
+```
+boss_loot 描述池:
+  - "依然能感受到[source_name]残存的力量波动"
+  - "从[source_name]的秘藏中得到的珍贵物品"
+  - "[source_name]被打败后，从它的巢穴最深处取出的战利品"
+  - "经历了与[source_name]的战斗洗礼后变得愈发锐利"
+  - "上面还带着[source_name]巢穴中特有的[theme_material]气息"
+
+quest_reward 描述池:
+  - "作为[quest_name]成功完成的奖赏"
+  - "铭刻着[location]镇民的感激之情"
+  - "[quest_giver_name]亲手交到你手中的报答"
+  - "证明了你在[quest_name]中表现的勇气"
+  - "一件承载着[location]人民希望的礼物"
+
+crafted 描述池:
+  - "在[tavern_name]的铁匠铺中精心锻造而成"
+  - "由[blacksmith_name]亲手打造，融入了他的毕生经验"
+  - "护手处刻着[blacksmith_name]独特的雪花标记"
+  - "锻造时还带着铁砧的余温"
+  - "每一个细节都展示了工匠的骄傲和技巧"
+
+chest 描述池:
+  - "在[location]的深处被发现的秘藏"
+  - "封存在一个古老的宝箱里，不知多少岁月"
+  - "被巧妙地藏在[location]的一处暗格中"
+  - "似乎有人在很久以前特意将它放在了这里"
+
+shop 描述池:
+  - "从[shop_name]购入，成色如新"
+  - "经[shopkeeper_name]仔细抛光后的展示品"
+  - "[shopkeeper_name]从行商手中收购的可靠装备"
+
+common_enemy 描述池:
+  - "从一个[enemy_type]手中夺来的战利品"
+  - "上面有几道战斗留下的痕迹"
+  - "前任主人的身份已不可考"
+```
+
+> **变量替换**: 模板中 `[source_name]`、`[location]` 等占位符在运行时根据物品数据动态替换为实际值。
+
+### 10.5 附魔视觉描述符
+
+每个附魔在数据定义中包含 `visual_descriptor` 字段，描述附魔在物品上的视觉效果。这是程序化系统生成描述的核心数据源。
+
+#### 附魔视觉描述符数据模型
+
+```json
+{
+  "ench_flame_1": {
+    "id": "ench_flame_1",
+    "visual_descriptor": "剑身上燃烧着永不熄灭的魔法火焰",
+    "visual_descriptor_short": "魔法火焰缠绕",
+    "intensity_level": 1,
+    "visual_tags": ["火焰", "炽热", "发光"]
+  },
+  "ench_frost_1": {
+    "id": "ench_frost_1",
+    "visual_descriptor": "剑刃覆盖着一层永不融化的冰霜",
+    "visual_descriptor_short": "冰霜覆盖",
+    "intensity_level": 1,
+    "visual_tags": ["寒冰", "霜冻", "冷光"]
+  },
+  "ench_shock_1": {
+    "id": "ench_shock_1",
+    "visual_descriptor": "剑身周围不时闪过细微的电弧",
+    "visual_descriptor_short": "电弧闪烁",
+    "intensity_level": 1,
+    "visual_tags": ["闪电", "电光", "噼啪"]
+  },
+  "ench_venom_1": {
+    "id": "ench_venom_1",
+    "visual_descriptor": "锋刃上渗出一层薄薄的绿色毒液",
+    "visual_descriptor_short": "毒液渗出",
+    "intensity_level": 1,
+    "visual_tags": ["毒素", "绿光", "腐蚀"]
+  },
+  "ench_radiant_1": {
+    "id": "ench_radiant_1",
+    "visual_descriptor": "武器散发着温暖的金色光芒",
+    "visual_descriptor_short": "金色光芒",
+    "intensity_level": 1,
+    "visual_tags": ["光耀", "金色", "净化"]
+  },
+  "ench_necrotic_1": {
+    "id": "ench_necrotic_1",
+    "visual_descriptor": "武器周围萦绕着一层暗紫色的幽光",
+    "visual_descriptor_short": "暗紫幽光",
+    "intensity_level": 1,
+    "visual_tags": ["黯蚀", "暗影", "死亡"]
+  }
+}
+```
+
+#### 附魔视觉强度叠加
+
+当物品有多个附魔时，视觉描述按 `intensity_level` 排序组合：
+
+```
+视觉组合规则:
+  1. 按 intensity_level 降序排列所有附魔
+  2. 主附魔 (最高 intensity): 使用完整 visual_descriptor
+  3. 次附魔 (较低 intensity): 使用 visual_descriptor_short，以"、"连接
+  4. 最多显示 3 个附魔的视觉描述（超出部分省略为"以及更多难以名状的力量"）
+
+  示例:
+    附魔: [ench_flame_1 (intensity=1), ench_of_accuracy_1 (无视觉)]
+    输出: "剑身上燃烧着永不熄灭的魔法火焰。"
+    
+    附魔: [ench_holy (intensity=3), ench_flame_1 (intensity=1), ench_of_accuracy_2 (无视觉)]
+    输出: "武器散发着辉煌的圣光，魔法火焰缠绕其间。"
+```
+
+#### 无视觉附魔处理
+
+并非所有附魔都有可见的视觉效果。下列类型的附魔通常没有视觉描述：
+
+| 附魔类型 | 视觉策略 |
+|----------|----------|
+| 数值加值类 (`+1`/`+2`/`+3` 攻击/伤害) | 无独立视觉 — 由 `rarity_flavor` 暗示品质 |
+| 技能类 (潜行优势、先攻加值) | 无独立视觉 — 属于"内在品质" |
+| 同调相关 | 无视觉 — 在物品鉴定后才生效 |
+| 诅咒 | 视觉完全隐藏 — 直到鉴定或诅咒触发 |
+
+### 10.6 组合算法
+
+#### 主算法
+
+```
+Algorithm: GenerateItemDescription(item, context)
+
+Input:
+  item: 完整的物品对象（含附魔、来源、材质数据）
+  context: { source_type, source_name, adventure_theme, ... }
+  use_llm: boolean (是否允许 LLM 增强)
+
+Output:
+  description: string (简体中文物品描述)
+
+Procedure:
+
+  // ── 第一层: 程序化基线（始终执行）──
+
+  Step 1 — 确定模板:
+    template = RandomSelect(TemplatePool[item.rarity])
+    // 若物品类型有特化模板，优先使用类型特化模板
+    if TypeSpecificPool[item.type]:
+      if RandomCheck(0.6):  // 60% 概率使用类型特化
+        template = RandomSelect(TypeSpecificPool[item.type])
+
+  Step 2 — 填充材质槽位 [material]:
+    material_desc = item.material ?? GetDefaultMaterial(item.type, item.subtype)
+    template = Replace(template, "[material]", material_desc)
+    template = Replace(template, "[item_type]", GetDisplayName(item.type))
+
+  Step 3 — 注入来源上下文 [origin]:
+    source_context = GetSourceContext(item.source, context)
+    template = InjectSourceFlavor(template, source_context)
+    // 将 source_context 自然融入模板，替换 [source_name] 等占位符
+
+  Step 4 — 注入品相描述 [condition_visual] (Phase 2):
+    if item.condition_level and item.condition_level != "pristine":
+      condition_text = GetConditionVisual(item.condition_level)
+      // 插入到描述末尾: template += " " + condition_text
+
+  Step 5 — 注入附魔视觉 [enchantment_visual]:
+    visual_descs = []
+    for enchantment in SortByIntensity(item.enchantments):
+      if enchantment.visual_descriptor:
+        if len(visual_descs) < 3:
+          visual_descs.append(enchantment.visual_descriptor)
+        else:
+          visual_descs.append("以及更多难以名状的力量")
+          break
+    
+    if visual_descs:
+      enchant_text = JoinVisuals(visual_descs)
+      // 将附魔视觉追加到模板中
+      template = AppendEnchantmentVisual(template, enchant_text)
+
+  Step 6 — 稀有度风味润色:
+    // 稀有度越高，描述越长、越有诗意
+    flavor_text = GetRarityFlavorText(item.rarity)
+    if flavor_text:
+      template = PostProcess(template, flavor_text)
+
+  // ── 第二层: LLM 增强（仅当 use_llm=true 且 API 可用时）──
+
+  Step 7 — LLM 增强:
+    if use_llm and LLMAvailable():
+      llm_description = CallCopywriterAgent(item, context, template)
+      if llm_description passes Schema Validation:
+        return llm_description  // LLM 生成的描述替换程序化描述
+
+  // ── 返回基线描述 ──
+  return template
+```
+
+#### 辅助: 类型特化模板池
+
+武器和护甲可以有略微不同的模板：
+
+```
+护甲类型特化模板 (sample):
+  - "这件[material][item_type]在阳光下泛着[rarity_flavor]的光泽。"
+  - "[material][item_type]内部的衬垫保养得很好，穿着异常舒适。"
+
+药水/消耗品特化模板 (sample):
+  - "一瓶[material_desc]液体，[rarity_flavor]。"
+  - "瓶中的液体[visual_desc]，散发着[smell_desc]。"
+
+戒指/护符特化模板 (sample):
+  - "一枚[material]戒指，[rarity_flavor]。"
+  - "[material]护符在胸前轻轻地搏动着，[rarity_flavor]。"
+```
+
+#### 完整组合示例
+
+```
+示例 1: Rare 炽焰长剑 (Boss 掉落)
+
+  输入:
+    item = { name: "长剑", material: "钢制", rarity: "rare",
+             enchantments: [{ visual_descriptor: "剑身上燃烧着永不熄灭的魔法火焰" }],
+             source: "boss_loot", source_name: "冰霜妖灵领主" }
+  
+  程序化基线生成:
+    Step 1: 选择模板 → "这把[material]武器的前任主人是一位[source_name]，{遗留特征}。"
+    Step 2: 填充 → "这把钢制武器的前任主人是一位[source_name]，{遗留特征}。"
+    Step 3: 来源注入 → "这把钢制武器的前任主人是一位冰霜妖灵领主，"
+              + 选择遗留特征: "上面至今仍残留着它的一部分力量。"
+    Step 5: 附魔视觉 → " 剑身上燃烧着永不熄灭的魔法火焰。"
+    
+  最终描述:
+    "这把钢制武器的前任主人是一位冰霜妖灵领主，上面至今仍残留着它的一部分力量。
+     剑身上燃烧着永不熄灭的魔法火焰。"
+
+  LLM 增强(在线时):
+    "这把长剑在冰霜妖灵领主的巢穴最深处被发现时，剑身上的魔法火焰
+     依然在跳动——仿佛它一直在等待有人来将它带走。寒铁剑柄上还残留
+     着领主临死前的冰冷抓痕，而火焰则像是渴望复仇一般，燃烧得更加
+     炽烈了。"
+
+---
+
+示例 2: Common 皮甲 (商店购买)
+
+  输入:
+    item = { name: "皮甲", material: "皮革", rarity: "common",
+             source: "shop", source_name: "杂货商·格雷特" }
+  
+  程序化基线生成:
+    Step 1: 选择模板 → "一件{做工描述}的[material][item_type]，在冒险者中很常见。"
+    Step 2: 填充 → "一件制作扎实的皮革皮甲，在冒险者中很常见。"
+    Step 3: 来源注入(shop) → "从杂货商·格雷特处购入，成色如新。"
+    
+  最终描述:
+    "一件制作扎实的皮革皮甲，在冒险者中很常见。从杂货商·格雷特处购入，成色如新。"
+
+---
+
+示例 3: Legendary 神圣巨剑 (任务奖励)
+
+  输入:
+    item = { name: "巨剑", material: "星辰钢", rarity: "legendary",
+             enchantments: [
+               { visual_descriptor: "武器散发着辉煌的圣光" },
+               { visual_descriptor: "剑身周围有神圣符文环绕" }
+             ],
+             source: "quest_reward", source_name: "圣光试炼",
+             location: "晨曦大教堂" }
+  
+  程序化基线生成:
+    Step 1: 选择模板 → "古老的神话中，这把[material][item_type]是由{神话工匠}锻造，{神话用途}。"
+    Step 2: 填充 → "古老的神话中，这把星辰钢巨剑是由火神本人在世界诞生之初锻造，用来斩断命运的丝线。"
+    Step 3: 来源注入(quest) → "作为圣光试炼成功完成的奖赏，晨曦大教堂的守护者亲手将它交到了你手中。"
+    Step 5: 附魔视觉 → "武器散发着辉煌的圣光，神圣符文环绕其间。"
+    
+  最终描述:
+    "古老的神话中，这把星辰钢巨剑是由火神本人在世界诞生之初锻造，
+     用来斩断命运的丝线。作为圣光试炼成功完成的奖赏，晨曦大教堂的
+     守护者亲手将它交到了你手中。武器散发着辉煌的圣光，神圣符文环
+     绕其间。"
+```
+
+### 10.7 Copywriter Agent 在线增强
+
+当 LLM API 可用时，Copywriter Agent 可以在程序化基线之上生成更丰富、更个性化的描述。
+
+#### 输入 Schema（与程序化系统共享上下文）
 
 ```json
 {
   "request_id": "copywriter_req_20240504_001",
-  "character_context": {
-    "party_level": 3,
-    "party_composition": [
-      { "name": "索林", "race": "dwarf", "class": "fighter", "personality": "固执/忠诚" },
-      { "name": "艾琳", "race": "elf", "class": "wizard", "personality": "好奇/傲慢" }
-    ]
-  },
-  "adventure_context": {
-    "theme": "Gothic_Horror",
-    "tone": "mystery",
-    "location": "被遗忘的墓穴"
-  },
+  "procedural_baseline": "这把钢制武器的前任主人是一位冰霜妖灵领主...",
   "item_data": {
     "name": "霜痕长剑",
     "type": "weapon",
     "subtype": "longsword",
     "rarity": "rare",
     "material": "寒铁合金",
-    "properties": ["versatile"],
-    "enchantments": [
-      {
-        "name": "霜痕",
-        "effect_description": "命中时额外造成 1d6 寒冰伤害"
-      }
-    ],
     "source": "boss_loot",
-    "source_name": "冰霜妖灵领主"
+    "source_name": "冰霜妖灵领主",
+    "enchantments": [{ "id": "ench_frost_1", "name": "霜痕" }]
+  },
+  "character_context": {
+    "party_level": 3,
+    "party_composition": [
+      { "name": "索林", "race": "dwarf", "class": "fighter" }
+    ]
+  },
+  "adventure_context": {
+    "theme": "Gothic_Horror",
+    "location": "被遗忘的墓穴"
   }
 }
 ```
 
-### 10.3 输出 Schema
+#### 输出 Schema
 
 ```json
 {
   "request_id": "copywriter_req_20240504_001",
-  "description": "这把长剑握在手中有一种不自然的冰凉。剑刃泛着淡蓝色的微光，仿佛封印着一片冬天的气息。传说这是冰霜妖灵领主用千年寒铁铸造的三把剑之一——每一把都承载着它冻结的灵魂碎片。",
-  "flavor_text": "封印着一片冬天的气息",
-  "narrative_tags": ["寒冷", "古老", "诅咒残留", "领主遗物"],
-  "short_description": "一把泛着蓝光的寒铁长剑，剑刃永远冰凉。"
+  "description": "LLM 生成的个性化描述（覆盖程序化基线）",
+  "narrative_tags": ["寒冷", "古老", "领主遗物"],
+  "short_description": "一句话摘要"
 }
 ```
 
-### 10.4 缓存策略
+#### LLM 增强规则
 
 ```
-Copywriter 缓存规则:
-  - 相同 item_id → 命中缓存 → 返回已有描述
-  - 相同 (type + rarity + enchantment_ids) → 90% 命中缓存
-  - 相同 (type + rarity + adventure_theme) → 50% 命中缓存
-  - 缓存存储: SQLite，键 = MD5(item_signature)
-
-  缓存容量: 最多 5000 条
-  淘汰策略: LRU (最近最少使用)
+Copywriter Agent 增强规则:
+  1. LLM 生成的描述必须保留程序化基线中的关键信息:
+     - 附魔视觉描述 (不可遗漏)
+     - 物品来源上下文 (不可歪曲)
+     - 材质信息 (不可改变)
+  2. LLM 可以自由添加:
+     - 更丰富的叙事细节和修饰
+     - 角色相关的个性化引用
+     - 符合冒险主题的氛围营造
+  3. LLM 不得:
+     - 改变物品名称或稀有度暗示
+     - 添加程序数据中不存在的功能描述
+     - 生成除简体中文外的其他语言文本
+  4. 验证: LLM 输出必须经过 JSON Schema 验证 (§10.8)
+  5. 失败降级: 若 LLM 调用失败或验证失败，使用程序化基线描述
 ```
 
-### 10.5 离线降级方案
-
-当 LLM API 不可用时，使用预置描述模板：
+### 10.8 缓存与降级策略
 
 ```
-离线描述模板结构:
+描述缓存规则:
+  - 程序化基线: 缓存键 = MD5(item.id + item.rarity + sorted(enchantment_ids) + item.source)
+  - LLM 增强: 缓存键 = MD5(procedural_baseline + character_id + adventure_id)
+  - 缓存存储: SQLite，`item_descriptions` 表
+  - 最大缓存: 10,000 条 (程序化 8,000 + LLM 2,000)
+  - 淘汰策略: LRU
 
-{
-  "item_longsword": {
-    "common": "一把普通的钢制长剑。",
-    "uncommon": "一把制作精良的长剑，刃口在光下泛着寒光。",
-    "rare": "这把长剑的剑身上隐隐流转着魔法符文。",
-    "very_rare": "这把长剑如同活物般微微颤动，渴望战斗。",
-    "legendary": "传说级别的长剑，每一次挥动都能听见远古英雄的低语。",
-    "artifact": "这把剑的名字刻在历史中——它的每一次出鞘都将改变命运的走向。"
-  },
-  "enchantment_overrides": {
-    "ench_flame_1": "剑身上燃烧着永不熄灭的魔法火焰。",
-    "ench_frost_1": "剑刃覆盖着一层永不融化的冰霜。"
-  }
-}
-
-组合规则:
-  description = base_template[item_subtype][rarity] + " " + enchantment_overrides[ench_id]
-  例如: "一把制作精良的长剑，刃口在光下泛着寒光。剑刃覆盖着一层永不融化的冰霜。"
+离线降级流程:
+  1. 尝试读取 LLM 缓存
+  2. 若无缓存 → 检查 LLM API 可用性
+  3. 若 API 不可用 → 回退到程序化基线
+  4. 若 API 可用但调用失败 (3次重试) → 回退到程序化基线
+  5. 所有情况下，程序化基线始终可用
+  
+  用户体验:
+    - 程序化基线描述在物品生成的瞬间立即可用
+    - LLM 增强描述异步加载（如可用），在准备就绪后替换显示
+    - 显示过渡: 先显示基线描述，LLM 描述就绪后平滑过渡
 ```
-
 
 ---
 
@@ -1799,50 +2561,50 @@ Copywriter 缓存规则:
 
 ### 11.2 AC 计算
 
+> **v1.2 修正**: AC 计算不再解析 `ac_formula` 字符串（旧方案会导致敏捷加值双重计算）。新版使用 `base_ac` (整数) + 独立 `dex_contribution` 计算，以 `max_dex_bonus` 控制敏捷上限。
+
 ```
 AC Calculation Pipeline:
 
-  Step 1: 确定基础 AC
+  Step 1: 获取护甲基础 AC
     if equipped armor:
-      base_ac = armor.base_ac_value  // 或解析 armor.ac_formula
+      base_ac = armor.base_ac  // 整数，如 chain_mail = 16
     if no armor (unarmored):
-      base_ac = 10 + dex_mod
+      base_ac = 10
 
-  Step 2: 应用护甲敏捷上限
-    if armor.max_dex_bonus != null:
-      effective_dex = min(dex_mod, armor.max_dex_bonus)
+  Step 2: 计算敏捷贡献
+    if no armor (unarmored):
+      dex_contribution = dex_mod  // 无护甲时全敏捷加值
+    else if armor.max_dex_bonus is null (轻甲):
+      dex_contribution = dex_mod  // 轻甲无敏捷上限
     else:
-      effective_dex = dex_mod
+      dex_contribution = min(dex_mod, armor.max_dex_bonus)
 
-    // 重甲: max_dex_bonus = 0, 不添加敏捷
-    // 中甲: max_dex_bonus = 2
-    // 轻甲: max_dex_bonus = null (无上限)
+    // 重甲: max_dex_bonus = 0  → dex_contribution = 0
+    // 中甲: max_dex_bonus = 2  → dex_contribution = min(dex_mod, 2)
+    // 轻甲: max_dex_bonus = null → dex_contribution = dex_mod
 
-  Step 3: 添加盾牌加值
+  Step 3: 加盾牌
     if off_hand has shield:
-      ac += shield.ac_bonus  // +2 standard
+      shield_bonus = shield.ac_bonus  // +2 standard
 
-  Step 4: 添加附魔加值
+  Step 4: 加附魔
     for each equipped item:
       for each enchantment (if attuned):
         if enchantment.effect.stat_modifiers.ac:
           // 使用 GDD 堆叠规则: 同名加值取最大值
-          ac += max_ac_bonus_from_enchantments
+          enchantment_bonus = max_ac_bonus_from_enchantments
 
-  Step 5: 应用耐久度修正
-    if armor.condition_level == "worn":
-      ac -= 1
-    if armor.condition_level == "damaged":
-      ac -= 2
-    if armor.condition_level == "broken":
-      // 护甲不可用，处理为 unarmored
-      ac = 10 + dex_mod
+  Step 5: 应用耐久度修正 (Phase 2 — MVP 阶段跳过此步骤)
+    // MVP 阶段所有装备视为 pristine，无耐久惩罚
+    // Phase 2 实现:
+    //   worn: -1 AC, damaged: -2 AC, broken: 护甲不可用 (base_ac=10)
 
   Step 6: 添加种族/职业特性
     // 例: 蛮族 Unarmored Defense, 法师 Mage Armor
     // 这些由 Character System 提供，此处仅为接口
 
-  Final AC = base_ac + effective_dex + shield_bonus + enchantment_bonus
+  Final AC = base_ac + dex_contribution + shield_bonus + enchantment_bonus
              - condition_penalty + racial_class_bonus
 ```
 
@@ -1924,10 +2686,12 @@ Weapon Damage Calculation Pipeline:
       if enchantment.effect.damage_bonus:
         bonus_dice += [enchantment.effect.damage_bonus.dice]
 
-  Step 5: 应用耐久度修正
-    if condition_level == "worn":  damage_penalty = 1
-    if condition_level == "damaged": damage_penalty = 1 (and attack_penalty = 1)
-    if condition_level == "broken": weapon unusable
+  Step 5: 应用耐久度修正 (Phase 2 — MVP 阶段跳过此步骤)
+    // MVP 阶段 damage_penalty 和 attack_penalty 始终为 0
+    // Phase 2 实现:
+    //   worn: damage_penalty = 1
+    //   damaged: damage_penalty = 1, attack_penalty = 1
+    //   broken: weapon unusable
 
   Step 6: 暴击处理
     本游戏暴击规则 (GDD §5.4): 自然20暴击 → 伤害骰最大化，而非双骰
@@ -2031,44 +2795,78 @@ Attack Roll Calculation Pipeline:
 
 ### 12.2 定价模型
 
+> **重要变更 (v1.2)**：物品定价不再使用 `base_value × rarity_multiplier`，改用**稀有度层级基础成本表**。具体物品价格映射到 nearest tier 基准值。旧公式 `base_value × rarity_multiplier` 会导致灾难性价格缩放（同一稀有度的传说匕首修理费仅 100 gp，传说板甲修理费却高达 75,000 gp，差距达 750 倍）。
+
+#### 稀有度层级基础成本表
+
+| 稀有度 | 价格层级 | 基础价格(gp) | 商店售价(gp) | 回收价(gp) | 修复基础成本(gp) |
+|--------|:--------:|:----------:|:----------:|:---------:|:--------------:|
+| Common | Low (匕首/棍棒) | 5 | 5 | 2 | 1 |
+| Common | Medium (长剑/链甲衫) | 50 | 50 | 15 | 5 |
+| Common | High (全身板甲/巨剑) | 100 | 100 | 30 | 10 |
+| Uncommon | Low | 50 | 50 | 15 | 8 |
+| Uncommon | Medium | 250 | 250 | 75 | 38 |
+| Uncommon | High | 500 | 500 | 150 | 75 |
+| Rare | Low | 200 | — (商店不出售) | 60 | 40 |
+| Rare | Medium | 1000 | — | 300 | 200 |
+| Rare | High | 2000 | — | 600 | 400 |
+| Very Rare | Low | 1000 | — | 300 | 250 |
+| Very Rare | Medium | 5000 | — | 1500 | 1250 |
+| Very Rare | High | 10000 | — | 3000 | 2500 |
+| Legendary | Low | 5000 | — | 1500 | 1500 |
+| Legendary | Medium | 25000 | — | 7500 | 7500 |
+| Legendary | High | 50000 | — | 15000 | 15000 |
+| Artifact | — | 25000+ | — | 7500+ | 特殊(任务材料) |
+
+#### 价格层级映射规则
+
+每个基础物品根据其实用性和稀有度指定一个 `base_price_tier`：
+
+| 层级 | 适用物品类型 | 价格定位 |
+|:----:|-------------|----------|
+| **Low** | 匕首、棍棒、飞镖、投石索、弹药等低价值物品 | 取稀有度层级范围下界 |
+| **Medium** | 长剑、战斧、链甲衫、鳞甲、短弓、法师护甲等中等价值物品 | 取稀有度层级范围中点 |
+| **High** | 全身板甲、巨剑、重弩、长弓、高级护甲等高价值物品 | 取稀有度层级范围上界 |
+
+#### 定价公式
+
 ```
-价格公式:
+卖价 (Shop → Player, 仅 Common/Uncommon):
+  price = LookupBasePrice(rarity, base_price_tier)
 
-  卖价 (Shop → Player):
-    price = base_value × rarity_multiplier × condition_adjuster
+回收价 (Player → Shop):
+  sell_price = LookupBasePrice(rarity, base_price_tier) × 0.3 × condition_adjuster
 
-  回收价 (Player → Shop):
-    sell_price = base_value × rarity_multiplier × 0.3 × condition_adjuster
+其中:
+  condition_adjuster:
+    pristine: 1.0
+    good:     0.9
+    worn:     0.65
+    damaged:  0.35
+    broken:   0.05
 
-  其中:
-    rarity_multiplier:
-      common:     ×1
-      uncommon:   ×3
-      rare:       ×10  (仅制作/掉落，商店不出售)
-      very_rare:  ×30  (仅制作/掉落，商店不出售)
-      legendary:  ×100 (仅制作/掉落，商店不出售)
-      artifact:   ×500 (仅制作/掉落，商店不出售)
-
-    condition_adjuster:
-      pristine: 1.0
-      good:     0.9
-      worn:     0.65
-      damaged:  0.35
-      broken:   0.05
-
-  注意: 商店仅出售 Common/Uncommon 物品。Rare+ 物品的"价格"仅用于
-  回收估值和制作成本计算，不出现在商店 UI 中。
+注意: 商店仅出售 Common/Uncommon 物品。Rare+ 物品的"价格"仅用于
+回收估值和制作成本计算，不出现在商店 UI 中。
 
 定价示例:
-  一把 Uncommon 长剑，耐久 pristine:
-    shop_price = 15 × 3 × 1.0 = 45 gp
+  一把 Common 长剑 (Medium tier), 耐久 pristine:
+    shop_price = 50 gp (查表 Common/Medium)
+
+  一把 Uncommon 长剑 (Medium tier), 耐久 pristine:
+    shop_price = 250 gp (查表 Uncommon/Medium)
 
   玩家卖出同一把剑 (worn, 60%):
-    sell_price = 15 × 3 × 0.3 × 0.65 = 8.78 → 9 gp
+    sell_price = 250 × 0.3 × 0.65 = 48.75 → 49 gp
 
-  一把 Rare 长剑 (商店不出售，仅用于回收估值):
-    theoretical_value = 15 × 10 = 150 gp
-    sell_price = 150 × 0.3 × 1.0 = 45 gp (pristine)
+  一把 Rare 长剑 (Medium tier, 商店不出售，仅用于回收估值):
+    base_price = 1000 gp (查表 Rare/Medium)
+    sell_price = 1000 × 0.3 × 1.0 = 300 gp (pristine)
+
+  一把 Common 匕首 (Low tier), 耐久 pristine:
+    shop_price = 5 gp (查表 Common/Low)
+
+  一把 Common 全身板甲 (High tier), 耐久 pristine:
+    shop_price = 100 gp (查表 Common/High)
 ```
 
 ### 12.3 商店库存刷新
@@ -2111,20 +2909,21 @@ Attack Roll Calculation Pipeline:
 ### 12.4 修复与升级成本
 
 ```
-修理成本 (见 §6.4):
-  repair_cost = item.value_gp × rarity_multiplier × condition_fix_rate
-  // rarity_multiplier 使用 §3.1 新乘数: ×1/×3/×10/×30/×100/×500
+修理成本 (见 §6 — Phase 2 实现):
+  repair_cost = LookupRepairBasePrice(item.rarity, item.base_price_tier) × (100 - current_durability) / 100
+  // 修复基础价格查表 §12.2「稀有度层级基础成本表」— "修复基础成本" 列
+  // Artifact 物品修复需任务材料，不适用基础价格
 
 升级成本 (常规→魔法):
   // 铁匠铺: 为 common 武器/护甲 添加 1 个附魔槽 (uncommon 化)
-  upgrade_cost = item.value_gp × 6 + rare_materials × 3
-  // 成本约为 uncommon 物品售价的 2 倍 (15×3×2=90 gp 对比 15×6=90 gp)
+  upgrade_cost = LookupBasePrice("uncommon", item.base_price_tier) × 0.5 + rare_materials × 3
+  // 成本约为 uncommon 物品售价的 50%（查表 Uncommon/Medium = 250gp × 0.5 = 125gp 加工费）
   成功概率: DC 18 smithing check
   失败: 物品 durability -25%，材料消耗
   暴击失败 (自然1): 物品 broken
 
   // 图书馆: 为 uncommon+ 物品添加额外附魔槽 (附魔研究)
-  upgrade_cost = item.value_gp × 30 + arcane_crystals × 5
+  upgrade_cost = LookupBasePrice(item.rarity, item.base_price_tier) × 2 + arcane_crystals × 5
   成功概率: DC 20 arcana check
   失败: 材料消耗，不损伤物品
 ```
@@ -2153,35 +2952,11 @@ Attack Roll Calculation Pipeline:
 
 为防止金币无限累积，游戏设计了以下三条主要金币消耗途径：
 
-#### 12.6.1 装备维修（主要消耗）
+#### 12.6.1 装备维修 (Phase 2)
 
-装备维修是**最频繁的金币消耗**。每次冒险后，装备耐久度下降，需要花费金币修复。
+装备维修功能推迟至 Phase 2 实现。MVP 阶段所有物品默认为 pristine 状态，不考虑装备磨损。装备维修费用在 MVP 阶段不适用。详细设计见本 GDD v1.2+。
 
-```
-维修成本公式:
-  repair_cost = item.value_gp × rarity_multiplier × condition_fix_rate
-
-  其中:
-    rarity_multiplier: 使用 §3.1 的新乘数 (×1/×3/×10/×30/×100/×500)
-    condition_fix_rate:
-      pristine → good:   0.10 (10% 价值)
-      good → pristine:   0.05 (5% 价值)
-      worn → good:       0.25 (25% 价值)
-      damaged → good:    0.50 (50% 价值)
-      broken → good:     1.00 (100% 价值)
-
-  维修消耗预期:
-    - 每次短冒险后: 约 10-30 gp 维修费 (Common/Uncommon 装备)
-    - 每次中冒险后: 约 50-200 gp 维修费 (含 Rare 装备)
-    - 每次长冒险后: 约 200-1000 gp 维修费 (含 Very Rare+ 装备)
-
-  示例:
-    Uncommon 长剑 (value=15, rarity_mult=3), 从 worn 修复:
-    repair_cost = 15 × 3 × 0.25 = 11.25 → 11 gp
-
-    Rare 长剑 (value=15, rarity_mult=10), 从 damaged 修复:
-    repair_cost = 15 × 10 × 0.50 = 75 gp
-```
+> 原设计概要（Phase 2 实现参考）：维修成本 = LookupRepairBasePrice(rarity, tier) × (100-durability)/100（查表见 §12.2）。每次短冒险后预期维修消耗约 10-30 gp，中冒险约 50-200 gp，长冒险约 200-1000 gp。
 
 #### 12.6.2 酒馆设施升级（阶段性消耗）
 
@@ -2352,17 +3127,18 @@ Attack Roll Calculation Pipeline:
   for i in range(1000):
     loot = GenerateLoot("boss", "short", [2, 4], true)
 
-  # 验证:
-  assert 至少 1% Legendary drop (expected ~8%)
-  assert 至少 0.1% Artifact drop (expected ~2%)
-  assert 不低于 10% Common drop (expected ~20%)
+   # 验证:
+   assert 至少 2% Legendary drop (expected ~11%)
+   assert 至少 0.5% Artifact drop (expected ~4%)
+   assert Common drop = 0% (Boss 不产出 common 装备，§9.4)
 ```
 
-#### Test 6: 耐久度退化
+#### Test 6: 耐久度退化 (Phase 2 — MVP 跳过)
 
 ```
 测试名称: test_condition_degradation
-目标: 验证耐久度退化和性能修正
+目标: 验证耐久度退化和性能修正 (Phase 2 实现)
+状态: Phase 2 — MVP 阶段所有物品为 pristine
 
 场景:
   1. 武器自然1 → 退化 5%, pristine→good (95%)
@@ -2394,15 +3170,15 @@ Attack Roll Calculation Pipeline:
 目标: 验证定价公式 (新经济模型)
 
 场景:
-  1. Common 长剑, pristine:
-     price = 15 × 1 × 1.0 = 15 gp
-  2. Uncommon 长剑, pristine:
-     price = 15 × 3 × 1.0 = 45 gp
-  3. 卖出 Uncommon 长剑 (worn, 60%):
-     sell_price = 15 × 3 × 0.3 × 0.65 = 8.78 → 9 gp
-  4. Rare 长剑 (商店不出售，仅验证回收估值):
-     theoretical_value = 15 × 10 = 150 gp
-     sell_price = 150 × 0.3 × 1.0 = 45 gp (pristine)
+  1. Common 长剑 (Medium tier), pristine:
+     price = LookupBasePrice("common", "medium") = 50 gp (查表 §12.2)
+  2. Uncommon 长剑 (Medium tier), pristine:
+     price = LookupBasePrice("uncommon", "medium") = 250 gp (查表)
+  3. 卖出 Uncommon 长剑 (Medium tier, worn):
+     sell_price = 250 × 0.3 × 0.65 = 48.75 → 49 gp
+  4. Rare 长剑 (Medium tier, 商店不出售，仅验证回收估值):
+     base_price = LookupBasePrice("rare", "medium") = 1000 gp (查表)
+     sell_price = 1000 × 0.3 × 1.0 = 300 gp (pristine)
   5. 验证商店不出售 Rare+ 物品:
      shop_inventory = generate_shop_inventory("blacksmith", "medium")
      assert all(item.rarity <= "uncommon" for item in shop_inventory)
@@ -2447,6 +3223,7 @@ Attack Roll Calculation Pipeline:
 ```
 测试名称: test_full_loot_economy
 目标: 运行 100 次完整短冒险，验证经济平衡 (新经济模型)
+状态: MVP 核心逻辑 + Phase 2 维修消耗部分
 
 流程:
   for i in range(100):
@@ -2488,11 +3265,12 @@ Attack Roll Calculation Pipeline:
      - 已有 3 件同调物品 → 尝试同调第 4 件 → 最早的一件自动断开
      - 断开同调的魔法效果消失
 
-  4. Broken 物品:
-     - 武器 broken → 不可攻击
-     - 护甲 broken → AC 归零
-     - broken 物品的附魔 → 全部失效
-     - 尝试修复 broken → 检查成本和材料
+   4. Broken 物品 (Phase 2 — MVP 阶段所有物品为 pristine):
+      - 武器 broken → 不可攻击
+      - 护甲 broken → AC 归零
+      - broken 物品的附魔 → 全部失效
+      - 尝试修复 broken → 检查成本和材料
+      - MVP 阶段: 物品永不损坏，equippable 始终为 true
 
   5. 灵魂绑定:
      - 绑定物品不可出售 (出售确认框禁用)
@@ -2500,7 +3278,7 @@ Attack Roll Calculation Pipeline:
      - 角色死亡传承绑定物品
 
   6. 背包满:
-     - 背包 12/12 → 新战利品 → 弹出 "背包已满，是否丢弃物品？"
+      - 背包满(10+STR_mod×2) → 新战利品 → 弹出 "背包已满，是否丢弃物品？"
      - 丢弃物品确认对话框
 
   7. 诅咒物品:
@@ -2509,7 +3287,12 @@ Attack Roll Calculation Pipeline:
      - 神殿 Remove Curse → 诅咒消失，物品可正常卸下
 
   8. 附魔冲突:
-     - 尝试为火焰附魔武器添加寒冰附魔 → 弹窗 "此物品已有炎属性附魔，寒冰附魔无法共存"
+      - 尝试为火焰附魔武器添加寒冰附魔 → 弹窗 "此物品已有炎属性附魔，寒冰附魔无法共存"
+
+  9. 鉴定与诅咒互动 (Phase 2):
+      - 装备未鉴定的诅咒物品 → 诅咒立即生效但附魔不激活
+      - 角色战斗中突然出现检定劣势 → 玩家不知道原因(应为诅咒)
+      - 鉴定揭示诅咒 → 物品描述更新，显示诅咒效果
 ```
 
 ### 13.4 平衡验证测试
@@ -2517,6 +3300,7 @@ Attack Roll Calculation Pipeline:
 ```
 测试名称: test_loot_table_balance_1000_runs
 目标: 通过 1000 次 seeded 运行验证战利品表的长期平衡 (新经济模型)
+状态: MVP 战利品分布 + Phase 2 维修消耗部分
 
 参数:
   rng_seed = 42
@@ -2607,16 +3391,16 @@ Attack Roll Calculation Pipeline:
 
 | 功能 | MVP (Phase 1) | Phase 2 |
 |------|---------------|---------|
-| 装备槽位 | Main Hand, Off Hand, Armor, Ring ×2, Amulet, Backpack(12) | + Head, Hands, Feet, Back, Waist |
+| 装备槽位 | Main Hand, Off Hand, Armor, Helmet, Cloak, Boots, Ring ×2, Amulet, Backpack(10+STR_mod×2) | 多tier扩展槽位 |
 | 武器类型 | 全部 SRD 简易+军用武器 | + 奇门武器 (exotic) |
 | 物品类型 | weapon, armor, shield, potion, scroll, misc, quest | + wand, ring, amulet (全套功能) |
-| 附魔系统 | 前缀+后缀, 最多1 tier | 多tier附魔, 隐含附魔 |
+| 附魔系统 | 前缀+后缀, Tier 1-5 (81% 机制附魔) | 隐含附魔、附魔重铸 |
 | 同调系统 | 有 (attunement check) | 完整同调UI和叙事 |
-| 耐久度 | 完整 5 级条件系统 | 环境退化、永久破坏动画 |
+| 耐久度 | — | 完整 5 级条件系统、环境退化、永久破坏动画 |
 | 灵魂绑定 | Legendary+ 自动绑定 | 手动符文绑定、绑定叙事 |
 | 制作系统 | 铁匠铺 + 炼金台 (基础配方) | + 图书馆、附魔研究 |
 | 战利品 | 完整稀有度表 + CR 分段 | + Boss 专属池、主题匹配 |
-| LLM 描述 | Copywriter Agent + 离线降级 | 缓存优化、批量预生成 |
+| 物品描述 | 程序化叙事系统(模板引擎+来源上下文) + LLM增强(Copywriter Agent) | 批量预生成、个性化叙事缓存 |
 | 商店 | 杂货商 + 铁匠铺 | + 炼金店、魔法书店 |
 | 诅咒物品 | 基础诅咒效果 | 诅咒叙事 + Remove Curse |
 
@@ -2645,8 +3429,8 @@ Attack Roll Calculation Pipeline:
 | **角色系统** | 装备槽位模型、属性加成、熟练项判定 | ✅ 已审查 | 中 — 需确保slot模型一致 |
 | **战斗系统** | 武器伤害骰、AC计算、法术加值 | ✅ 已设计 | 低 |
 | **酒馆系统** | 铁匠铺/炼金台/商店 | ✅ 已设计 | 低 |
-| **失败与成长系统** | 装备损坏惩罚、传承系统 | ✅ 已审查 | 中 — 需确保耐久度分级一致 |
-| **LLM集成网关** | Copywriter Agent物品描述生成 | ✅ 已审查 | 低 |
+| **失败与成长系统** | 装备损坏惩罚(MVP移除)、传承系统 | ✅ 已审查 | 低 — MVP移除耐久度，Phase 2恢复 |
+| **LLM集成网关** | Copywriter Agent 物品描述增强（在线）— 程序化叙事系统为离线基线 | ✅ 已审查 | 低 |
 
 ### 14.2 下游依赖（依赖本系统的系统）
 
@@ -2663,15 +3447,18 @@ Attack Roll Calculation Pipeline:
 
 | 参数 | 当前值 | 安全范围 | 影响面 |
 |------|:------:|:--------:|--------|
-| **稀有度价格乘数** | ×1/×3/×10/×30/×100/×500 | ±50% | 物品经济平衡 |
+| **稀有度层级基础成本** | 见定价表 §12.2 | ±50% | 物品经济平衡（替代旧 price × multiplier 模型） |
 | **背包基础槽位** | 10 | 8-12 | 角色携带能力 |
 | **STR加成槽位** | 每+1调整值+2格 | +1~+3 | 力量型角色优势 |
-| **耐久度退化（战斗）** | 1%/次 | 0.5-2% | 装备维护频率 |
-| **耐久度退化（暴击失手）** | 5% | 3-8% | 武器损耗速度 |
-| **修复成本乘数** | value×rarity×condition_rate | ±50% | 修复经济负担 |
-| **卖出价格** | 30% | 20-50% | 物品经济出口 |
+| **修复基础成本 (Phase 2)** | 查表 §12.2「修复基础成本」列 | ±50% | 修复经济负担 (Phase 2) |
+| **卖出价格比例** | 30% | 20-50% | 物品经济出口 |
 | **商店库存规模** | 8+d6 | 6-12 | 商店可用性 |
-| **鉴定成本** | 未定义 | 5-50gp | 鉴定经济负担 |
+| **鉴定成本 (酒馆付费)** | uncommon 25gp / rare 50gp / very_rare 100gp / legendary 250gp / artifact 500gp | ±50% | 鉴定经济负担 |
+| **鉴定 DC (Uncommon)** | 12 | 10-14 | 鉴定难度 |
+| **鉴定 DC (Rare)** | 15 | 13-17 | 鉴定难度 |
+| **鉴定 DC (Very Rare)** | 18 | 16-20 | 鉴定难度 |
+| **鉴定 DC (Legendary)** | 22 | 20-24 | 鉴定难度 |
+| **鉴定 DC (Artifact)** | 25 | 23-27 | 鉴定难度 |
 | **同调上限** | 3件 | 2-5件 | 魔法物品限制 |
 | **附魔槽数（Uncommon）** | 1 | 1-2 | 物品定制深度 |
 | **Boss保底稀有度** | Rare | Uncommon-Rare | Boss战利品期望 |
@@ -2680,27 +3467,27 @@ Attack Roll Calculation Pipeline:
 
 ## 16. 验收标准 (Acceptance Criteria)
 
-| # | 验收标准 | 测试方法 | 通过条件 |
-|---|----------|----------|----------|
-| AC-1 | 物品JSON Schema验证 | 单元测试 | 有效物品通过，无效物品被拒绝 |
-| AC-2 | 装备槽位兼容性 | 单元测试 | 60种组合全部正确 |
-| AC-3 | 双手武器占用规则 | 单元测试 | two_handed占用Main+Off Hand |
-| AC-4 | 耐久度退化正确 | 单元测试 | 5级条件转换正确 |
-| AC-5 | 修复成本计算正确 | 单元测试 | 公式与角色系统一致 |
-| AC-6 | 稀有度掷骰分布 | 统计测试 | 10000次掷骰误差<2% |
-| AC-7 | 战利品生成符合CR限制 | 集成测试 | 物品不超出CR范围 |
-| AC-8 | 制作配方正确执行 | 集成测试 | 材料消耗、产出正确 |
-| AC-9 | 商店只卖Common/Uncommon | 代码审查 | 商店不生成Rare+物品 |
-| AC-10 | 弹药消耗规则正确 | 集成测试 | 远程攻击消耗弹药 |
-| AC-11 | 鉴定系统正常工作 | 端到端测试 | 未鉴定物品正确显示 |
-| AC-12 | 背包槽数=10+STR_mod×2 | 单元测试 | 与角色系统一致 |
+| # | 验收标准 | 测试方法 | 通过条件 | 对应测试 |
+|---|----------|----------|----------|----------|
+| AC-1 | 物品JSON Schema验证 — 给定有效物品（全部required字段+类型匹配约束）通过；无效物品（缺失字段/类型不匹配/互斥数据块冲突/数值超出范围）被拒绝并输出可读错误 | 单元测试 | 全部10个有效样本通过，10个无效样本被拒绝 | 新增 Schema 验证测试 |
+| AC-2 | 装备槽位兼容性 — 所有 §4.3 矩阵中的 (物品类型, 槽位) 组合逐一验证。允许的组合装备成功；不兼容组合拒绝并显示原因（槽位不匹配/双手占用/同调超出） | 单元测试 | 全部130种组合(13类型×10槽位)逐一覆盖，兼容组合全部通过，不兼容组合全部拒绝 | Test I1 + 新增组合覆盖测试 |
+| AC-3 | 双手武器占用规则 — 装备two_handed武器时Off Hand标记为占用；装备后试图装备副手物品被拒绝；卸下双手武器后Off Hand释放 | 单元测试 | §13.3边界情况#1全部通过 | §13.3 #1 |
+| AC-4 | 耐久度系统 — MVP标记为Phase 2，所有物品默认pristine无性能修正 (Phase 2实现时详见本GDD v1.2+) | 代码审查 | 代码中无耐久度退化逻辑(MVP)，§6内容为Phase 2占位符 | Phase 2 |
+| AC-5 | 定价系统 — 物品基础价格使用 §12.2 稀有度层级基础成本表(LookupBasePrice)，非 base_value × rarity_multiplier 公式。所有稀有度×层级组合产出正确价格；修复/制作/回收价格基于同表计算 | 单元测试 | 全部18个(6稀有度×3层级)价格端点验证通过；定价与修复/制作成本互洽 | Test 8 |
+| AC-6 | 稀有度掷骰分布 — RollRarity在10000次掷骰后的分布与§3.2概率表误差<2% | 统计测试 | 所有稀有度级别实测频率与预期差距<2% | Test 1 |
+| AC-7 | 战利品生成符合CR限制 — 生成的物品稀有度和基础类型不超出CR范围，稀有度分布与§3.2一致 | 集成测试 | 1000次生成无物品超出CR范围；Boss掉落无Common物品(§9.4规则) | Test 5 + I2 |
+| AC-8 | 制作配方正确执行 — 成功:消耗材料、产出物品；失败(检定<DC):消耗材料无产出(50%)或退还材料(50%)；自然20:稀有度提升一级；自然1:材料消耗+设施停用至下次长休 | 集成测试 | §8.2-8.5所有配方逐一验证(共40+配方)，每个配方的4种结果分支正确 | Test 7 |
+| AC-9 | 商店只卖Common/Uncommon — 商店库存生成1000次，零个物品稀有度 > uncommon | 自动化测试 | 1000次库存生成全部通过稀有度上限检查 | Test 8 Scenario 5 + I3 |
+| AC-10 | 弹药消耗规则 — 远程攻击每次消耗1发弹药；战斗结束后回收50%(向上取整)；弹药堆叠每20发占1背包格 | 单元测试 | 模拟10场战斗(每次5-10次远程攻击)，验证消耗、回收、背包占用三项规则 | 新增弹药测试 |
+| AC-11 | 鉴定系统 — 未鉴定物品名称显示"未鉴定的 [类型]"，附魔效果不激活，诅咒激活(EVEN IF unidentified)；短休Arcana检定按DC正确揭示；酒馆付费鉴定100%成功 | 端到端测试 | §5A定义的3种鉴定路径全部验证通过 | 新增鉴定测试 |
+| AC-12 | 背包槽数=10+STR_mod×2 — 不同STR调整值(-1到+5)对应的背包容量正确 | 单元测试 | STR 8→8格, STR 10→10格, STR 14→12格, STR 16→16格, STR 20→20格 | 新增背包容量测试 |
 
 ---
 
-*文档版本: v1.1*
+*文档版本: v1.2*
 *创建日期: 2026-05-04*
-*最后更新: 2026-05-09*
-*状态: 设计评审修订完成，待复审*
+*最后更新: 2026-05-10*
+*状态: 设计评审修订中 (MAJOR REVISION — 阻断项修复)*
 *读者: 系统开发者、数值设计师、QA 工程师*
 
 > **下一步**: 本 TDD 完成后，需要与 Character System 和 Combat System 的 TDD 进行交叉评审，确保接口一致、数据流正确。

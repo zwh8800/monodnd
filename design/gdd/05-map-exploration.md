@@ -4,9 +4,26 @@
 > **Game**: 《酒馆与命运》(Tavern & Destiny)
 > **Rules Reference**: DND 5e SRD
 > **Language Policy**: 游戏文本统一采用简体中文，技术标识符使用英文snake_case
-> **Version**: 1.0 — MVP + Phase 2 scope
-> **Status**: 初始设计
+> **Version**: 1.2 — MVP + Phase 2 scope (2026-05-10 revision)
+> **Status**: 已修订 — `/design-review` 审查后修复 7个硬阻断 + 8个结构性修复
 > **对应GDD**: GDD-v1.md §4.2, §4.3, §5.6
+
+> **v1.2 修订摘要** (2026-05-10):
+> - 🔴 B1: tileset格式从Godot .tres改为MonoGame兼容 (.png spritesheet + .json元数据)
+> - 🔴 B2: 定义 `max_vision=40 tiles` 常量并注册到§1B调参
+> - 🔴 B3: 新增探索节点(exploration_ruins)和分支节点(branch_crossroads)房间模板
+> - 🔴 B4: Flammable_Liquid火灾修复 — LOS=true + spread_chance降至25% + max_spread_targets=3
+> - 🔴 B5: CR预算简化表对齐TEST 40 (Deadly Lv5×4从CR 10.0修正为8.5)
+> - 🔴 B6: WCAG 1.4.1修复 — 标签颜色+形状双重编码
+> - 🔴 B7: 分支选择添加二次确认机制
+> - 🟡 S1: MVP添加最小分支节点（末端1个二选一branch）
+> - 🟡 S2: 被动察觉重新设计 — DC范围收窄至10-15, 手动Search为主要发现通道
+> - 🟡 S3: FOV方法统一为GoRogue内置递归阴影投射
+> - 🟡 S4: 房间模板Rotation启用 (90°/180°/270°)
+> - 🟡 S5: 标签碰撞优先级正式纳入§6.5设计规格
+> - 🟡 S6: TEST 34计算修正 (passive=21而非11)
+> - 🟡 S7: 视觉提示从12+层精简至5层
+> - 🟡 S8: 走廊遭遇率从15%调至25-30%
 
 ---
 
@@ -79,8 +96,8 @@
 
 | 功能 | MVP (Phase 1) | Phase 2+ |
 |------|:---:|:---:|
-| 节点图生成 (combat/dialogue/exploration/rest/boss) | YES | 全部8种节点类型 |
-| 线性地图 (仅主路径) | YES | 分支+可选路径 |
+| 节点图生成 (combat/dialogue/exploration/rest/boss + 1 branch) | YES | 全部8种节点类型 |
+| 地图结构 (线性主路径 + 末端1二选一分支) | YES | 完整分支+可选路径网络 |
 | 基础Tileset渲染 (地牢/森林/城镇) | 3种Tileset | 10+种Tileset |
 | 迷雾系统 (三层状态) | YES | 动态光源交互 |
 | 基础探索行动 (Search/Interact) | YES | Cast Spell/Use Item探索 |
@@ -88,7 +105,9 @@
 | 交互标签 (Pushable/Flammable/Climbable/Breakable/Readable) | 5个标签 | 全部8个标签 |
 | 陷阱系统 | 3种陷阱 | 全量陷阱 |
 | 场景转换 | fade + 预加载 | slide/instant + 动画过渡 |
-| 房间模板 | 7个MVP模板 | 20+模板(含多主题变体) |
+| 房间模板 | 8个MVP模板 | 20+模板(含多主题变体) |
+| 房间模板旋转 (90°/180°/270°) | YES | 镜像变换 |
+| 被动察觉机制 | 辅助提示 (DC 10-15, 手动Search为主) | 完整被动+主动双通道 |
 
 ---
 
@@ -121,12 +140,14 @@
 | **黑暗视觉范围(Dwarf/Elf)** | 12 tiles | 8-16 | 种族探索优势 |
 | **火把明亮范围** | 8 tiles | 6-12 | 人类探索体验 |
 | **火把微光范围** | 8 tiles | 4-10 | 人类探索体验 |
+| **最大视野上限 (max_vision)** | 40 tiles | 24-60 | 防止极端视野溢出；darkvision+光源合并的上限 |
 | **相机缩放默认** | 2.0x | 1.5-3.0 | 视野范围 |
 | **预加载缓存大小** | 5 rooms | 3-10 | 场景切换流畅度 |
-| **燃烧传播概率** | 25%/轮 | 15-40% | 火焰系统威胁度 |
-| **隐藏物体DC范围** | 5-25 | 5-30 | 发现难度梯度 |
-| **CR预算容忍度** | ±0.2 | ±0.1-0.5 | 遭遇难度弹性 |
-| **模板变换(Rotation)** | 未启用 | 0°/90°/180°/270° | 房间视觉多样性 |
+| **燃烧传播概率 (Flammable)** | 25%/轮 | 15-35% | 火焰系统威胁度 |
+| **燃烧传播概率 (Flammable_Liquid)** | 25%/轮 | 15-30% | Flammable_Liquid传播独立调谐 |
+| **隐藏物体DC范围** | 10-15 | 8-18 | 发现难度梯度（MVP窄范围，Phase 2扩展） |
+| **CR预算容忍度** | ±0.3 | ±0.1-0.5 | 遭遇难度弹性 |
+| **模板变换(Rotation)** | 启用 (90°/180°/270°) | 0°/90°/180°/270° | 房间视觉多样性 |
 | **队伍视野模式** | 最优视野 | 最优/领队/各自 | 黑暗视觉体验 |
 
 ---
@@ -139,9 +160,9 @@
 | **冒险生成系统** | adventure_blueprint.json节点数据 | ✅ 已设计 | 低 |
 | **战斗系统** | 遭遇触发→战斗切换，地形加成 | ✅ 已审查 | 中 — 先攻规则需对齐 |
 | **LLM集成网关** | DM Agent场景描写 | ✅ 已审查 | 低 |
-| **GoRogue** | FOV/A*/地图生成框架 | ⚠️ 未集成 | 中 — 当前自定义实现 |
+| **GoRogue** | FOV(递归阴影投射)/A*/地图生成框架 | ✅ 已集成 (v2.6.4) | 低 |
 
-> **设计说明 (v1.1)**: 先攻规则以GDD-v1.md为准（每轮重骰先攻）。地图GDD TEST 26中的"先攻检定"引用需对齐。GoRogue集成决策待评估。
+> **设计说明 (v1.2)**: ① 先攻规则以GDD-v1.md为准（每轮重骰先攻）。② FOV采用GoRogue内置递归阴影投射（替代原§7.2.2自定义双射线方案，性能提升10-30×）。③ GoRogue AStar当前仅支持4方向移动——8方向对角线移动需自定义距离度量或自实现加权A*。
 
 ---
 
@@ -688,6 +709,13 @@
 | `branches[].reward_hint` | string | YES | 奖励提示文本 |
 | `allow_return` | bool | YES | 选择后是否可以返回此节点重新选择 |
 | `branch_locked_after_choice` | bool | YES | 选后是否锁定（不可更改） |
+| `require_confirm` | bool | YES | 是否要求二次确认（默认true，防止误触导致不可逆选择） |
+
+**分支选择UX规范 (v1.2)**:
+1. **两步确认**: 玩家首次点击分支选项 → 选项高亮 + 显示警告文案"此选择不可更改，确定要前往 [分支名] 吗？" → 再次点击确认 → 执行
+2. **锁定动画**: 确认后未选中的分支路径播放"关闭"动画（合上门/路径断裂），明确告知"已不可达"
+3. **小地图标记**: 已封锁路径在小地图上显示🔒图标
+4. **Esc取消**: 首次点击高亮后按Esc可取消选择（回到未选择状态）
 
 ### 2.3 节点图生成算法
 
@@ -854,27 +882,42 @@ Step 1 — 主题标签解析
 
 Step 2 — Tileset优先级匹配
   Tileset映射表 (按优先级排序):
+  MonoGame资源格式: .png (spritesheet, 通过MGCB编译为.xnb) + .json (tile元数据: 碰撞/标签)
 
-  | theme_tag  | Tileset ID        | 资源路径                                | 优先级 |
-  |------------|-------------------|----------------------------------------|--------|
-  | dungeon    | dungeon_basic     | assets/tilesets/dungeon_basic.tres    | 1 |
-  | crypt      | dungeon_crypt     | assets/tilesets/dungeon_crypt.tres    | 2 |
-  | cave       | cave_natural      | assets/tilesets/cave_natural.tres     | 1 |
-  | forest     | forest_temperate  | assets/tilesets/forest_temperate.tres | 1 |
-  | swamp      | swamp_murky       | assets/tilesets/swamp_murky.tres      | 2 |
-  | town       | town_medieval     | assets/tilesets/town_medieval.tres    | 1 |
-  | ruins      | ruins_ancient     | assets/tilesets/ruins_ancient.tres    | 1 |
-  | temple     | temple_holy       | assets/tilesets/temple_holy.tres      | 2 |
-  | canyon     | canyon_desert     | assets/tilesets/canyon_desert.tres    | 2 |
-  | snow       | snow_mountain     | assets/tilesets/snow_mountain.tres    | 3 |
+  | theme_tag  | Tileset ID        | Spritesheet (.png)                          | 元数据 (.json)                              | 优先级 |
+  |------------|-------------------|---------------------------------------------|---------------------------------------------|--------|
+  | dungeon    | dungeon_basic     | assets/tilesets/dungeon_basic.png           | assets/tilesets/dungeon_basic.json          | 1 |
+  | crypt      | dungeon_crypt     | assets/tilesets/dungeon_crypt.png           | assets/tilesets/dungeon_crypt.json          | 2 |
+  | cave       | cave_natural      | assets/tilesets/cave_natural.png            | assets/tilesets/cave_natural.json           | 1 |
+  | forest     | forest_temperate  | assets/tilesets/forest_temperate.png        | assets/tilesets/forest_temperate.json       | 1 |
+  | swamp      | swamp_murky       | assets/tilesets/swamp_murky.png             | assets/tilesets/swamp_murky.json            | 2 |
+  | town       | town_medieval     | assets/tilesets/town_medieval.png           | assets/tilesets/town_medieval.json          | 1 |
+  | ruins      | ruins_ancient     | assets/tilesets/ruins_ancient.png           | assets/tilesets/ruins_ancient.json          | 1 |
+  | temple     | temple_holy       | assets/tilesets/temple_holy.png             | assets/tilesets/temple_holy.json            | 2 |
+  | canyon     | canyon_desert     | assets/tilesets/canyon_desert.png           | assets/tilesets/canyon_desert.json          | 2 |
+  | snow       | snow_mountain     | assets/tilesets/snow_mountain.png           | assets/tilesets/snow_mountain.json          | 3 |
+
+  JSON元数据格式:
+  {
+    "tileset_id": "dungeon_basic",
+    "tile_size_px": 32,
+    "columns": 16,
+    "tile_properties": {
+      "0": { "walkable": false, "tags": ["wall"] },
+      "1": { "walkable": true,  "tags": ["floor"] },
+      ...
+    }
+  }
 
 Step 3 — 标签匹配
   for each tag in theme_tags:
     if tag in tileset_map:
-      return tileset_map[tag].path  // 返回第一个匹配
+      // 返回spritesheet路径 + 元数据路径的元组
+      return tileset_map[tag]
 
 Step 4 — 默认回退
-  return "assets/tilesets/dungeon_basic.tres"
+  return { spritesheet: "assets/tilesets/dungeon_basic.png",
+           metadata:   "assets/tilesets/dungeon_basic.json" }
 ```
 
 ### 3.4 房间模板系统
@@ -888,7 +931,8 @@ Step 4 — 默认回退
   "node_type": "combat",
   "size": [20, 15],
   "tileset_tags": ["dungeon", "generic"],
-  "tile_grid": "data/room_templates/combat_arena.tilemap",
+  "tile_grid": "data/room_templates/combat_arena.json",
+  "rotation": [0, 90, 180, 270],
   "entry_points": [
     { "position": [10, 0], "direction": "south", "label": "南入口" }
   ],
@@ -998,6 +1042,34 @@ NPC位置: [8, 7]
 特殊: Boss房间的门在战斗开始后锁定，Boss死亡后解锁
 ```
 
+**模板 8: 探索遗迹 (exploration_ruins)** ★ 新增 (v1.2)
+```
+尺寸: 22 × 16 tiles (110ft × 80ft)
+布局: 中央大厅 + 两侧可破坏墙壁 + 倒塌书架(Readable, Flammable)
+      + 隐藏隔间(暗门DC 14) + 碎石堆(difficult terrain)
+可交互物: 书架×3 (Readable, 可能含线索), 碎石×4 (Breakable, 清理后开辟通道),
+          石柱×2 (HalfCover), 火盆×1 (light source)
+隐藏物生成点: 4个 (暗门/隐藏隔间/隐藏物品/陷阱各1)
+环境线索: 血迹/焦痕/足迹 — 每房间随机2-3条
+敌人生成点: 0-2个 (可选遭遇，概率40%)
+特殊: 非强制战斗区域，但可能有巡逻敌人(触发概率40%)
+      模板包含4个隐藏物槽位，由adventure_blueprint填充具体内容
+```
+
+**模板 9: 分岔路口 (branch_crossroads)** ★ 新增 (v1.2, MVP最小分支)
+```
+尺寸: 20 × 15 tiles (100ft × 75ft)
+布局: 中央丁字/十字路口 + 每条岔路有独特视觉标识(符文石门/藤蔓拱门/铁栅栏)
+      + 中央信息柱(Readable, 提供各路径的hint信息)
+可交互物: 信息柱×1 (Readable, 显示各分支的difficulty_hint/reward_hint),
+          路标×3 (Readable, 每条岔路方向标识),
+          火盆×1 (light source)
+NPC: 可选 — 1个路标守护者NPC (dialogue节点可替换)
+特殊: 选择一条岔路后其他路径永久封锁(门关闭动画),
+      确认选择需要二次点击(防误触机制),
+      小地图上已封锁路径显示🔒图标
+```
+
 ### 3.5 相机系统
 
 | 参数 | 值 | 说明 |
@@ -1087,7 +1159,7 @@ A*成本:
 
 | 行动ID | 名称 | 消耗 | 效果 | 范围 | 触发条件 |
 |--------|------|:---:|------|:---:|----------|
-| `search` | 搜索 (Search) | 动作 | 主动察觉/调查检定，发现隐藏物体 | 5 tiles半径 | 非战斗状态 |
+| `search` | 搜索 (Search) | 动作 | 主动察觉/调查检定，发现当前房间内所有隐藏物体 | 当前房间已探索区域 | 非战斗状态 |
 | `interact` | 交互 (Interact) | 附赠动作 | 与场景物体交互 (开门/推箱子/阅读/攀爬) | 1 tile | 任意 |
 | `use_item` | 使用物品 (Use Item) | 动作 | 使用背包中的物品 (药水/卷轴/工具) | 取决于物品 | 任意 |
 | `cast_spell_out` | 施法(非战斗) | 动作+法术位 | 施放法术用于探索 (侦测魔法/光亮术/羽落术) | 取决于法术 | 非战斗 |
@@ -1097,18 +1169,24 @@ A*成本:
 
 #### 5.2.2 感知检定集成 (链接角色系统)
 
+> **v1.2 重新设计**: 被动察觉从"主发现通道"降级为"辅助提示机制"，手动Search升级为"主要发现通道"。DC范围从5-25收窄至10-15(MVP)，确保所有角色通过主动搜索都能发现核心内容——高感知角色获得更快的提示，而非独占发现权。
+
 ```
 被动感知 (Passive Perception) = 10 + WIS_mod + (if proficient in perception -> +PB)
   - 持续作用，无需玩家输入
-  - 当角色接近隐藏物体时自动掷被动感知 vs Detection DC
-  - 如果 被动感知 >= DC: 物体自动显现在Object层 (半透明/闪烁提示)
-  - 如果 被动感知 < DC: 物体保持隐藏，需玩家主动Search
+  - 当角色接近隐藏物体时，计算 passive_perception vs Detection DC:
+    ① 如果 被动感知 >= DC + 3: 显示"注意"提示（黄色"!"闪烁）→ 暗示附近有可疑物
+    ② 如果 被动感知 >= DC (但 < DC + 3): 显示微弱的"注意"提示（半透明"!"）
+    ③ 如果 被动感知 < DC: 无提示，需玩家主动Search
+  - **被动感知不再自动揭示物体** — 仅提供辅助暗示
 
 主动搜索 (Active Search) = d20 + WIS_mod + (if proficient in perception -> +PB)
+  - ★ 主要发现通道
   - 玩家点击"搜索"按钮触发
-  - 以角色为中心的5 tile半径内所有隐藏物体进行检定
-  - 如果 d20 + modifier >= DC: 物体显现
+  - 对整个当前房间已探索区域内的**所有隐藏物体**进行检定
+  - 如果 d20 + modifier >= DC: 物体完全显现
   - 每回合可使用1次搜索动作
+  - 搜索无发现时显示"你仔细搜索了周围，没有发现异常"（避免玩家无限重复搜索）
 
 详细检查 (Examine) = d20 + INT_mod + (if proficient in investigation -> +PB)
   - 用于已发现的物体/区域进行深入调查
@@ -1117,9 +1195,15 @@ A*成本:
 
 环境线索 (Environmental Storytelling):
   - 被动线索: 当角色经过线索附近时，如果 passive_perception >= (DC - hint_bonus)
-    → UI上显示微妙的视觉提示 (闪烁/高亮边框)
+    → UI上显示微妙的视觉提示（统一"!"标记）
   - 主动线索: 搜索成功后全量揭示
+  - 线索效果: 发现线索后相关检定的DC降低（如血迹→暗门DC-2）
 ```
+
+**设计原理 (v1.2)**:
+- **为什么降级被动察觉？** 原设计中Rogue被动17自动发现95%内容（10/11机械陷阱），Fighter被动10只能发现18%。这制造了"一个角色让探索失效，另一个让探索绝望"的二元体验——都不是好体验。
+- **为什么手动Search为主？** Search消耗1回合（action cost），让探索成为有意义的资源分配决策——"我应该花一回合搜索这个房间，还是继续前进？"这服务于P1（选择属于玩家）和P2（战术深度）。
+- **为什么DC 10-15？** DC ≤ 15确保Lv3 Rogue（主动+7，d20均值17.5）在大多数情况下能发现，但需要投入Search回合。DC ≥ 10确保Fighter（主动+0，d20均值10.5）通过Search也能发现大部分内容（DC 10 = 55%成功率），只是需要更多回合。
 
 #### 5.2.3 检定流程图
 
@@ -1127,17 +1211,18 @@ A*成本:
 玩家进入房间
   │
   ├─→ 立即计算: 每个角色的 Passive Perception
-  │     ├─ 被动 >= HiddenObject.DC → 半透明显现 (提示存在隐藏物体)
-  │     └─ 被动 < HiddenObject.DC → 完全不可见
+  │     ├─ 被动 >= DC + 3 → 显示"注意"提示 (黄色"!"闪烁)
+  │     ├─ 被动 >= DC (但 < DC + 3) → 微弱"注意"提示 (半透明"!")
+  │     └─ 被动 < DC → 无提示，需玩家主动Search
   │
   ├─→ 环境线索检测: Passive Perception vs (EnvironmentalCue.DC - hint_bonus)
-  │     ├─ 通过 → UI闪烁提示 (如"墙上有焦痕")
+  │     ├─ 通过 → 统一"!"提示 (如"墙上有焦痕")
   │     └─ 失败 → 无提示
   │
   └─→ 玩家交互
-        ├─ 点击"搜索" → Active Perception Check (d20 + modifier vs DC)
+        ├─ 点击"搜索" → Active Perception Check (d20 + modifier, 覆盖当前房间)
         │     ├─ 成功 → 物体全量显现
-        │     └─ 失败 → 保持当前状态，可重复尝试
+        │     └─ 失败 → "没有发现异常"提示，可重复尝试（消耗1回合）
         │
         ├─ 点击已发现的物体 → Examine (d20 + Investigation vs DC)
         │     ├─ 成功 → 获取详细信息 (陷阱DC/物品属性/隐藏隔间)
@@ -1426,8 +1511,10 @@ A*成本:
         "can_spread": true,
         "spread_to_tags": ["Flammable", "Flammable_Liquid"],
         "spread_range_tiles": 3,
-        "spread_chance_per_round": 0.40,
-        "spread_requires_line_of_sight": false
+        "spread_chance_per_round": 0.25,
+        "spread_requires_line_of_sight": true,
+        "max_spread_targets_per_round": 3,
+        "same_tile_reignition_prevented": true
       },
       "light_source": {
         "bright_radius_tiles": 8,
@@ -1455,7 +1542,10 @@ A*成本:
 | 每轮伤害 | 1d6 | **2d6** |
 | 持续时间 | 4 轮 | **6 轮** |
 | 传播范围 | 2 tiles | 3 tiles |
-| 传播概率 | 25% | **40%** |
+| 传播概率 | 25% | **25%** |
+| 传播需视线 | ✅ 是 | ✅ 是 |
+| 每轮最大传播目标数 | 无限制 | **3** |
+| 同tile防重复点燃 | - | ✅ 是 |
 | 爆炸伤害 | 无 | **4d6** (半径2) |
 | 光源强度 | 4/8 tiles | 8/16 tiles |
 
@@ -1640,16 +1730,44 @@ Step 6 — 返回完整标签列表
 
 ### 6.4 交互标签视觉渲染
 
-| 视觉提示 | 条件 | 效果 |
-|----------|------|------|
-| 物体高亮边框 (白色) | 鼠标悬停在标签物体上 | 1px白色闪烁边框，提示可交互 |
-| 物体高亮边框 (彩色) | 标签类型特定 | Pushable=棕色 / Flammable=橙色 / Climbable=绿色 / Breakable=红色 / Readable=蓝色 / Flammable_Liquid=深橙 / Electrical=紫色 / Hideable=暗绿 |
-| 交互图标 (悬浮) | 角色距离 ≤ 2 tiles | 物体上方悬浮小图标 (手型/火苗/攀爬等) |
-| 问题标记"?" | 被动察觉检测到隐藏物体但未全量揭示 | 半透明白色问号 |
-| 感叹号"!" | 被动的环境线索检测通过 | 淡黄色闪烁感叹号 |
-| 火焰动画 | Flammable物体被点燃后 | 循环火焰精灵动画 |
-| 裂纹/破损 | Breakable物体HP < 50% | 表面覆盖裂纹纹理 |
-| 发光文字 | Readable物体含有未读内容 | 淡金色光晕脉冲 |
+> **v1.2 简化**: 从8+视觉提示精简为**5层**（遵循认知负荷理论4±1原则），同时满足WCAG 1.4.1（颜色+形状双重编码）。
+
+| 视觉提示 | 条件 | 效果 | 无障碍 |
+|----------|------|------|--------|
+| 物体高亮边框 (颜色+形状) | 角色距离 ≤ 2 tiles | 彩色闪烁边框 + 形状区分: Pushable=棕色▨ / Flammable=橙色▲ / Climbable=绿色⬆ / Breakable=红色✕ / Readable=蓝色◈ | 颜色+形状双重编码 |
+| 注意提示 (统一"!") | 被动察觉或环境线索发现可疑物 | 淡黄色闪烁感叹号 (统一替代原"?"和"!") | 单字符，非颜色依赖 |
+| 火焰动画 | Flammable物体被点燃后 | 循环火焰精灵动画 | 动态，非颜色依赖 |
+| 裂纹纹理 | Breakable物体HP < 50% | 表面覆盖裂纹纹理 | 纹理，非颜色依赖 |
+| 发光脉冲 | Readable物体含有未读内容 | 淡金色光晕脉冲 | 亮度，非颜色依赖 |
+
+**交互图标**: 仅当鼠标悬停时显示（原"距离≤2 tiles常显"改为hover触发），降低视觉噪音。
+
+**设计说明**: 原8种提示（白色边框/8色边框/悬浮图标/"? "/"! "/火焰/裂纹/发光）导致12+同时存在的视觉指示器。精简后：
+- 合并 "?" 与 "!" → 统一为"注意提示"
+- 悬浮图标仅在hover时显示（非永久常驻）
+- 颜色边框仅在近距离(≤2 tiles)激活，配合形状编码确保色盲可辨识
+
+### 6.5 标签处理优先级
+
+> **v1.2 新增**: 从TEST 37中提取的标签碰撞处理优先级正式纳入设计规格。
+
+当同一物体或同区域内多个标签同时触发时（如Boss房间火球命中多标签物体），按以下**优先级从高到低**顺序处理：
+
+```
+1. 燃烧 (Flammable / Flammable_Liquid) — 爆炸可被燃烧触发
+2. 爆炸 (Flammable_Liquid.explosion) — 爆炸可破坏物体
+3. 破坏 (Breakable) — 破坏可能释放导电体或暴露新物体
+4. 导电 (Electrical) — 导电是二级反应，依赖物体完整性
+5. 推动 (Pushable) — 推动是机械效果，最后处理
+```
+
+**处理规则**:
+- 每个阶段独立执行，前一阶段的输出状态作为下一阶段的输入
+- 如果物体在前序阶段被破坏（如Breakable在阶段3被摧毁），后续阶段（导电/推动）跳过该物体
+- 每个阶段最多迭代5次（防止级联爆炸）
+- 同一tile不会被同一标签重复触发
+
+**验证**: TEST 37 应与此优先级保持一致。
 
 ---
 
@@ -1682,6 +1800,18 @@ Algorithm (Recursive Shadow Casting):
   将360度视野分为8个扇区(octants)，对每个octant进行递归光线投射
   时间复杂度: O(N) where N = tiles within vision_range
   空间复杂度: O(N)
+
+  **实现方案**: 采用GoRogue内置FOV (GoRogue.FOV类, v2.6.4已集成)
+  - API: `FOV.Calculate(source_pos, vision_range, is_transparent_func)`
+  - 性能: 单角色20格半径 ~0.15ms (递归阴影投射, 非自定义射线)
+  - 多角色: 4角色同时计算 ~0.6ms
+  - 触发频率: 角色移动后触发 (非每帧无条件)
+```
+
+#### 7.2.2 性能说明（已废弃）
+
+> **v1.2废弃**: 原§7.2.2自定义双射线方案（每tile发射2条射线, 4角色=10,056射线/帧）已被GoRogue内置FOV替代——性能差距10-30×。GoRogue递归阴影投射在60fps下4角色FOV仅占0.6ms帧预算。
+
 ```
 
 #### 7.2.2 简化实现
@@ -1857,8 +1987,10 @@ Darkvision:
 | Lv1 × 4 | 0.5 | 1.0 | 1.5 | 2.0 |
 | Lv2 × 4 | 1.0 | 2.0 | 3.0 | 4.0 |
 | Lv3 × 4 | 1.5 | 3.0 | 4.5 | 6.0 |
-| Lv4 × 4 | 2.0 | 4.0 | 6.0 | 8.0 |
-| Lv5 × 4 | 3.0 | 5.0 | 7.5 | 10.0 |
+| Lv4 × 4 | 2.0 | 4.0 | 6.0 | 7.5 |
+| Lv5 × 4 | 3.0 | 5.0 | 7.0 | 8.5 |
+
+> **设计说明 (v1.2)**: 简化表为近似值（±0.3 CR容忍度，参见§1B），精确CR预算以combat-system GDD为准。本表仅支持4人同等级队伍——非标准队伍（3人/5人/混合等级）必须回退至完整XP阈值表法（Step 1-3）。Deadly列从原2×Lv线性值修正为更接近DND 5e XP阈值的非线性值。Lv5 Deadly从CR 10.0修正为CR 8.5（对齐TEST 40预期CR 8.0）。
 
 ### 9.2 敌人组合生成
 
@@ -2229,7 +2361,7 @@ Step 8 — 返回完整Room场景数据
   Step 4: 在走廊中点(或三分之一+三分之二位置)可选放置:
     - 火把/光源 (概率60%)
     - 环境装饰 (蜘蛛网/裂缝)
-    - 小型遭遇/巡逻敌人 (可选遭遇, 概率15%)
+    - 小型遭遇/巡逻敌人 (可选遭遇, 概率25-30%) — v1.2从15%调高, 确保走廊持续有"可能有事发生"的张力
   Step 5: 画连接线到每个出口
 ```
 
@@ -2465,12 +2597,14 @@ TEST 33: 只有一个出口的房间
   Expected: 允许 (rest是合法死路)
 
 TEST 34: DC极端值 (DC 30)
-  Given: 隐藏物体DC=30, Lv5角色最大perception=3+5+3=11 (含Expertise)
-  Expected: 被动不可发现, 主动需d20≥19才可能发现
+  Given: 隐藏物体DC=30, Lv5角色WIS 20(+5), Perception Expertise(PB=3→+6), 主动察觉加值=+11
+  Expected: 被动察觉21 < DC 30 → 无被动提示, 主动Search需d20≥19才能发现 (d20+11≥30)
+  (v1.2修正: 原计算"3+5+3=11"遗漏了WIS_mod和Expertise的完整计算，被动察觉实际=10+5+6=21)
 
 TEST 35: DC 0 (自动成功)
   Given: 被动察觉 11 vs 隐藏物体 DC 0
-  Expected: 角色进入房间即自动发现 (被动>=DC)
+  Expected: 被动察觉11 ≥ DC+3=3 → 显示"注意"提示（黄色"!"闪烁）
+  (v1.2修正: 被动不再自动揭示物体，改为显示提示)
 
 TEST 36: 空探索房间
   Given: exploration节点无hidden_checks, loot_spots, environmental_storytelling
@@ -2478,11 +2612,13 @@ TEST 36: 空探索房间
 
 TEST 37: 所有标签同时触发
   Given: Boss房间物体被火球击中 (触发Flammable+Flammable_Liquid+Breakable+Electrical+Pushable)
-  Expected: 每个标签独立处理, 顺序: 燃烧→爆炸→破坏→导电→推动
+  Expected: 按§6.5定义的优先级顺序处理: 燃烧→爆炸→破坏→导电→推动, 每阶段独立执行且互不覆盖
+  (v1.2: 处理顺序已从TEST中提取并正式纳入§6.5设计规格)
 
 TEST 38: 极限CR (Deadly+1)
   Given: Lv3×4队伍遇到CR 7 boss
-  Expected: 警告"CR超过队伍等级+4", 但根据规则允许(Deadly by design)
+  Expected: CRValidator返回contains_warning=true, is_fatal=false, recommended_action="allow_with_warning"
+  (v1.2: 断言从模糊描述"根据规则允许"改为可验证的具体返回值)
 ```
 
 ### 12.4 平衡验证
@@ -2502,17 +2638,20 @@ TEST 41: 房间尺寸分布
   Verify: boss房间尺寸 >= combat房间尺寸
   Verify: rest/merchant房间是最小的
 
-TEST 42: 遭遇频率
+TEST 42: 遭遇频率（注：此测试属于冒险生成系统）
+  (v1.2: 此测试本质上是冒险生成系统的设计约束，非地图系统代码行为测试。建议迁移至06-adventure-generation.md。)
   Given: 中冒险20个节点
-  Verify: combat节点数在 5-7 范围内 (约25-35%)
-  Verify: boss/branch/dialogue/exploration/rest分布合理
+  Verify: combat节点数在 4-10 范围内 (20%-50%)
+  Verify: boss节点出现在最后3个节点位置
 ```
 
 ---
 
-*文档版本: v1.0*
+*文档版本: v1.2*
 *创建日期: 2026-05-04*
+*修订日期: 2026-05-10 (v1.2 — `/design-review` 审查后修复)*
 *作者: 酒馆与命运 开发团队*
-*状态: 初始设计阶段, 与GDD-v1.0对齐*
+*状态: 已修订 — 审查判定 MAJOR REVISION NEEDED → 7硬阻断+8结构性修复已应用*
+*审查记录: 参见 `design/gdd/reviews/05-map-exploration-review-log.md`*
 
 *下一步: 基于此TDD实现原型，优先完成MVP范围的7个房间模板和基础探索流程*
