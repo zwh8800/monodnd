@@ -32,14 +32,14 @@
     </None>
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="FontStashSharp.MonoGame" Version="1.*" />
+    <PackageReference Include="FontStashSharp.MonoGame" Version="1.5.*" />
     <PackageReference Include="GoRogue" Version="2.6.4" />
     <PackageReference Include="JsonSchema.Net" Version="7.*" />
     <PackageReference Include="MonoGame.Content.Builder.Task" Version="3.8.*" />
     <PackageReference Include="MonoGame.Extended" Version="6.0.0" />
     <PackageReference Include="MonoGame.Extended.Content.Pipeline" Version="6.0.0" />
     <PackageReference Include="MonoGame.Framework.DesktopGL" Version="3.8.*" />
-    <PackageReference Include="Myra" Version="1.*" />
+    <PackageReference Include="Myra" Version="1.5.*" />
     <PackageReference Include="sqlite-net-pcl" Version="1.9.*" />
     <PackageReference Include="SQLitePCLRaw.bundle_green" Version="2.1.*" />
   </ItemGroup>

@@ -1,27 +1,70 @@
-# 酒馆与命运 — 整体技术架构设计文档
+# 酒馆与命运 — Master Architecture
 
-> **项目**: 酒馆与命运 (Tavern & Destiny)
-> **引擎**: MonoGame 3.8.5+ (C# 12 / .NET 8)
-> **场景框架**: 自定义轻量 ECS (Scene/Entity/Component/SceneComponent)
-> **规则基线**: DND 5e SRD（经Roguelike调整）
-> **文档版本**: v2.0 (MonoGame迁移版)
-> **前置文档**: 01-engine-selection.md, GDD-v1.md, 各子系统设计文档
-> **语言政策**: 游戏文本统一采用简体中文，技术标识符使用英文PascalCase/camelCase
+## Document Status
+
+| Field | Value |
+|-------|-------|
+| **版本** | v3.0（重构版，按 `/create-architecture` 10章节模板） |
+| **Last Updated** | 2026-05-11 |
+| **引擎** | MonoGame 3.8.5+ (C# 12 / .NET 8) |
+| **场景框架** | 自定义轻量 ECS (Scene/Entity/Component/SceneComponent) — ADR-0001 |
+| **规则基线** | DND 5e SRD（经Roguelike调整，6项偏离见 §4.2.6） |
+| **GDDs Covered** | GDD-v1, 01-character, 02-llm, 03-items, 04-combat, 05-map, 06-adventure, 07-tavern, 08-failure, 09-ui, 10-condition, 11-enemy-ai |
+| **ADRs Referenced** | ADR-0000~0008（共9个，全部 Accepted） |
+| **语言政策** | 游戏文本统一采用简体中文，技术标识符使用英文 PascalCase/camelCase，JSON键名使用 snake_case |
+| **前置文档** | docs/architecture/adr-0000~0008, design/gdd/systems-index.md |
+| **Technical Director Sign-Off** | 2026-05-11 — **APPROVED**（TD 4项条件已全部修复） |
+| **Lead Programmer Feasibility** | 2026-05-11 — **FEASIBLE**（LP 7项阻塞已全部解决，LP-4 Myra原型验证推迟至 Sprint 1 启动前） |
+
+> **签批条件**：所有 TD + LP 条件项已于 2026-05-11 全部修复。架构文档已达 APPROVED / FEASIBLE 状态，可进入 Sprint 1 MVP 开发。LP-4（Myra 像素风 UI 原型验证）推迟至 Sprint 1 启动前执行。详见 §10.1。
+
+> **v2.0→v3.0 变更要点**：层级架构从旧5层模型调整为4层（移除 LLM集成层 和 数据持久化层 作为独立层，归入CORE和FOUNDATION）；BalancerAgent移除（GDD v1.2决策）；GoRogue版本统一锁定为2.6.4（ADR-0007）；补充ADR审计、缺失ADR清单、架构原则、开放问题等模板要求章节。
 
 ---
 
-## 目录
+## Engine Knowledge Gap Summary
 
-1. [架构概述](#1-架构概述)
-2. [模块详细设计](#2-模块详细设计)
-3. [数据流与接口](#3-数据流与接口)
-4. [技术栈与工具](#4-技术栈与工具)
-5. [开发路线图](#5-开发路线图)
-6. [风险与应对](#6-风险与应对)
+引擎：MonoGame 3.8.5+ / C# 12 / .NET 8
+
+LLM 训练覆盖版本：MonoGame API 自 XNA 时代（2006）以来高度稳定，LLM 训练数据充分覆盖。
+
+### LOW RISK 域（训练数据可靠，无需额外验证）
+
+| 域 | 说明 |
+|----|------|
+| MonoGame 核心 API | SpriteBatch, ContentManager, Game基类, GameTime — 2006年起稳定 |
+| C# 基础类型系统 | record, enum, Dictionary, LINQ, async/await — .NET长期稳定 |
+| System.Text.Json | .NET Core 3.0 起内置 — 充分覆盖 |
+| HttpClient | .NET 标准库 — 充分覆盖 |
+| sqlite-net ORM | 社区维护，API 长期稳定 |
+
+### MEDIUM RISK 域（需验证关键 API）
+
+| 域 | 关键变更 | 影响系统 |
+|----|---------|---------|
+| GoRogue 2.6.4 API | csproj锁定2.6.4，但旧文档引用3.x；Coord→Point为3.x破坏性变更 | MapExploration, CombatEngine, AdventureGeneration |
+| Myra UI | 版本号"最新"未精确锁定 — API可能有变更 | UISystem |
+| FontStashSharp | 版本号"最新"未精确锁定 | UISystem, 所有文本渲染 |
+
+### HIGH RISK 域（必须在引擎参考库中验证）
+
+| 域 | 说明 |
+|----|------|
+| 无 | MonoGame 3.8.5+ 核心API全部在训练截止日期前稳定；无post-cutoff高风险域 |
+
+### 涉及 MEDIUM RISK 的系统
+
+| 系统 | 域 | 风险等级 |
+|------|----|---------|
+| MapExploration | GoRogue 2.6.4 API | MEDIUM — 已锁定版本，已封装坐标转换 |
+| CombatEngine | GoRogue FOV/A* | MEDIUM — 已通过GoRogueMapManager封装隔离 |
+| UISystem | Myra + FontStashSharp | MEDIUM — 需在Sprint 1锁定版本号 |
+
+**结论**：本项目引擎知识差距整体LOW。唯一MEDIUM风险为GoRogue版本不一致（已通过ADR-0007锁定为2.6.4解决）和第三方UI库版本未锁定（需在实现时处理）。
 
 ---
 
-## 1. 架构概述
+## 1. System Layer Map
 
 ### 1.1 核心设计哲学
 
@@ -32,7 +75,7 @@
 │                                                                   │
 │  ① LLM = 皮肤层，程序 = 骨骼层                                     │
 │     LLM生成叙事文本、对话、描述，不决策任何数值、战斗结果、           │
-│     故事走向。所有规则判定由程序完成。                               │
+│     故事走向。所有规则判定由程序完成。（ADR-0004）                    │
 │                                                                   │
 │  ② 严格的JSON Schema验证                                          │
 │     所有Agent输出必须通过Schema验证后才能进入游戏系统。               │
@@ -48,21 +91,23 @@
 │                                                                   │
 │  ⑤ 数据驱动设计                                                    │
 │     DND 5e的规则（法术、怪物、职业）尽量配置在SQLite或JSON中，        │
-│     避免硬编码。                                                   │
+│     避免硬编码。（ADR-0005）                                        │
 │                                                                   │
 │  ⑥ 代码即场景                                                      │
 │     所有游戏对象通过C#代码创建，不依赖可视化编辑器。                   │
 │     自定义 Entity/Component 组合取代预制体体系。所有场景是Scene子类。     │
-│     像素坐标、精灵帧、碰撞体——全部在代码中定义。                      │
+│     像素坐标、精灵帧、碰撞体——全部在代码中定义。（ADR-0001）          │
 │                                                                   │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### 1.2 分层架构总览
+### 1.2 四层架构总览
+
+> **v3.0 关键修正**：旧5层模型（表现层/场景管理层/游戏逻辑层/LLM集成层/数据持久化层）→ 新4层模型。LLM Gateway 归入 CORE 层（非所有系统必经之路）；Data Persistence 归入 FOUNDATION（无游戏语义的纯基础设施）；Scene Management 归入 FOUNDATION（ECS容器是框架级基础设施）。
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                           表现层 (Presentation Layer)                          │
+│                           PRESENTATION 层 (表现层)                          │
 │  ┌──────────────────────────────────────────────────────────────────────┐   │
 │  │  渲染管线: MonoGame SpriteBatch                                        │   │
 │  │  ┌────────────┐ ┌────────────┐ ┌──────────┐ ┌────────┐ ┌────────┐   │   │
@@ -76,69 +121,107 @@
 │  │  └────────────┘ └────────────┘ └──────────┘ └────────────┘ └──────┘ │   │
 │  └──────────────────────────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────────────────────┘
-                                      │
+                                       │
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                       场景管理层 (Scene Management)                           │
+│                           FEATURE 层 (玩法层)                               │
+│                                                                             │
+│  ┌─── L3: 复合系统 (跨多个深度系统的组合) ──────────────────────────────┐  │
+│  │  ┌──────────────┐  ┌──────────────────┐  ┌──────────────┐            │  │
+│  │  │  酒馆系统      │  │  失败与成长系统    │  │  存档系统      │            │  │
+│  │  │  TavernSystem │  │  Settlement      │  │  SaveSystem  │            │  │
+│  │  │  · 升级管理    │  │  · XP/战利品计算   │  │  · 序列化     │            │  │
+│  │  │  · 招募       │  │  · 伤疤/惩罚      │  │  · 完整性校验   │            │  │
+│  │  │  · 商店       │  │  · 世界状态变更    │  │  · 槽位管理    │            │  │
+│  │  │  · NPC调度    │  │  · 关系变化       │  │              │            │  │
+│  │  │  · 事件       │  │                  │  │              │            │  │
+│  │  └──────────────┘  └──────────────────┘  └──────────────┘            │  │
+│  └───────────────────────────────────────────────────────────────────────┘  │
+│                                                                             │
+│  ┌─── L2: 深度系统 (有复杂内部逻辑+多依赖) ────────────────────────────┐  │
+│  │  ┌──────────────────┐  ┌──────────────────────────────┐              │  │
+│  │  │  战斗引擎          │  │  冒险生成系统                  │              │  │
+│  │  │  CombatEngine     │  │  AdventureGeneration         │              │  │
+│  │  │  · 14状态 FSM     │  │  · 蓝图解析→实例化14步          │              │  │
+│  │  │  · DiceRoller     │  │  · 遭遇生成(CR预算)            │              │  │
+│  │  │  · ActionResolver │  │  · GoRogue地牢生成             │              │  │
+│  │  │  · ConditionTracker│  │  · 节点图+分支管理             │              │  │
+│  │  │  · EnemyAI(内部)  │  │                              │              │  │
+│  │  │  · GoRogue FOV/A* │  │                              │              │  │
+│  │  └──────────────────┘  └──────────────────────────────┘              │  │
+│  └───────────────────────────────────────────────────────────────────────┘  │
+│                                                                             │
+│  ┌─── L1: 简单系统 (依赖少、内部逻辑简单) ────────────────────────────┐  │
+│  │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐              │  │
+│  │  │  敌人AI       │  │  地图探索      │  │  对话系统      │              │  │
+│  │  │  EnemyAI      │  │  MapExplore   │  │  Dialogue     │              │  │
+│  │  │  · 5种行为模式 │  │  · FOV/迷雾   │  │  · UI框架     │              │  │
+│  │  │  · 目标选择   │  │  · 节点导航   │  │  · 选项追踪    │              │  │
+│  │  └──────────────┘  └──────────────┘  └──────────────┘              │  │
+│  └───────────────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                       │
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           CORE 层 (核心数据层)                              │
+│  ┌──────────────────────────────────────────────────────────────────────┐   │
+│  │  角色系统 (数据枢纽 — 11个系统依赖)                                    │   │
+│  │  ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────┐   │   │
+│  │  │ CharacterData │ │ 属性/公式    │ │ 关系双轴      │ │ 叙事层   │   │   │
+│  │  │ (record,      │ │ HP/AC/PB    │ │ trust×conflict│ │ LLM生成  │   │   │
+│  │  │  FROZEN)      │ │ (FROZEN)    │ │ (FROZEN)     │ │ Schema   │   │   │
+│  │  └──────────────┘ └──────────────┘ └──────────────┘ └──────────┘   │   │
+│  └──────────────────────────────────────────────────────────────────────┘   │
+│  ┌──────────────────────────────────────────────────────────────────────┐   │
+│  │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐ ┌─────────┐  │   │
+│  │  │ 物品装备系统   │  │ 条件效果系统   │  │ 世界状态管理器 │ │ DiceRoller│ │   │
+│  │  │ ItemSystem   │  │ ConditionTracker│ │ WorldState   │ │ (static) │ │   │
+│  │  │ · 装备槽位    │  │ · 14条件追踪   │ │ · 区域/势力  │ │ · 纯函数 │ │   │
+│  │  └──────────────┘  └──────────────┘  └──────────────┘ └─────────┘  │   │
+│  └──────────────────────────────────────────────────────────────────────┘   │
+│  ┌──────────────────────────────────────────────────────────────────────┐   │
+│  │  LLM Gateway (皮肤层服务 — 只有需要叙事的系统才调用)                    │   │
+│  │  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ │   │
+│  │  │编剧Agent  │ │ DM Agent │ │文案Agent  │ │Schema验证│ │缓存+降级 │ │   │
+│  │  │(冒险前)  │ │(实时叙事)│ │(按需)    │ │(JsonSchema│ │(sqlite- │ │   │
+│  │  │          │ │          │ │          │ │ .Net)    │ │ net+模板)│ │   │
+│  │  └──────────┘ └──────────┘ └──────────┘ └──────────┘ └──────────┘ │   │
+│  └──────────────────────────────────────────────────────────────────────┘   │
+│  ┌──────────────┐                                                       │   │
+│  │ 音频系统      │                                                       │   │
+│  │ AudioManager │                                                       │   │
+│  │ · BGM/SFX   │                                                       │   │
+│  └──────────────┘                                                       │   │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                       │
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           FOUNDATION 层 (基础设施层)                        │
 │  ┌──────────────────────────────────────────────────────────────────────┐   │
 │  │  自定义 ECS Core (GameRoot + Scene/Entity/Component/SceneComponent)    │   │
 │  │  ┌──────────────┐ ┌────────────────┐ ┌────────────┐ ┌────────────┐  │   │
 │  │  │ TavernScene  │ │ AdventureScene │ │CombatScene │ │ Loading    │  │   │
 │  │  │ (酒馆)       │ │ (地图探索)     │ │ (战斗)     │ │ Scene     │  │   │
 │  │  └──────────────┘ └────────────────┘ └────────────┘ └────────────┘  │   │
+│  │  场景切换: GameRoot 场景切换队列 (_nextScene) + 预加载策略               │   │
 │  └──────────────────────────────────────────────────────────────────────┘   │
-│  场景切换: GameRoot 场景切换队列 (_nextScene)  + 预加载策略                   │
-└─────────────────────────────────────────────────────────────────────────────┘
-                                      │
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                       游戏逻辑层 (Game Logic Layer)                           │
-│                                                                             │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌────────────────┐  │
-│  │  战斗引擎      │  │  角色系统      │  │  酒馆系统      │  │  冒险系统        │  │
-│  │  CombatEngine │  │  Character   │  │  Tavern      │  │  Adventure     │  │
-│  │               │  │  System      │  │  System      │  │  Generation    │  │
-│  │  · CombatFSM  │  │  · 属性管理   │  │  · 招募       │  │  · 蓝图解析     │  │
-│  │  · DiceRoller │  │  · 职业/种族  │  │  · 升级       │  │  · 实例化引擎   │  │
-│  │  · ActionRes  │  │  · 升级进阶   │  │  · 商店       │  │  · 遭遇生成     │  │
-│  │    olver      │  │  · 关系系统   │  │  · NPC调度    │  │  · 战利品生成   │  │
-│  │  · AISystem   │  │  · 伤疤/传承  │  │  · 事件系统   │  │  · 分支管理     │  │
-│  │  · GoRogue    │  │  · 条件追踪   │  │  · 短/长休   │  │                │  │
-│  │   集成        │  │              │  │              │  │                │  │
-│  └──────────────┘  └──────────────┘  └──────────────┘  └───────┬────────┘  │
-│                                                                 │           │
-│  ┌──────────────────────────────┐  ┌────────────────────────────┐           │
-│  │   世界状态管理器               │  │   物品/装备系统              │           │
-│  │   WorldStateManager          │  │   ItemSystem                │           │
-│  └──────────────────────────────┘  └────────────────────────────┘           │
-└─────────────────────────────────────────────────────────────────────────────┘
-                                      │
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                        LLM 集成层 (LLM Integration Layer)                     │
 │  ┌──────────────────────────────────────────────────────────────────────┐   │
-│  │  LLMGateway (全局单例, HttpClient + System.Text.Json)                │   │
-│  │                                                                       │   │
-│  │  ┌──────────────────┐ ┌──────────────────┐ ┌──────────────────────┐  │   │
-│  │  │  编剧Agent        │ │  DM Agent         │ │  文案Agent            │  │   │
-│  │  │  (冒险前生成)     │ │  (实时叙事)       │ │  (按需生成)           │  │   │
-│  │  └──────────────────┘ └──────────────────┘ └──────────────────────┘  │   │
-│  │  ┌──────────────────┐ ┌──────────────────┐ ┌──────────────────────┐  │   │
-│  │  │  平衡Agent        │ │  Schema验证器     │ │  缓存管理器           │  │   │
-│  │  │  (蓝图验证)       │ │  JsonSchema.Net  │ │  sqlite-net          │  │   │
-│  │  └──────────────────┘ └──────────────────┘ └──────────────────────┘  │   │
-│  │  ┌──────────────────┐ ┌──────────────────┐ ┌──────────────────────┐  │   │
-│  │  │  请求队列+限流     │ │  Token预算控制器   │ │  离线降级器           │  │   │
-│  │  └──────────────────┘ └──────────────────┘ └──────────────────────┘  │   │
+│  │  ServiceLocator (全局服务注册，初始化顺序 0-6)                          │   │
+│  │  EventBus(0) → GameStateManager(1) → DataPersistence(2)               │   │
+│  │  → LLMGateway(3) → WorldStateManager(4) → AudioManager(5)            │   │
+│  │  → ResourceCache(6) → FinalizeRegistration()                          │   │
 │  └──────────────────────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────────────────────┘
-                                      │
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                        数据持久化层 (Data Persistence Layer)                   │
-│  ┌────────────────────────┐  ┌────────────────────────┐  ┌──────────────┐   │
-│  │  sqlite-net            │  │  System.Text.Json      │  │  LLM缓存     │   │
-│  │  · 角色数据             │  │  · 世界状态快照          │  │  (sqlite-net)│   │
-│  │  · 物品/装备            │  │  · 存档序列化            │  │              │   │
-│  │  · 冒险日志             │  │  · 配置表(JSON)         │  │              │   │
-│  │  · 关系数据             │  │  · 角色模板             │  │              │   │
-│  └────────────────────────┘  └────────────────────────┘  └──────────────┘   │
+│  ┌──────────────────────────────────────────────────────────────────────┐   │
+│  │  Data Persistence (JSON配置 + SQLite运行时)                            │   │
+│  │  ┌────────────────┐  ┌────────────────┐  ┌──────────────┐           │   │
+│  │  │ sqlite-net      │  │ System.Text.Json │  │ LLM缓存      │           │   │
+│  │  │ · 角色数据      │  │ · 世界状态快照    │ │ (sqlite-net) │           │   │
+│  │  │ · 物品/装备     │  │ · 存档序列化      │ │              │           │   │
+│  │  │ · 冒险日志      │  │ · 配置表(JSON)   │ │              │           │   │
+│  │  └────────────────┘  └────────────────┘  └──────────────┘           │   │
+│  └──────────────────────────────────────────────────────────────────────┘   │
+│  ┌──────────────┐ ┌──────────────┐                                        │   │
+│  │ 设置选项      │ │ 骰子系统      │                                        │   │
+│  │ Settings     │ │ Dice System  │                                        │   │
+│  │ · 键位/音量  │ │ (Quick Spec) │                                        │   │
+│  └──────────────┘ └──────────────┘                                        │   │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -161,8 +244,8 @@
 │                    │    └────── DataPersistence (sqlite-net + JSON)      │ │
 │                    └───────────────────────┘                             │ │
 │                                                                          │ │
-│  GoRogue ───► CombatEngine (FOV/Pathfinding)                             │ │
-│  GoRogue ───► AdventureSystem (MapGeneration)                            │ │
+│  GoRogue(2.6.4) ─► CombatEngine (FOV/Pathfinding)                       │ │
+│  GoRogue(2.6.4) ─► AdventureSystem (MapGeneration)                      │ │
 │  GameRoot ──► 所有Scene子类 (场景管理)                                  │ │
 │  Myra ──────► 所有UI面板 (XML布局 + 数据绑定)                              │ │
 │  FontStashSharp ──► 所有UI/渲染 (动态字体+中文)                            │ │
@@ -171,242 +254,303 @@
 
 ### 1.4 全局服务注册表
 
-以下组件通过 `ServiceLocator` 模式注册为全局服务。所有服务在 `Game1.Initialize()` 中按顺序初始化：
+所有服务通过 `ServiceLocator` 模式注册为全局服务。初始化顺序为硬性约束（EventBus 必须最先注册）：
 
-```csharp
-// 全局服务注册 — 在 Game1.Initialize() 中调用
-public enum ServiceInitOrder
-{
-    EventBus = 0,          // 第0优先级，其他服务依赖它通信
-    GameStateManager = 1,  // 全局状态管理、场景切换
-    DataPersistence = 2,   // sqlite-net + JSON 数据存取
-    LLMGateway = 3,        // LLM请求唯一入口
-    WorldStateManager = 4, // 世界状态追踪
-    AudioManager = 5,      // BGM/SFX管理
-    ResourceCache = 6      // 预加载资源管理
-}
+| 优先级 | 服务名 | 接口 | 实现类 | 职责 |
+|:---:|------|------|--------|------|
+| 0 | EventBus | IEventBus | EventBus | 全局事件总线（C# event + Snapshot-then-Invoke） |
+| 1 | GameStateManager | IGameStateManager | GameStateManager | 全局状态管理、场景切换 |
+| 2 | DataPersistence | IDataPersistence | DataPersistence | sqlite-net + JSON 数据存取 |
+| 3 | LLMGateway | ILLMGateway | LLMGateway | LLM 请求唯一入口（皮肤层服务） |
+| 4 | WorldStateManager | IWorldStateManager | WorldStateManager | 世界状态追踪 |
+| 5 | AudioManager | IAudioManager | AudioManager | BGM/SFX 管理 |
+| 6 | ResourceCache | IResourceCache | ResourceCache | 预加载资源管理 |
 
-// 使用方式
-ServiceLocator.Initialize();
-ServiceLocator.Register<IEventBus>(new EventBus());
-ServiceLocator.Register<IGameStateManager>(new GameStateManager());
-ServiceLocator.Register<IDataPersistence>(new DataPersistence());
-ServiceLocator.Register<ILLMGateway>(new LLMGateway());
-ServiceLocator.Register<IWorldStateManager>(new WorldStateManager());
-ServiceLocator.Register<IAudioManager>(new AudioManager());
-ServiceLocator.Register<IResourceCache>(new ResourceCache());
-
-ServiceLocator.FinalizeRegistration();
-
-// 在任何地方访问
-var eventBus = ServiceLocator.Get<IEventBus>();
-```
-
-| 服务名 | 接口 | 实现类 | 职责 | 初始化顺序 |
-|--------|------|--------|------|:----------:|
-| `EventBus` | IEventBus | EventBus | 全局事件总线（C# event系统） | 0 |
-| `GameStateManager` | IGameStateManager | GameStateManager | 全局状态管理、场景切换 | 1 |
-| `DataPersistence` | IDataPersistence | DataPersistence | sqlite-net + JSON 数据持久化 | 2 |
-| `LLMGateway` | ILLMGateway | LLMGateway | LLM请求唯一入口 | 3 |
-| `WorldStateManager` | IWorldStateManager | WorldStateManager | 世界状态追踪 | 4 |
-| `AudioManager` | IAudioManager | AudioManager | BGM/SFX管理 | 5 |
-| `ResourceCache` | IResourceCache | ResourceCache | 预加载资源管理 | 6 |
-
-`EventBus` 是第0优先级——其他所有服务依赖它进行跨系统通信。
+注册完成后调用 `ServiceLocator.FinalizeRegistration()` 锁定注册表。
 
 ---
 
-## 2. 模块详细设计
+## 2. Module Ownership
 
-### 2.1 场景管理 (Scene Management)
+### 2.1 FOUNDATION 层模块归属
 
-#### 2.1.1 自定义 Scene 子系统
+| 模块 | Owns（独占） | Exposes（暴露给其他模块） | Consumes（从其他模块读取） | Engine APIs |
+|------|-----------|----------------------|-----------------------|------------|
+| EventBus | 事件订阅路由、处理器委托链 | IEventBus.Subscribe/Publish/Unsubscribe | — (根服务) | 无 — 纯C#实现 |
+| ServiceLocator | 全局服务注册表、初始化顺序 | Register/Get/FinalizeRegistration/Reset | — (根服务) | 无 — 纯C#实现 |
+| GameStateManager | SceneId枚举、场景切换队列、TransitionContext | IGameStateManager.Transition/SwitchTo | IEventBus | MonoGame Game基类 |
+| DataPersistence | 存档槽管理(1-based)、序列化编排 | IDataPersistence.SaveAsync/LoadAsync/DeleteAsync/GetAvailableSlots | IEventBus | sqlite-net ORM, System.Text.Json |
+| Scene/ECS | 实体生命周期、组件管理、场景切换帧边界安全 | CreateEntity/AddSceneComponent/Initialize/Begin/End | ServiceLocator | MonoGame SpriteBatch, GameTime |
+| DiceRoller | 随机数生成器、骰子表达式解析器 | static Roll/RollD20/RollWithAdvantage/RollCritDamage | — (纯函数) | 无 — 纯C# Random |
+| SettingsOptions | 音量配置(3组滑块)、键位映射表、语言选择、无障碍选项 | ISettingsProvider.GetVolume/GetKeyMap/GetAccessibilityOptions | IDataPersistence(持久化保存) | 无 — 纯数据配置 |
 
-使用自定义 `Scene`/`Entity`/`Component`/`SceneComponent` 模式替代 Godot 场景树。每种游戏场景都是自定义 `Scene` 的子类：
+### 2.2 CORE 层模块归属
 
-```csharp
-using DndGame.Core;
+| 模块 | Owns | Exposes | Consumes | Engine APIs |
+|------|------|---------|---------|------------|
+| CharacterSystem | CharacterData record(FROZEN)、六维属性+公式(FROZEN)、等级进阶、关系双轴(FROZEN)、叙事层 | ICharacterSystem.Get/Save/LevelUp/GetRelationship | DiceRoller, IEventBus, IDataPersistence | 无 — 纯数据逻辑 |
+| ItemSystem | ItemData record、装备槽位模型(9槽)、AC计算公式、附魔效果 | IItemSystem.Get/Equip/Unequip | CharacterSystem, IEventBus, IDataPersistence | 无 — 纯数据逻辑 |
+| ConditionTracker | 14种ConditionType枚举、持续时间追踪、堆叠规则、互斥规则 | IConditionTracker.Apply/Remove/Query | CharacterSystem, IEventBus | 无 — 纯数据逻辑 |
+| WorldStateManager | 区域安全等级、势力友好度、世界事件、冒险印记 | IWorldStateManager.Get/Set/GetContextForLLM | IEventBus, IDataPersistence | 无 — 纯数据逻辑 |
+| LLMGateway | 4Agent调度(编剧/DM/文案)、Schema验证管线、语义缓存(sqlite-net)、离线降级 | ILLMGateway.CallAgent/GetBudgetStatus | IEventBus, IDataPersistence | HttpClient, System.Text.Json, JsonSchema.Net |
+| AudioManager | BGM/SFX播放状态、音量配置 | IAudioManager.Play/Stop/SetVolume | IEventBus | MonoGame SoundEffect/Song |
 
-public enum SceneId
-{
-    MainMenu,
-    Tavern,
-    AdventureMap,
-    Combat,
-    Loading,
-    Settlement,
-    Dialogue
-}
+### 2.3 FEATURE 层模块归属
 
-public class TavernScene : Scene
-{
-    public override void Initialize()
-    {
-        AddSceneComponent(new TavernBackgroundRenderer());
-        AddSceneComponent(new NPCSchedulerSystem());
+**L1 — 简单系统：**
 
-        // 创建酒馆NPC实体
-        var barkeeper = CreateEntity("barkeeper")
-            .AddComponent(new SpriteRenderer(ServiceLocator.Get<IResourceCache>().GetTexture("npc_barkeeper")))
-            .AddComponent(new NPCDialogueComponent("npc_barkeeper"));
+| 模块 | Owns | Exposes | Consumes | Engine APIs |
+|------|------|---------|---------|------------|
+| EnemyAI | 5种行为模式决策(BT)、目标选择启发 | CombatAction决策结果(返回给CombatEngine) | CharacterSystem, ConditionTracker | 无 |
+| MapExploration | GoRogue ArrayMap/FOV/A*封装、节点导航状态 | IMapSystem.CalculateFOV/FindPath/GenerateDungeon | DiceRoller, GameStateManager | GoRogue 2.6.4 (Coord/ArrayMap/FOV/AStar) |
+| DialogueSystem | 对话UI框架、选项追踪、上下文管理 | IDialogueSystem.StartDialogue/SelectOption | LLMGateway, CharacterSystem | Myra UI |
 
-        var recruitmentBoard = CreateEntity("recruitment_board")
-            .AddComponent(new SpriteRenderer(ServiceLocator.Get<IResourceCache>().GetTexture("ui_board")))
-            .AddComponent(new InteractableComponent("recruitment"));
+**L2 — 深度系统：**
 
-        // 所有UI通过Myra管理
-    }
-}
+| 模块 | Owns | Exposes | Consumes | Engine APIs |
+|------|------|---------|---------|------------|
+| CombatEngine | 14状态FSM、行动经济6种资源、攻击/伤害管线、战斗日志 | CombatEngine(SceneComponent) InitializeCombat/SubmitAction/GetCombatants | CharacterSystem, ItemSystem, ConditionTracker, DiceRoller, EnemyAI(内部) | GoRogue 2.6.4, MonoGame GameTime |
+| AdventureGeneration | 蓝图解析器、实例化14步算法、遭遇生成(CR预算)、节点图 | IAdventureSystem.Instantiate/GetCurrentInstance | LLMGateway, WorldStateManager, MapExploration | GoRogue 2.6.4 (MapGeneration) |
 
-public class CombatScene : Scene
-{
-    private CombatEngine _engine;
+**L3 — 复合系统：**
 
-    public override void Initialize()
-    {
-        _engine = new CombatEngine();
-        AddSceneComponent(_engine);
+| 模块 | Owns | Exposes | Consumes | Engine APIs |
+|------|------|---------|---------|------------|
+| TavernSystem | 酒馆升级Lv1-10、招募板、商店(6种)、NPC调度、酒馆事件、短/长休 | ITavernSystem.Recruit/Upgrade/TriggerEvent/Rest | CharacterSystem, ItemSystem, AdventureGeneration, LLMGateway, WorldStateManager | 无 |
+| SettlementSystem | XP计算、战利品生成、伤疤判定、惩罚计算、世界状态变更 | ISettlementSystem.CalculateRewards/Penalties | CharacterSystem, IEventBus(CombatEnded等战斗事件), WorldStateManager, LLMGateway | 无 |
+| SaveSystem | 存档序列化/反序列化、完整性校验(hash)、槽位管理 | ISaveSystem.Save/Load/Validate/ListSlots | CharacterSystem, WorldStateManager, TavernSystem, IDataPersistence | 无 |
 
-        // 使用GoRogue的ArrayMap渲染战斗地图
-        var map = ServiceLocator.Get<GoRogueMapSystem>();
-        var mapEntity = CreateEntity("combat_map");
-        mapEntity.AddComponent(map.CreateMapComponent());
-    }
-}
+### 2.4 PRESENTATION 层模块归属
 
-public class AdventureScene : Scene
-{
-    private AdventureInstance _adventure;
+| 模块 | Owns | Exposes | Consumes | Engine APIs |
+|------|------|---------|---------|------------|
+| UISystem | Myra面板管理、数据绑定、像素主题配置、战斗日志双轨 | UI面板渲染 + 输入事件收集 | 所有游戏系统(展示层包裹) | Myra, FontStashSharp, MonoGame SpriteBatch |
 
-    public override void Initialize()
-    {
-        _adventure = ServiceLocator.Get<IAdventureSystem>().CurrentInstance;
-        // 从AdventureInstance构建节点图
-    }
-}
+---
+
+## 3. Data Flow
+
+### 3.1 核心数据流图
+
+```
+                    ┌───────────────────────────────────────┐
+                    │          LLM API (云端)                │
+                    │  OpenAI / Claude / 国产模型 / Ollama   │
+                    └────────────┬──────────────────────────┘
+                                 │ HTTP POST (JSON via HttpClient)
+                                 ▼
+┌──────────┐    ┌───────────────────────────────────────┐
+│ 玩家操作  │───▶│           LLM Gateway (CORE层服务)     │
+│ (输入)    │    │  · 请求队列 · Schema验证 · 缓存 · 降级 │
+└──────────┘    └────────────┬──────────────────────────┘
+                             │ AgentResponse (已验证JSON)
+                             ▼
+                    ┌───────────────────┐
+                    │  FEATURE层游戏逻辑  │
+                    │  ──────────────   │
+                    │  · 冒险系统        │ ← 接收蓝图
+                    │  · 战斗引擎        │ ← 接收叙事文本
+                    │  · 酒馆系统        │ ← 接收招募/事件文本
+                    │  · 结算系统        │ ← 接收惩罚叙事
+                    └────────┬──────────┘
+                             │
+                    ┌────────▼──────────┐
+                    │  CORE层数据计算     │
+                    │  ──────────────   │
+                    │  · 数值计算        │ ← 不依赖LLM
+                    │  · 规则判定        │
+                    │  · 分支逻辑        │
+                    │  · 世界状态变更    │
+                    └───────────────────┘
 ```
 
-#### 2.1.2 场景切换
+### 3.2 LLM与程序层的职责边界
 
-```csharp
-// 场景切换通过 GameRoot.Instance.StartSceneTransition 实现
-// 实际切换在下一帧 Update 开始时执行（帧边界安全）
-public static class SceneManager
-{
-    public static void SwitchTo<TScene>() where TScene : Scene, new()
-    {
-        // 自定义场景切换（_nextScene 队列，帧边界安全）
-        GameRoot.Instance.StartSceneTransition(new TScene());
-    }
+```
+LLM只做:
+  · 生成NPC说的话（不是NPC做的事）
+  · 写战斗描述文字（不是计算伤害数值）
+  · 生成选项的风味描述（不是定义选项的后果）
+  · 给角色取名字和写背景故事（不是决定角色的属性）
+  · 描述伤疤的外观（不是选择伤疤的数值效果）
 
-    public static void SwitchTo<TScene>(object context) where TScene : Scene, new()
-    {
-        // 带上下文的场景切换（如传入AdventureInstance）
-        ServiceLocator.Get<IGameStateManager>().TransitionContext = context;
-        GameRoot.Instance.StartSceneTransition(new TScene());
-    }
-}
+程序做:
+  · 计算所有伤害、治疗、buff数值
+  · 决定命中/未命中
+  · 控制NPC的行动逻辑（EnemyAI行为树）
+  · 执行剧情分支的走向
+  · 管理角色升级和属性变化
+  · 计算战利品掉落
+  · 应用状态效果
+  · 变更世界状态
 ```
 
-#### 2.1.3 场景列表
+### 3.3 EventBus 事件类型清单
 
-| 场景ID | C# 类 | 类型 | 说明 |
-|--------|-------|:----:|------|
-| `main_menu` | MainMenuScene | 独立 | 新游戏/继续/设置 |
-| `tavern` | TavernScene | 持久 | 元游戏核心空间 |
-| `adventure_map` | AdventureScene | 按需加载 | 节点图探索 |
-| `combat` | CombatScene | 按需加载 | 战术地图战斗 |
-| `loading` | LoadingScene | 叠加 | 过渡动画 |
-| `settlement` | SettlementScene | 叠加 | 冒险完成/失败结算 |
-| `dialogue` | DialogueScene | 叠加 | NPC对话弹窗 |
+所有跨系统通信通过 `IEventBus`（Snapshot-then-Invoke模式，ADR-0003）：
 
-#### 2.1.4 场景状态机
+```csharp
+// 战斗系统事件
+public record CombatStarted(string CombatId, string BlueprintId);
+public record CombatEnded(string CombatId, CombatResult Result, List<string> Survivors, List<string> Casualties);
+public record DamageDealt(string TargetId, string SourceId, int Amount, DamageType Type, bool IsCritical);
+public record CharacterDied(string CharacterId, string KillerId, DamageType FinalBlow, string AdventureId);
+public record ConditionApplied(string TargetId, ConditionType Type, int DurationRounds);
+public record SpellCast(string CasterId, string SpellId, int SpellLevel);
+public record DeathSaveProgressed(string CharacterId, int RoundsWithoutHeal);
+
+// 角色系统事件
+public record CharacterCreated(string CharacterId, string RaceId, string ClassId);
+public record CharacterLeveledUp(string CharacterId, int OldLevel, int NewLevel);
+public record RelationshipChanged(string CharA, string CharB, int Delta, int NewValue);
+
+// 酒馆系统事件
+public record TavernEventTriggered(string EventId, MechanicalResult Result);
+public record AdventurerRecruited(string CharacterId, int RecruitmentFee);
+public record FacilityUpgraded(string FacilityId, int OldLevel, int NewLevel);
+
+// 冒险系统事件
+public record AdventureStarted(string AdventureId, string BlueprintId);
+public record AdventureCompleted(string AdventureId, AdventureOutcome Outcome);
+public record NodeEntered(string NodeId, NodeType Type);
+
+// LLM 事件
+public record NarrativeReady(string RequestId, NarrativeText Text);
+public record LLMFallbackTriggered(string AgentType, string Reason);
+public record BudgetExceeded(string AdventureId, int TokensUsed, int BudgetLimit);
+```
+
+### 3.4 关键游戏场景数据流
+
+**路径1: 玩家接任务 → 冒险开始**
+
+```
+玩家点击任务板 → TavernSystem.CreateAdventure(tier)
+  → await LLMGateway.CallAgent<ScreenwriterAgent, AdventureBlueprint>(input)
+    → 编剧Agent生成冒险蓝图
+    → JsonSchema.Net Schema验证 + 业务逻辑验证
+    → 失败策略：3次重试 → 离线模板
+    → 返回 AdventureBlueprint
+  → AdventureSystem.Instantiate(blueprint, partyState)
+    → 14步实例化算法 (纯C#，无LLM)
+    → 返回 AdventureInstance
+  → GameRoot.StartSceneTransition(AdventureScene)
+```
+
+**路径2: 战斗动作 → 玩家看到结果**
+
+```
+玩家选择"攻击" → CombatEngine.SubmitAction(action)
+  → DiceRoller.RollAttack(...)           # 纯程序计算
+  → ActionResolver.Resolve(...)          # 纯程序计算
+  → EventBus.Publish(DamageDealt)        # 事件驱动UI更新
+  → UISystem.Update()                    # 更新数值显示
+  → await LLMGateway.CallAgent<DMAgent, NarrativeText>(combatContext)  # 异步，不阻塞
+    → DM Agent生成叙事文本
+    → UISystem.AppendNarration(text)     # 追加到战斗日志
+```
+
+**路径3: 冒险结束 → 结算**
+
+```
+AdventureSystem.CheckCompletion() → 判定成功/失败
+  → SettlementSystem.CalculateRewards()    # 纯程序
+    → XP分配、战利品生成、世界状态变更
+  → SettlementSystem.CalculatePenalties()   # 纯程序
+    → 伤疤判定(预定义池)、资源消耗、关系变化
+  → await LLMGateway.CallAgent<DMAgent, NarrativeText>(settlementContext)  # 异步
+    → DM Agent生成结算叙事文本
+  → GameRoot.StartSceneTransition(SettlementScene)
+```
+
+### 3.5 保存/加载路径
+
+```
+SaveSystem.Save() → IDataPersistence.SaveAsync(CharacterRecord) + WorldState + TavernState
+  → SQLite事务写入 → 完整性校验(hash)
+Load → IDataPersistence.LoadAsync → 反序列化 → 恢复场景状态
+```
+
+### 3.6 初始化顺序
+
+```
+GameRoot.Initialize():
+  0: ServiceLocator.Register<IEventBus>(new EventBus())
+  1: ServiceLocator.Register<IGameStateManager>(new GameStateManager())
+  2: ServiceLocator.Register<IDataPersistence>(new DataPersistence())
+  3: ServiceLocator.Register<ILLMGateway>(new LLMGateway())
+  4: ServiceLocator.Register<IWorldStateManager>(new WorldStateManager())
+  5: ServiceLocator.Register<IAudioManager>(new AudioManager())
+  6: ServiceLocator.Register<IResourceCache>(new ResourceCache())
+  → ServiceLocator.FinalizeRegistration()  // 锁定，后续Register抛异常
+```
+
+---
+
+## 4. Module Detailed Design
+
+### 4.1 场景管理 (Scene Management)
+
+> 详细设计见 ADR-0001（自定义 ECS 架构）和 `src/DndGame/Core/Scene.cs`（146行）。
+
+#### 场景列表
+
+| SceneId | C# 类 | 类型 | 说明 |
+|---------|-------|:----:|------|
+| MainMenu | MainMenuScene | 独立 | 新游戏/继续/设置 |
+| Tavern | TavernScene | 持久 | 元游戏核心空间 |
+| AdventureMap | AdventureScene | 按需加载 | 节点图探索 |
+| Combat | CombatScene | 按需加载 | 战术地图战斗 |
+| Loading | LoadingScene | 叠加 | 过渡动画 |
+| Settlement | SettlementScene | 叠加 | 冒险完成/失败结算 |
+| Dialogue | DialogueScene | 叠加 | NPC对话弹窗 |
+
+#### 场景状态机
 
 ```
 ┌──────────┐   新游戏/读档    ┌────────┐
 │ main_menu │ ──────────────▶ │ tavern │
 └──────────┘                  └───┬────┘
-                                  │
-                          ┌───────┴───────┐
-                          │               │
-                          ▼               ▼
-                    ┌────────────┐  ┌──────────┐
-                    │ adventure  │  │  combat  │ ←── 从冒险或酒馆进入
-                    │ _map       │  │          │
-                    └──────┬─────┘  └────┬─────┘
-                           │             │
-                           └──────┬──────┘
-                                  ▼
-                           ┌───────────┐
-                           │ settlement│ ──→ tavern (返回酒馆)
-                           └───────────┘
+                                   │
+                           ┌───────┴───────┐
+                           │               │
+                           ▼               ▼
+                     ┌────────────┐  ┌──────────┐
+                     │ adventure  │  │  combat  │ ←── 从冒险或酒馆进入
+                     │ _map       │  │          │
+                     └──────┬─────┘  └────┬─────┘
+                            │             │
+                            └──────┬──────┘
+                                   ▼
+                            ┌───────────┐
+                            │ settlement│ ──→ tavern (返回酒馆)
+                            └───────────┘
 ```
 
-#### 2.1.5 预加载策略
+#### 场景切换机制
 
-```csharp
-public class ResourceCache : IResourceCache
-{
-    private readonly Dictionary<string, Texture2D> _textures = new();
-    private readonly Dictionary<string, Effect> _effects = new();
-    private ContentManager _content;
+- `GameRoot.StartSceneTransition()` — 延迟切换，在帧边界执行（当前帧完整渲染后才切换）
+- 切换流程：旧Scene.End() → 新Scene.Initialize() → 新Scene.Begin()
+- 预加载策略：ResourceCache在SceneChanging事件时按场景类型预加载资源
 
-    public void Preload()
-    {
-        // 常驻资源（游戏全程加载）
-        LoadTexture("ui_window", "Sprites/UI/window_frame");
-        LoadTexture("ui_button", "Sprites/UI/button");
+#### 预加载规则
 
-        // 按需预加载队列
-        var gameState = ServiceLocator.Get<IGameStateManager>();
-        gameState.OnSceneChanging += (_, sceneId) =>
-        {
-            switch (sceneId)
-            {
-                case SceneId.Combat:
-                    PreloadCombatTextures();
-                    break;
-                case SceneId.AdventureMap:
-                    PreloadAdventureTextures();
-                    break;
-            }
-        };
-    }
+| 场景 | 预加载时机 | 常驻资源 |
+|------|----------|---------|
+| Combat | 冒险中进入战斗节点前 | 地牢Tileset、攻击特效精灵 |
+| Dialogue | 常驻内存（复用实例） | — |
+| Settlement | 冒险完成时 | 结算UI面板 |
+| Tavern | 游戏全程常驻 | 酒馆背景、NPC精灵 |
 
-    private void PreloadCombatTextures()
-    {
-        LoadTexture("tile_dungeon_floor", "Sprites/Tilesets/dungeon_floor");
-        LoadTexture("tile_dungeon_wall", "Sprites/Tilesets/dungeon_wall");
-        LoadTexture("fx_attack_slash", "Sprites/FX/attack_slash");
-        // ...
-    }
+### 4.2 战斗引擎 (CombatEngine)
 
-    private void LoadTexture(string key, string assetPath)
-    {
-        if (!_textures.ContainsKey(key))
-            _textures[key] = _content.Load<Texture2D>(assetPath);
-    }
+> 详细架构见 ADR-0006（战斗引擎架构 — FSM + EventBus + 数据驱动）。
 
-    public Texture2D GetTexture(string key) =>
-        _textures.TryGetValue(key, out var tex) ? tex : throw new KeyNotFoundException(key);
-}
-```
-
-**预加载规则**:
-- 战斗场景：在冒险中进入战斗节点前预加载
-- 对话场景：常驻内存（复用实例）
-- 结算场景：冒险完成时预加载
-- 酒馆场景：游戏全程常驻
-
----
-
-### 2.2 战斗引擎 (CombatEngine)
-
-#### 2.2.1 架构定位
+#### 4.2.1 架构定位
 
 战斗引擎是**纯程序系统**，不依赖任何LLM调用。所有数值计算由程序完成，LLM只负责接收战斗日志并生成叙事文本（通过DM Agent）。
 
-#### 2.2.2 核心模块
+#### 4.2.2 核心模块
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
@@ -414,16 +558,16 @@ public class ResourceCache : IResourceCache
 │                                                                │
 │  ┌──────────────────┐  ┌──────────────────┐  ┌─────────────┐  │
 │  │  CombatFSM        │  │  DiceRoller      │  │  Action     │  │
-│  │  · 16状态有限机   │  │  · d20检定       │  │  Resolver   │  │
+│  │  · 14状态有限机   │  │  · d20检定       │  │  Resolver   │  │
 │  │  · 状态守卫条件   │  │  · 优势/劣势     │  │  · 攻击结算  │  │
 │  │  · 同时选择机制   │  │  · 伤害骰        │  │  · 法术结算  │  │
 │  └──────────────────┘  └──────────────────┘  │  · 豁免结算  │  │
 │                                                └─────────────┘  │
 │  ┌──────────────────┐  ┌──────────────────┐  ┌─────────────┐  │
-│  │  ConditionSystem  │  │  AISystem        │  │  Terrain    │  │
+│  │  ConditionTracker │  │  EnemyAI         │  │  Terrain    │  │
 │  │  · 14种DND条件   │  │  · 目标选择启发  │  │  Interact   │  │
 │  │  · 持续时间追踪   │  │  · 行为树决策    │  │  · 8种标签  │  │
-│  │  · 堆叠互斥规则   │  │  · 敌人类型模式  │  │  · 环境危害  │  │
+│  │  · 堆叠互斥规则   │  │  · 5种行为模式   │  │  · 环境危害  │  │
 │  └──────────────────┘  └──────────────────┘  └─────────────┘  │
 │                                                                │
 │  ┌──────────────────┐  ┌──────────────────┐                    │
@@ -435,344 +579,76 @@ public class ResourceCache : IResourceCache
 └──────────────────────────────────────────────────────────────┘
 ```
 
-#### 2.2.3 GoRogue 集成
+#### 4.2.3 14状态FSM定义
 
-```csharp
-using GoRogue;
-using GoRogue.MapViews;
-using GoRogue.FOV;
-using GoRogue.Pathing;
+> 完整FSM定义和转换守卫条件见 ADR-0006 §"14 状态 FSM 定义"。
 
-public class CombatMapManager
-{
-    // GoRogue的ArrayMap作为战斗地图底层数据结构
-    private ArrayMap<bool> _blockedMap;  // true = 不可通行
-    private FOVHandler _fovHandler;
-    private AStar _pathfinder;
+关键偏离（相对于标准 DND 5e）：
+- ROLL_INITIATIVE: 每轮重新骰先攻（非整场固定）
+- ACTION_PHASE: 所有玩家同时选择，按先攻顺序结算
+- 暴击: 伤害骰取最大值（非双骰）
+- 死亡: 3轮无治疗 = 死亡（非3成功/3失败）
+- 疲劳: 3级（非6级）
+- DEFEAT: 触发失败结算而非战斗结束
 
-    public CombatMapManager(int width, int height)
-    {
-        _blockedMap = new ArrayMap<bool>(width, height);
-        _pathfinder = new AStar(_blockedMap, Distance.MANHATTAN);
-    }
+#### 4.2.4 GoRogue集成
 
-    public void InitializeFromTileData(bool[,] walkableTiles)
-    {
-        for (int x = 0; x < _blockedMap.Width; x++)
-        for (int y = 0; y < _blockedMap.Height; y++)
-            _blockedMap[x, y] = !walkableTiles[x, y];
-    }
+> GoRogue版本锁定为2.6.4（ADR-0007）。封装层为 `GoRogueMapManager.cs`（109行），使用2.6.4 API：Coord、ArrayMap<bool>、FOV、AStar、Distance.MANHATTAN。
 
-    public IEnumerable<Coord> CalculateFOV(Coord origin, int radius)
-    {
-        _fovHandler ??= new FOVHandler(_blockedMap, FieldOfView.CIRCULAR);
-        _fovHandler.CalculateFOV(origin, radius, Distance.EUCLIDEAN);
-        return _fovHandler.CurrentFOV;
-    }
-
-    public IEnumerable<Coord> FindPath(Coord start, Coord end)
-    {
-        return _pathfinder.ShortestPath(start, end) ?? Enumerable.Empty<Coord>();
-    }
-}
-```
-
-#### 2.2.4 回合流程关键路径
-
-战斗引擎使用C#枚举实现有限状态机：
-
-```csharp
-public enum CombatState
-{
-    Initialization,
-    RollInitiative,
-    RoundStart,
-    SimultaneousSelection,
-    ActionPhase,
-    BonusActionPhase,
-    MovementPhase,
-    ReactionWindow,
-    TurnEnd,
-    RoundEnd,
-    Victory,
-    Defeat
-}
-
-public class CombatFSM
-{
-    public CombatState CurrentState { get; private set; }
-    private readonly Dictionary<(CombatState, CombatState), Func<bool>> _guards = new();
-
-    public bool CanTransition(CombatState to)
-    {
-        var key = (CurrentState, to);
-        return _guards.TryGetValue(key, out var guard) && guard();
-    }
-
-    public void Transition(CombatState to)
-    {
-        if (!CanTransition(to))
-            throw new InvalidOperationException($"Cannot transition from {CurrentState} to {to}");
-        CurrentState = to;
-        OnStateEntered?.Invoke(to);
-    }
-
-    public event Action<CombatState> OnStateEntered;
-}
-```
+#### 4.2.5 事件结果分离模型（战斗特化）
 
 ```
-攻击检定管线 (Attack Resolution Pipeline) ← 纯程序，不依赖LLM
-────────────────────────────────────────────────────────
-1. 动作声明 → 玩家/AI选择行动、目标
-2. 攻击检定 → d20 + 属性调整值 + 熟练加值 + 其他加值
-3. 命中判定 → 攻击结果 ≥ 目标AC？自然20/自然1？
-4. 优势/劣势 → 是否需骰2次取高/低
-5. 暴击判定 → 自然20 → 伤害骰取最大值
-6. 伤害计算 → 基础伤害 + 属性调整值 + 附魔 + 暴击
-7. 伤害类型 → 抗性/免疫/易伤 → 最终伤害
-8. 专注检定 → 施法者受伤害 → DC = max(10, 伤害/2)
-9. 条件应用 → 附加效果/状态生效
-10. 战斗日志 → 记录完整计算链 → (可选的)DM Agent渲染为叙事文本
+机械结果（CombatEngine 程序控制）:
+  · 攻击命中/未命中 · 伤害数值 · 暴击判定
+  · 法术DC和豁免结果 · 死亡豁免轮数
+  · 条件施加/移除 · AI目标选择 · Boss阶段切换
+
+叙事结果（LLM DM Agent 生成，通过 IEventBus 异步调用）:
+  · 攻击描述文本 · 击杀台词 · 暴击特殊描述
+  · Boss阶段转换演出文本 · 环境氛围描写
+
+执行流程:
+  1. CombatEngine计算机械结果
+  2. EventBus.Publish(DamageDealt等事件)
+  3. LLMGateway订阅事件 → DM Agent生成叙事文本
+  4. NarrativeReady事件 → UI显示叙事+伤害数字
 ```
 
-#### 2.2.5 DiceRoller 纯函数实现
+### 4.3 角色系统 (CharacterSystem)
 
-```csharp
-public static class DiceRoller
-{
-    private static readonly Random _shared = new();
+> 详细数据模型和冻结协议见 ADR-0008（角色数据模型冻结协议）。
 
-    public static int Roll(int sides) => _shared.Next(1, sides + 1);
-
-    public static int RollD20() => Roll(20);
-
-    public static AttackRollResult RollAttack(int bonus, bool hasAdvantage, bool hasDisadvantage)
-    {
-        var hasBoth = hasAdvantage && hasDisadvantage;
-        var rolls = hasBoth ? new[] { RollD20() } :
-                    hasAdvantage ? new[] { RollD20(), RollD20() } :
-                    hasDisadvantage ? new[] { RollD20(), RollD20() } :
-                    new[] { RollD20() };
-
-        var rawValue = hasAdvantage && !hasBoth ? Math.Max(rolls[0], rolls[1]) :
-                       hasDisadvantage && !hasBoth ? Math.Min(rolls[0], rolls[1]) :
-                       rolls[0];
-
-        return new AttackRollResult
-        {
-            RawValue = rawValue,
-            Total = rawValue + bonus,
-            IsCritical = rolls.Contains(20),
-            IsCriticalMiss = rolls.Contains(1),
-            Rolls = rolls,
-            Bonus = bonus,
-            Advantage = hasAdvantage,
-            Disadvantage = hasDisadvantage
-        };
-    }
-
-    public static DamageRollResult RollDamage(string diceExpression, int bonus)
-    {
-        // "2d6+3" 解析与掷骰
-        var (count, sides, extraBonus) = ParseDiceExpression(diceExpression);
-        var rolls = Enumerable.Range(0, count).Select(_ => Roll(sides)).ToArray();
-        return new DamageRollResult
-        {
-            Rolls = rolls,
-            Bonus = bonus + extraBonus,
-            Total = rolls.Sum() + bonus + extraBonus
-        };
-    }
-
-    private static (int count, int sides, int bonus) ParseDiceExpression(string expr)
-    {
-        // 示例: "2d6+3" → (2, 6, 3)
-        var parts = expr.Split('d', '+');
-        // 解析逻辑
-        return (int.Parse(parts[0]), int.Parse(parts[1].Split('+')[0]),
-                parts.Length > 2 ? int.Parse(parts[2]) : 0);
-    }
-}
-
-public record AttackRollResult
-{
-    public int RawValue { get; init; }
-    public int Total { get; init; }
-    public bool IsCritical { get; init; }
-    public bool IsCriticalMiss { get; init; }
-    public int[] Rolls { get; init; } = Array.Empty<int>();
-    public int Bonus { get; init; }
-    public bool Advantage { get; init; }
-    public bool Disadvantage { get; init; }
-}
-
-public record DamageRollResult
-{
-    public int[] Rolls { get; init; } = Array.Empty<int>();
-    public int Bonus { get; init; }
-    public int Total { get; init; }
-}
-```
-
-#### 2.2.6 与DND 5e的关键偏离
-
-| 规则 | 标准5e | 本游戏 | 理由 |
-|------|--------|--------|------|
-| 先攻 | 整场固定 | 每轮重骰 | 增加不确定性+节奏感 |
-| 暴击 | 伤害骰翻倍 | 伤害骰取最大值 | 更爽更快 |
-| 死亡豁免 | 3次成功/失败 | 3轮无治疗死亡 | 紧迫感 |
-| 疲劳 | 6级渐进 | 3级 | 减少管理 |
-| 行动选择 | 轮流 | 同时选择→按先攻结算 | 减少等待 |
-| 负重 | 磅数 | 槽位制 | 简化管理 |
-
----
-
-### 2.3 角色系统 (CharacterSystem)
-
-#### 2.3.1 数据模型分层
+#### 数据模型分层
 
 ```
-角色数据 = 数值层 + 叙事层
-─────────────────────────────
-数值层 (程序控制，100%可测试):
+角色数据 = 数值层 (程序控制，100%可测试) + 叙事层 (LLM生成，Schema约束)
+
+数值层 (FROZEN — ADR-0008):
   · 六维属性 (STR/DEX/CON/INT/WIS/CHA) + 调整值
   · HP/AC/速度/熟练加值/先攻/法术位
   · 职业等级/子职业/已学特性
   · 种族/亚种/种族特性
   · 技能熟练/专精/专长
-  · 装备槽（主手/副手/护甲/饰品）
+  · 装备槽（主手/副手/护甲/饰品等9槽位）
   · 条件/伤疤/疲乏等级
-  · 关系值 (角色间数值化关系)
+  · 关系值 (trust×conflict 双轴模型)
 
 叙事层 (LLM生成，Schema约束):
-  · 姓名/性别/年龄
-  · 性格标签 (2-5个)
-  · 背景故事 (2-3段)
-  · 外观描述
-  · 个人目标
-  · 冒险记忆 (关键事件摘要)
-  · 伤疤叙事描述
+  · 姓名/性别/年龄 · 性格标签 (6维度)
+  · 背景故事 · 外观描述 · 个人目标
+  · 冒险记忆 · 伤疤叙事描述
 ```
 
-#### 2.3.2 核心接口
-
-```csharp
-public interface ICharacterSystem
-{
-    // 数据存取
-    CharacterData GetCharacter(string charId);
-    void SaveCharacter(CharacterData data);
-    void DeleteCharacter(string charId);
-
-    // 属性计算
-    int GetAbilityModifier(Ability ability, int score);
-    int GetProficiencyBonus(int level);
-    int GetSkillModifier(string charId, Skill skill);
-    int GetSpellSaveDc(string charId);
-    int GetSpellAttackMod(string charId);
-
-    // 等级进阶
-    LevelUpResult LevelUp(string charId);
-    void ApplyAsi(string charId, AsiChoice choice);
-
-    // 关系管理
-    int GetRelationship(string charA, string charB);
-    void ModifyRelationship(string charA, string charB, int delta);
-
-    // 叙事层
-    void SetNarrativeData(string charId, CharacterNarrative narrative);
-    CharacterNarrativeContext GetNarrativeContext(string charId);
-
-    // 事件
-    event Action<CharacterData> CharacterCreated;
-    event Action<string, int, int> CharacterLeveledUp;
-    event Action<string, string> CharacterDied;
-    event Action<string, string, int, int> RelationshipChanged;
-}
-```
-
-#### 2.3.3 数据模型 — C# record
-
-```csharp
-public record CharacterData
-{
-    public string CharacterId { get; init; } = "";
-    public DateTime CreatedAt { get; init; }
-    public DateTime UpdatedAt { get; init; }
-    public CharacterStatus Status { get; init; } = CharacterStatus.Alive;
-    public CharacterNarrative Narrative { get; init; } = new();
-    public CharacterStats Stats { get; init; } = new();
-    public CharacterCombatConfig Combat { get; init; } = new();
-    public ClassProgression ClassProgression { get; init; } = new();
-    public RaceData Race { get; init; } = new();
-    public Dictionary<Skill, int> SkillModifiers { get; init; } = new();
-    public SpellcastingData Spellcasting { get; init; } = new();
-    public EquipmentData Equipment { get; init; } = new();
-    public Dictionary<string, RelationshipEntry> Relationships { get; init; } = new();
-    public List<Condition> Conditions { get; init; } = new();
-    public List<Scar> Scars { get; init; } = new();
-    public List<string> Feats { get; init; } = new();
-    public InheritanceData Inheritance { get; init; } = new();
-    public AdventureLog AdventureLog { get; init; } = new();
-}
-
-public record CharacterStats
-{
-    public int Level { get; init; }
-    public int Xp { get; init; }
-    public int XpToNext { get; init; }
-    public int ProficiencyBonus { get; init; }
-    public int Speed { get; init; }
-    public int InitiativeModifier { get; init; }
-    public int ArmorClass { get; init; }
-    public HitPoints HitPoints { get; init; } = new();
-    public HitDice HitDice { get; init; } = new();
-    public Dictionary<Ability, AbilityScore> Abilities { get; init; } = new();
-    public List<Ability> SavingThrowProficiencies { get; init; } = new();
-    public int ExhaustionLevel { get; init; }
-    public bool Inspiration { get; init; }
-}
-
-public record AbilityScore
-{
-    public int Score { get; init; }
-    public int Modifier => (int)Math.Floor((Score - 10) / 2.0);
-}
-
-public record HitPoints
-{
-    public int Max { get; init; }
-    public int Current { get; init; }
-    public int Temporary { get; init; }
-}
-
-public enum Ability { Str, Dex, Con, Int, Wis, Cha }
-public enum Skill
-{
-    Acrobatics, AnimalHandling, Arcana, Athletics,
-    Deception, History, Insight, Intimidation,
-    Investigation, Medicine, Nature, Perception,
-    Performance, Persuasion, Religion, SleightOfHand,
-    Stealth, Survival
-}
-public enum CharacterStatus { Alive, Dead, Retired }
-```
-
-#### 2.3.4 角色生成管线
+#### 角色生成管线
 
 ```
-角色生成 = 程序化数值层 → LLM叙事层 → 合并写入
-───────────────────────────────────────────────
-
 Phase 1: 程序化数值层
   输入: race + class + target_level
   → Standard Array + 种族加成 → 六维属性
   → 职业进阶表 → HP/熟练加值/特性
-  → 种族特性表 → 种族特质
   → 衍生值计算 → AC/技能调整值/法术位
   → 起始装备分配
-  输出: CharacterNumericalBlock (纯JSON，无叙事数据)
+  输出: CharacterNumericalBlock (纯JSON)
 
 Phase 2: LLM叙事层 (通过文案Agent)
   输入: race + class + numerical_summary
@@ -781,100 +657,16 @@ Phase 2: LLM叙事层 (通过文案Agent)
   输出: CharacterNarrativeBlock
 
 Phase 3: 合并写入
-  → 合并Phase 1 + Phase 2
-  → 写入SQLite (sqlite-net ORM)
-  → 触发 CharacterCreated 事件
+  → 合并Phase 1 + Phase 2 → 写入SQLite → 触发CharacterCreated事件
 ```
 
-```csharp
-public class CharacterGenerator
-{
-    public async Task<CharacterData> GenerateCharacter(string raceId, string classId, int targetLevel)
-    {
-        // Phase 1: 程序化数值层
-        var numerical = NumericalGenerator.Generate(raceId, classId, targetLevel);
+### 4.4 酒馆系统 (TavernSystem)
 
-        // Phase 2: LLM叙事层
-        var llmGateway = ServiceLocator.Get<ILLMGateway>();
-        var narrative = await llmGateway.CallAgent<CopywriterAgent, CharacterNarrative>(
-            new CharacterNarrativeRequest(raceId, classId, numerical.Summary)
-        );
+> 详细设计见 `design/gdd/07-tavern-system.md`。
 
-        // Phase 3: 合并写入
-        var data = new CharacterData
-        {
-            CharacterId = $"char_{Guid.NewGuid():N}",
-            Stats = numerical.Stats,
-            Narrative = narrative,
-            // ...
-        };
-        ServiceLocator.Get<IDataPersistence>().Save(data);
-        return data;
-    }
-}
-```
+酒馆系统负责冒险之间的**元游戏层**。所有数值由程序控制，LLM只负责招募文本、事件描述和NPC对话。
 
-#### 2.3.5 角色状态总览
-
-完整角色属性块（Character Stat Block）定义见 `subsystems/01-character-system.md §2.1`，顶层结构如下：
-
-```json
-{
-  "character_id": "char_7a3f2b1c",
-  "status": "alive",
-  "narrative": { /* LLM生成的叙事数据 */ },
-  "stats": { /* 六维/HP/AC/法术位等核心数值 */ },
-  "combat": { /* 战斗相关配置 */ },
-  "class_progression": { /* 职业/等级/子职业/特性 */ },
-  "race": { /* 种族/亚种/特质 */ },
-  "skills": { /* 技能熟练/调整值 */ },
-  "spellcasting": { /* 施法能力/法术位 */ },
-  "equipment": { /* 装备槽/背包 */ },
-  "relationships": { /* 角色间关系值 */ },
-  "conditions": [],
-  "scars": [],
-  "feats": [],
-  "inheritance": { /* 知识传承 */ },
-  "adventure_log": { /* 冒险统计 */ }
-}
-```
-
----
-
-### 2.4 酒馆系统 (TavernSystem)
-
-#### 2.4.1 系统边界
-
-酒馆系统负责冒险之间的**元游戏层**。它管理酒馆升级、角色招募、商店、NPC调度和酒馆事件。所有数值由程序控制，LLM只负责招募文本、事件描述和NPC对话。
-
-#### 2.4.2 核心模块
-
-```
-┌───────────────────────────────────────────────────────────┐
-│                    TavernSystem (酒馆系统)                   │
-│                                                             │
-│  ┌───────────────┐  ┌───────────────┐  ┌────────────────┐  │
-│  │  TavernLevel   │  │  Recruitment  │  │  ShopSystem    │  │
-│  │  Manager       │  │  Manager      │  │  · 6种商店类型  │  │
-│  │  · Lv1-10升级   │  │  · 招募板管理  │  · 库存刷新      │  │
-│  │  · 声望XP计算   │  │  · 角色生成管 │  · 定价/折扣     │  │
-│  │  · 区域解锁     │  │    线         │  · 特殊商品      │  │
-│  │  · Prestige    │  │  · 槽位管理   │  └────────────────┘  │
-│  └───────────────┘  │  · 招募费计算  │                      │
-│                     └───────────────┘                      │
-│  ┌───────────────┐  ┌───────────────┐  ┌────────────────┐  │
-│  │  NPCScheduler  │  │  EventSystem  │  │  RestSystem    │  │
-│  │  · 固定NPC     │  │  · 事件池     │  · 短休           │  │
-│  │  · 轮换NPC     │  │  · 触发条件   │  · 长休           │  │
-│  │  · 生命周期    │  │  · 机械结果   │  · 资源恢复       │  │
-│  │  · 访问权重    │  │  · LLM叙事   │                  │  │
-│  └───────────────┘  └───────────────┘  └────────────────┘  │
-└───────────────────────────────────────────────────────────┘
-```
-
-#### 2.4.3 酒馆升级路径
-
-酒馆10级 + Prestige系统。升级解锁新区域和功能：
+#### 酒馆升级路径
 
 | 等级 | 解锁 | 关键功能 |
 |:----:|------|----------|
@@ -889,436 +681,51 @@ public class CharacterGenerator
 | Lv9 | — | 双任务并发、英雄传记完整 |
 | Lv10 | 英雄之壁完整 | 传说装备、全功能巅峰 |
 
-#### 2.4.4 事件结果分离模型
+### 4.5 冒险系统 (AdventureGeneration)
+
+> 详细设计见 `design/gdd/06-adventure-generation.md`。
+
+#### 三层生成管线（核心架构）
 
 ```
-事件结果 = 机械结果 (程序控制) + 叙事结果 (LLM生成)
+第一层：冒险蓝图生成（冒险开始前）
+  编剧Agent + Schema验证 + 业务逻辑验证
+  → adventure_blueprint.json (严格Schema约束)
+  → 失败策略：3次重试 → 离线模板
 
-机械结果 (程序控制):
-  · 关系值变化 (+/- N)
-  · 任务生成/解锁
-  · 物品/金币奖励
-  · 战斗触发
-  · buff/debuff 应用
-  · 设施状态变更
+第二层：程序化实例化（冒险开始前）
+  AdventureInstantiator (纯程序，不依赖LLM，可单元测试)
+  14步算法：蓝图解析→节点图→房间模板→GoRogue地牢→遭遇→对话→探索→商人→休息→谜题→Boss→走廊→交互标签→状态机
 
-叙事结果 (LLM生成):
-  · 场景描写 (DM Agent)
-  · NPC对话 (DM Agent)
-  · 角色情感表达 (DM Agent)
-  · 氛围文本 (DM Agent)
-
-执行流程:
-  1. 程序决定机械结果
-  2. 将机械结果 + 上下文 传入 LLM
-  3. LLM生成符合结果的叙事文本
-  4. UI展示叙事文本 + 机械结果通知
+第三层：DM Agent实时叙事（冒险进行中）
+  玩家每个动作后按需调用DM Agent（<2秒响应时间）
+  · 进入新房间 → scene_atmosphere
+  · NPC对话 → npc_dialogue + options
+  · 检定结果 → skill_check_result
+  · 战斗动作 → combat_narration
+  失败降级：静态模板
 ```
 
-```csharp
-public class EventSystem
-{
-    public async Task<TavernEventResult> TriggerEvent(string eventId)
-    {
-        // Step 1: 程序决定机械结果
-        var eventDef = _eventPool[eventId];
-        var mechanicalResult = MechanicalResolver.Resolve(eventDef);
+### 4.6 LLM Gateway
 
-        // Step 2: LLM生成叙事文本
-        var llmGateway = ServiceLocator.Get<ILLMGateway>();
-        var narrative = await llmGateway.CallAgent<DMAgent, NarrativeText>(
-            new TavernEventNarrativeRequest(eventDef, mechanicalResult)
-        );
+> 详细架构见 ADR-0004（LLM集成架构 — 皮肤层 + 事件结果分离模型）。
 
-        // Step 3: 合并结果
-        return new TavernEventResult(mechanicalResult, narrative);
-    }
-}
-
-public record TavernEventResult(
-    MechanicalResult Mechanics,
-    NarrativeText Narrative
-);
-
-public record MechanicalResult(
-    Dictionary<string, int> RelationshipDeltas,
-    List<string> Rewards,
-    int GoldDelta,
-    string? CombatTriggerId
-);
-```
-
----
-
-### 2.5 冒险系统 (AdventureSystem)
-
-#### 2.5.1 三层生成管线（核心架构）
-
-这是整个项目最核心的技术系统。详见 `subsystems/06-adventure-generation.md`，此处给出架构概览：
-
-```
-┌────────────── 第一层：冒险蓝图生成（冒险开始前）──────────────┐
-│  编剧Agent + 平衡Agent                                          │
-│  → adventure_blueprint.json (严格的JSON Schema约束)             │
-│  → 验证：Schema验证 + 业务逻辑验证 + 平衡Agent                    │
-│  → 失败策略：3次重试 → 离线模板                                  │
-└──────────────────────────────┬──────────────────────────────────┘
-                                ↓
-┌────────────── 第二层：程序化实例化（冒险开始前）──────────────┐
-│  AdventureInstantiator (纯程序，不依赖LLM，可单元测试)           │
-│  14步算法：                                                    │
-│   1. 解析+验证蓝图JSON          8. 休息节点配置                   │
-│   2. 生成节点图                 9. 谜题节点配置                   │
-│   3. 分配房间模板               10. Boss数据生成                  │
-│   4. GoRogue地牢生成(走廊+房间) 11. 走廊连接                     │
-│   5. 遭遇生成(CR预算→敌人)      12. 交互标签放置                  │
-│   6. 对话节点配置               13. 触发器设置                    │
-│   7. 探索节点(陷阱/战利品)      14. 冒险状态机初始化              │
-└──────────────────────────────┬──────────────────────────────────┘
-                                ↓
-┌────────────── 第三层：DM Agent实时叙事（冒险进行中）──────────┐
-│  玩家每个动作后按需调用DM Agent（<2秒响应时间）：                │
-│  · 进入新房间 → scene_atmosphere                               │
-│  · NPC对话 → npc_dialogue + options                            │
-│  · 检定结果 → skill_check_result                               │
-│  · 战斗动作 → combat_narration                                  │
-│  · 选择呈现 → choice_presentation                               │
-│  失败降级：静态模板                                              │
-└────────────────────────────────────────────────────────────────┘
-```
-
-#### 2.5.2 GoRogue 地牢生成集成
-
-```csharp
-using GoRogue.MapGeneration;
-using GoRogue.MapViews;
-using GoRogue.Random;
-
-public class DungeonGenerator
-{
-    public ArrayMap<TileType> GenerateDungeon(int width, int height, string theme)
-    {
-        // 使用GoRogue的MapGeneration生成战术地图
-        var generator = new GoRogue.MapGeneration.Generators.CaveGenerator(width, height);
-        var map = generator.Generate();
-
-        var result = new ArrayMap<TileType>(width, height);
-        for (int x = 0; x < width; x++)
-        for (int y = 0; y < height; y++)
-            result[x, y] = map[x, y] ? TileType.Floor : TileType.Wall;
-
-        // 根据主题设置tileset
-        ApplyThemeTiles(result, theme);
-        return result;
-    }
-
-    private void ApplyThemeTiles(ArrayMap<TileType> map, string theme)
-    {
-        // 主题: dungeon / forest / cave / castle ...
-        // 映射 TileType → Texture2D 在渲染层处理
-    }
-}
-
-public enum TileType { Floor, Wall, Water, Lava, Trap, Door, Hidden }
-```
-
-#### 2.5.3 实例化14步算法
-
-```csharp
-public class AdventureInstantiator
-{
-    public async Task<AdventureInstance> InstantiateAdventure(
-        AdventureBlueprint blueprint,
-        PartyState partyState)
-    {
-        // Step 1: 解析蓝图 → 验证 → 解析依赖
-        var validated = await BlueprintParser.ParseAndValidate(blueprint);
-
-        // Step 2: 生成冒险节点图
-        var nodeGraph = NodeGraphGenerator.Generate(validated.Nodes, validated.Meta.Tier);
-
-        // Step 3-13: 各节点类型配置
-        foreach (var (nodeId, node) in nodeGraph)
-        {
-            switch (node.Type)
-            {
-                case NodeType.Combat:
-                case NodeType.EliteCombat:
-                case NodeType.Boss:
-                    node.Encounter = EncounterGenerator.Generate(node, validated.DifficultyProfile);
-                    // GoRogue生成战术地图
-                    node.TacticalMap = new DungeonGenerator().GenerateDungeon(20, 15, validated.Meta.Theme);
-                    break;
-
-                case NodeType.Dialogue:
-                    node.DialogueConfig = DialogueConfigurator.Configure(node, validated.KeyNpcs);
-                    break;
-
-                case NodeType.Exploration:
-                    node.ExplorationConfig = ExplorationConfigurator.Configure(node, validated.DifficultyProfile);
-                    break;
-
-                case NodeType.Merchant:
-                    node.ShopConfig = MerchantConfigurator.Configure(node, validated.DifficultyProfile.LootTier);
-                    break;
-
-                case NodeType.Rest:
-                    node.RestConfig = RestConfigurator.Configure(node, validated.DifficultyProfile);
-                    break;
-            }
-        }
-
-        // Step 14: 初始化冒险状态机
-        var adventureState = new AdventureState(blueprint, nodeGraph);
-
-        return new AdventureInstance(adventureState, nodeGraph);
-    }
-}
-
-public record AdventureInstance(
-    AdventureState State,
-    Dictionary<string, AdventureNode> NodeGraph
-);
-
-public record AdventureState(
-    AdventureBlueprint Blueprint,
-    Dictionary<string, AdventureNode> NodeGraph
-)
-{
-    public string CurrentNodeId { get; set; } = "";
-    public bool IsCompleted { get; set; }
-    public bool IsFailed { get; set; }
-}
-```
-
-#### 2.5.4 冒险模板
-
-系统内置三种冒险模板用于离线降级和蓝图参考：
-
-| 模板 | 时长 | 节点数 | 战斗 | 结构 |
-|------|:----:|:------:|:----:|------|
-| 短冒险 | ~30min | 5-8 | 3-5 | 线性+1高潮 |
-| 中冒险 | ~3h | 15-25 | 8-15 | 2-3地点+1谜题+分支 |
-| 长冒险 | ~6h | 30-50 | 15-25 | 三幕+多结局 |
-
-#### 2.5.5 遭遇难度计算
-
-基于DND 5e DMG的XP阈值系统（简化CR预算表）：
-
-| 队伍Lv×人数 | Easy CR | Medium CR | Hard CR | Deadly CR |
-|:----------:|:-------:|:---------:|:-------:|:---------:|
-| Lv1 × 4 | 0.5 | 1.0 | 1.5 | 2.0 |
-| Lv3 × 4 | 1.5 | 3.0 | 4.5 | 6.0 |
-| Lv5 × 4 | 3.0 | 5.0 | 7.5 | 10.0 |
-
----
-
-### 2.6 LLM Gateway
-
-#### 2.6.1 架构定位
-
-LLM Gateway是**游戏中所有LLM请求的唯一入口**。所有游戏系统通过Gateway请求LLM生成内容，Gateway负责调度、验证、缓存、降级。
-
-核心原则:
-- LLM只做皮肤层: 生成叙事文本，不决策数值
-- 严格Schema验证: 每个Agent的输出必须通过JSON Schema验证
-- 优雅离线降级: API不可用时核心体验不受影响
-
-#### 2.6.2 核心实现
-
-```csharp
-using System.Net.Http;
-using System.Text.Json;
-using System.Text.Json.Nodes;
-using Json.Schema;
-
-public class LLMGateway : ILLMGateway
-{
-    private readonly HttpClient _httpClient;
-    private readonly SchemaValidator _schemaValidator;
-    private readonly CacheManager _cacheManager;
-    private readonly RateLimiter _rateLimiter;
-    private readonly TokenBudgetManager _budgetManager;
-    private readonly FallbackManager _fallbackManager;
-    private readonly Dictionary<string, LLMAgent> _agents = new();
-
-    public LLMGateway()
-    {
-        _httpClient = new HttpClient
-        {
-            Timeout = TimeSpan.FromSeconds(30)
-        };
-        _schemaValidator = new SchemaValidator();
-        _cacheManager = new CacheManager();
-        _rateLimiter = new RateLimiter();
-        _budgetManager = new TokenBudgetManager();
-        _fallbackManager = new FallbackManager();
-        RegisterDefaultAgents();
-    }
-
-    private void RegisterDefaultAgents()
-    {
-        RegisterAgent(new ScreenwriterAgent());
-        RegisterAgent(new DMAgent());
-        RegisterAgent(new CopywriterAgent());
-        RegisterAgent(new BalancerAgent());
-    }
-
-    public async Task<TResponse> CallAgent<TAgent, TResponse>(
-        AgentRequest request,
-        CancellationToken ct = default)
-        where TAgent : LLMAgent
-        where TResponse : class
-    {
-        // Step 1: Pre-Validate
-        var preErrors = _schemaValidator.Validate(request.Input, request.OutputSchema);
-        if (preErrors.Count > 0)
-            throw new GatewayException($"Pre-validation failed: {string.Join(", ", preErrors)}");
-
-        // Step 2: Cache Lookup
-        var cacheKey = _cacheManager.ComputeKey(request);
-        var cached = await _cacheManager.GetAsync<TResponse>(cacheKey);
-        if (cached != null)
-            return cached;
-
-        // Step 3: Rate Check
-        if (!_rateLimiter.TryConsume(request.AgentId, request.EstimatedTokens))
-        {
-            // Rate limited — 降级或入队
-            return await _fallbackManager.GetFallback<TResponse>(request);
-        }
-
-        // Step 4-6: 发送API请求 + 解析 + 验证
-        for (int retry = 0; retry <= 3; retry++)
-        {
-            try
-            {
-                var agent = _agents[request.AgentId];
-                var jsonResponse = await SendRequest(agent, request.Input, ct);
-
-                var response = JsonSerializer.Deserialize<TResponse>(jsonResponse);
-                if (response == null)
-                    throw new GatewayException("Null response after deserialization");
-
-                var errors = _schemaValidator.Validate(
-                    JsonNode.Parse(jsonResponse), request.OutputSchema);
-
-                if (errors.Count > 0)
-                {
-                    if (retry < 3)
-                    {
-                        request.Input["_last_error"] = string.Join("; ", errors);
-                        continue; // 重试
-                    }
-                    return await _fallbackManager.GetFallback<TResponse>(request);
-                }
-
-                // Step 7: Cache Write
-                await _cacheManager.SetAsync(cacheKey, response, request.CacheTtl);
-
-                return response;
-            }
-            catch (HttpRequestException) when (retry < 3)
-            {
-                await Task.Delay(1000 * (retry + 1)); // 指数退避
-            }
-        }
-
-        // 所有重试耗尽
-        return await _fallbackManager.GetFallback<TResponse>(request);
-    }
-
-    private async Task<string> SendRequest(LLMAgent agent, JsonElement input, CancellationToken ct)
-    {
-        var payload = agent.BuildPayload(input);
-        var jsonContent = new StringContent(
-            JsonSerializer.Serialize(payload),
-            System.Text.Encoding.UTF8,
-            "application/json");
-
-        var response = await _httpClient.PostAsync(agent.ApiEndpoint, jsonContent, ct);
-        response.EnsureSuccessStatusCode();
-
-        return await response.Content.ReadAsStringAsync();
-    }
-
-    public void RegisterAgent(LLMAgent agent)
-    {
-        _agents[agent.Id] = agent;
-    }
-}
-```
-
-#### 2.6.3 Agent 基类
-
-```csharp
-public abstract class LLMAgent
-{
-    public abstract string Id { get; }
-    public abstract string ApiEndpoint { get; }
-    public abstract int MaxInputTokens { get; }
-    public abstract int MaxOutputTokens { get; }
-    public abstract JsonSchema OutputSchema { get; }
-    public virtual TimeSpan CacheTtl => TimeSpan.FromHours(24);
-    public abstract JsonObject BuildPayload(JsonElement input);
-}
-
-public class DMAgent : LLMAgent
-{
-    public override string Id => "dm_agent";
-    public override string ApiEndpoint =>
-        "https://api.openai.com/v1/chat/completions";
-    public override int MaxInputTokens => 2000;
-    public override int MaxOutputTokens => 500;
-    public override JsonSchema OutputSchema => DMAgentSchema.Schema;
-
-    public override JsonObject BuildPayload(JsonElement input)
-    {
-        return new JsonObject
-        {
-            ["model"] = "gpt-4o-mini",
-            ["messages"] = new JsonArray
-            {
-                new JsonObject
-                {
-                    ["role"] = "system",
-                    ["content"] = GetSystemPrompt()
-                },
-                new JsonObject
-                {
-                    ["role"] = "user",
-                    ["content"] = input.GetProperty("user_message").GetString()
-                }
-            },
-            ["max_tokens"] = MaxOutputTokens,
-            ["response_format"] = new JsonObject { ["type"] = "json_object" }
-        };
-    }
-
-    private string GetSystemPrompt() => """
-        你是《酒馆与命运》的地下城主（DM），负责生成符合DND 5e风格的叙事文本。
-        你的输出必须严格遵循JSON Schema定义的结构。
-        你只负责叙事文本，不决定任何数值结果。
-        所有文本使用简体中文。
-        """;
-}
-```
-
-#### 2.6.4 Agent调度表
+#### Agent调度表
 
 | Agent | 职责 | 调用时机 | 阻塞模式 | Token预算 | 模型等级 |
 |-------|------|----------|:--------:|:---------:|:--------:|
-| 编剧Agent | 生成冒险蓝图 | 冒险开始前 | 异步(加载等待) | 4000/2000 | 高质量(GPT-4) |
-| DM Agent | 实时叙事 | 玩家每个动作后 | 异步(不阻塞UI) | 2000/500 | 中等(GPT-4o-mini) |
+| 编剧Agent | 生成冒险蓝图 | 冒险开始前 | 异步(加载等待) | 4000/2000 | 高质量 |
+| DM Agent | 实时叙事 | 玩家每个动作后 | 异步(不阻塞UI) | 2000/500 | 中等 |
 | 文案Agent | 物品/技能描述 | 新物品获得时 | 异步(后台生成) | 1000/300 | 轻量 |
-| 平衡Agent | 检查CR/战利品 | 蓝图生成后 | 自动同步 | 3000/1000 | 高质量(GPT-4) |
 
-#### 2.6.5 请求生命周期
+> ⚠️ **v3.0修正**：BalancerAgent（蓝图验证）已从GDD v1.2移除。蓝图验证功能合并到编剧Agent的Schema验证管线中。
+
+#### 请求生命周期
 
 ```
 1. Pre-Validate (本地校验) → 失败返回GatewayError
 2. Cache Lookup (语义Hash查SQLite缓存) → 命中跳到Step 7
-3. Rate Check (per-agent配额+全局配额) → 超限入队或降级
+3. Rate Check (per-agent配额+全局配额) → 超限降级
 4. Send to API (HttpClient → 云端LLM) → 构造请求体+注入system prompt
 5. Parse (System.Text.Json提取) → 处理Markdown代码块包裹
 6. Validate (JsonSchema.Net + Business Logic) → 失败最多3次重试
@@ -1327,7 +734,7 @@ public class DMAgent : LLMAgent
 9. 返回 AgentResponse 给调用方
 ```
 
-#### 2.6.6 降级链
+#### 降级链
 
 ```
 Primary Model → Secondary Model → Tertiary Model → Cached Response → Static Template
@@ -1339,256 +746,32 @@ Primary Model → Secondary Model → Tertiary Model → Cached Response → Sta
   fallback:  adventure_blueprint_templates.json (内置50+模板)
 ```
 
-#### 2.6.7 缓存策略
+### 4.7 世界状态管理器 (WorldStateManager)
 
-| 缓存类型 | 键生成 | 存储 | TTL |
-|----------|--------|:----:|:---:|
-| 场景描写 | semantic_hash(theme + party_summary) | SQLite via sqlite-net | 24h |
-| NPC对话 | hash(npc_type + check_result) | SQLite | 12h |
-| 冒险蓝图 | hash(tier + level + theme) | SQLite | 7d |
-| 物品描述 | item_type + rarity | SQLite | 永久 |
-
-#### 2.6.8 速率限制
-
-```
-双层限流机制:
-
-第一层 — 本地限流:
-  Global: 30 req/min, 50000 tokens/min
-  Per-Agent:
-    screenwriter: 3 req/min, 15000 tokens/min
-    dm_agent:     20 req/min, 15000 tokens/min
-    copywriter:   15 req/min, 8000 tokens/min
-    balancer:     3 req/min, 6000 tokens/min
-
-第二层 — API限流:
-  HTTP 429 → 读取Retry-After header
-  HTTP 429 → 切换到备选模型
-```
-
-#### 2.6.9 离线降级成本
-
-| 场景 | 策略 | 玩家体验影响 |
-|------|------|:----------:|
-| API不可用 | 使用离线冒险模板 | 冒险多样性降低，但仍可玩 |
-| 定额用完 | 降低模型等级 | 叙事质量下降，不丧失功能 |
-| 超时 | 返回缓存/模板 | 叙事可能重复，核心玩法不受影响 |
-
----
-
-### 2.7 世界状态管理器 (WorldStateManager)
-
-#### 2.7.1 职责
-
-世界状态管理器负责追踪冒险成功/失败对游戏世界的**永久影响**。这些影响存储在SQLite中，并在生成下一次冒险时作为LLM的上下文输入。
-
-```csharp
-public interface IWorldStateManager
-{
-    RegionState GetRegionState(string regionId);
-    void SetRegionState(string regionId, RegionState state);
-    FactionRelation GetFactionRelation(string factionId);
-    void SetFactionRelation(string factionId, FactionRelation relation);
-    void AddWorldEvent(WorldEvent worldEvent);
-    List<WorldEvent> GetActiveEvents();
-    AdventureMark GetAdventureMark(string adventureId);
-    WorldStateContext GetWorldContextForLLM();
-
-    event Action<string, RegionState> RegionChanged;
-    event Action<string, FactionRelation> FactionChanged;
-    event Action<WorldEvent> EventTriggered;
-}
-```
-
-#### 2.7.2 数据分类
+负责追踪冒险成功/失败对游戏世界的**永久影响**。数据存储在SQLite中，在生成下一次冒险时作为LLM的上下文输入。
 
 ```
 世界状态 = 持久变化的数据，影响后续游戏
-───────────────────────────────────────────
-
-区域状态:
-  · 各区域的安全/危险等级
-  · 已解锁/摧毁的城镇和地标
-  · 当前活跃的势力及其影响力
-
-势力关系:
-  · 各势力对酒馆的友好度 (hostile/neutral/friendly/allied)
-  · 各势力控制的区域
-  · 活跃的势力冲突事件
-
-世界事件:
-  · 正在发生的重大事件 (瘟疫/战争/天灾)
-  · 玩家行动触发的连锁反应
-  · 即将到来的威胁 (倒计时)
-
-冒险印记:
-  · 已完成/失败的冒险记录
-  · 未完成的任务线状态
-  · 特殊NPC的生死状态
+  区域状态: 各区域安全/危险等级、已解锁/摧毁的城镇和地标
+  势力关系: 各势力对酒馆友好度 (hostile/neutral/friendly/allied)
+  世界事件: 正在发生的重大事件 (瘟疫/战争/天灾)、玩家行动触发的连锁反应
+  冒险印记: 已完成/失败的冒险记录、未完成的任务线、特殊NPC生死状态
 ```
 
-#### 2.7.3 与LLM的交互
+### 4.8 UI系统 (UISystem)
 
-```csharp
-public record WorldStateContext
-{
-    public int TavernLevel { get; init; }
-    public List<WorldEvent> ActiveEvents { get; init; } = new();
-    public List<FactionInfo> Factions { get; init; } = new();
-    public List<string> RecentChanges { get; init; } = new();
-    public Dictionary<string, RegionState> Regions { get; init; } = new();
-}
+> 详细设计见 `design/gdd/09-ui-ux-design.md`。
 
-public class WorldStateManager : IWorldStateManager
-{
-    private readonly SQLiteConnection _db;
+#### 设计原则
 
-    public WorldStateContext GetWorldContextForLLM()
-    {
-        return new WorldStateContext
-        {
-            TavernLevel = GetTavernLevel(),
-            ActiveEvents = GetActiveEvents(),
-            Factions = GetAllFactions(),
-            RecentChanges = GetRecentChanges(10),
-            Regions = GetAllRegions()
-        };
-    }
-}
-```
-
----
-
-### 2.8 UI系统 (UISystem)
-
-#### 2.8.1 设计原则
-
-```
-UI设计原则:
-───────────────────
 1. 像素风一致: FF6风格窗口框架，深色镶边+深色半透明背景
 2. 数据与表现分离: UI只负责展示，逻辑由各系统处理
 3. 响应式布局: Myra Grid + StackPanel 适配不同分辨率
 4. 骰子可见: 玩家可查看每个骰子的完整计算过程
-5. 战斗日志: LLM叙事文本在战斗日志框中展示
+5. 战斗日志双轨: LLM叙事文本+程序数值日志并行展示
 6. 代码构建: 所有UI通过Myra XML布局定义 + C#代码控制逻辑
-```
 
-#### 2.8.2 Myra UI集成
-
-```csharp
-// Myra UI 初始化 — 在 Game1.LoadContent() 中
-using Myra;
-using Myra.Graphics2D.UI;
-
-public class UIManager
-{
-    private Desktop _desktop;
-    private readonly Dictionary<string, Widget> _panels = new();
-
-    public void Initialize(Game game)
-    {
-        MyraEnvironment.Game = game;
-        _desktop = new Desktop();
-    }
-
-    // 使用Myra XML布局加载UI面板
-    public T LoadPanel<T>(string xmlPath) where T : Widget
-    {
-        var asset = ServiceLocator.Get<IResourceCache>().GetText(xmlPath);
-        var panel = (T)Myra.Xml.Project.LoadFromXml(asset, null);
-        _panels[typeof(T).Name] = panel;
-        return panel;
-    }
-
-    // 数据绑定
-    public void BindCombatLog(CombatLog log)
-    {
-        var logWidget = (ScrollViewer)_panels["CombatLogPanel"];
-        log.OnEntryAdded += entry =>
-        {
-            // 程序日志行
-            var proceduralLabel = new Label
-            {
-                Text = entry.ProceduralText,
-                Font = FontStashSharp.DefaultFont,
-                TextColor = Color.LightGray
-            };
-            // LLM叙事行
-            var narrativeLabel = new Label
-            {
-                Text = entry.NarrativeText,
-                Font = FontStashSharp.DefaultFont,
-                TextColor = Color.White
-            };
-            logWidget.Content = new VerticalStackPanel
-            {
-                Children = { narrativeLabel, proceduralLabel }
-            };
-        };
-    }
-}
-```
-
-#### 2.8.3 Myra XML 布局示例
-
-```xml
-<!-- 战斗日志面板 (CombatLogPanel.xml) -->
-<Grid RowSpacing="4" ColumnSpacing="4">
-  <Grid.ColumnsProportions>
-    <Proportion Type="Fill"/>
-  </Grid.ColumnsProportions>
-  <Grid.RowsProportions>
-    <Proportion Type="Auto"/>
-    <Proportion Type="Fill"/>
-  </Grid.RowsProportions>
-
-  <Label Grid.Row="0" Text="战斗日志"
-         TextColor="#FFD700" Font="pixel-font-16"/>
-
-  <ScrollViewer Grid.Row="1" Id="logScrollViewer">
-    <VerticalStackPanel Id="logContent" Spacing="2"/>
-  </ScrollViewer>
-</Grid>
-```
-
-```csharp
-// C#代码加载XML面板
-public class CombatUI
-{
-    private Grid _combatPanel;
-    private VerticalStackPanel _logContent;
-
-    public void Initialize()
-    {
-        var uiManager = ServiceLocator.Get<UIManager>();
-        _combatPanel = uiManager.LoadPanel<Grid>("UI/CombatLayout.xml");
-        _logContent = (VerticalStackPanel)_combatPanel.FindChildById("logContent");
-    }
-
-    public void AppendLogEntry(LogEntry entry)
-    {
-        var narrativeLabel = new Label
-        {
-            Text = entry.NarrativeText,
-            TextColor = Color.Wheat,
-            Font = ServiceLocator.Get<IResourceCache>().GetFont("pixel-font-14"),
-            Wrap = true
-        };
-        var proceduralLabel = new Label
-        {
-            Text = entry.ProceduralText,
-            TextColor = new Color(180, 180, 180),
-            Font = ServiceLocator.Get<IResourceCache>().GetFont("pixel-font-12"),
-            Wrap = true
-        };
-        _logContent.Children.Add(narrativeLabel);
-        _logContent.Children.Add(proceduralLabel);
-    }
-}
-```
-
-#### 2.8.4 UI子系统划分
+#### UI子系统划分
 
 | UI模块 | 关联系统 | 核心Myra组件 |
 |--------|----------|-------------|
@@ -1600,11 +783,10 @@ public class CombatUI
 | 结算UI | SettlementSystem | Grid, Label — 成功/失败画面、奖励展示 |
 | 主菜单 | GameState | Menu, Button — 新游戏、继续、设置 |
 
-#### 2.8.5 战斗日志双轨机制
+#### 战斗日志双轨机制
 
 ```
 战斗日志 = 程序日志 + LLM叙事
-────────────────────────────────
 
 程序日志 (程序生成，格式固定):
   "[战士] 攻击 [哥布林]: d20(13) + 5 = 18 vs AC 15 → 命中"
@@ -1614,748 +796,518 @@ LLM叙事 (DM Agent生成，描述性文本):
   "索林怒吼着挥动长剑，剑气划破空气，
   在哥布林肮脏的皮甲上留下一道深深的伤口。"
 
-两者并行展示:
-  ┌──────────────────────────────────────┐
-  │ 战斗日志                              │
-  │ ──────────────────────────────────    │
-  │ 索林怒吼着挥动长剑，剑气划破空气，     │
-  │ 在哥布林肮脏的皮甲上留下一道深深的伤口。│
-  │                                       │
-  │ [战士] d20(13) + 5 = 18 vs AC 15 → 命中│
-  │ [战士] 1d8(6) + 3 = 9 斩击             │
-  └──────────────────────────────────────┘
-```
-
-#### 2.8.6 像素风主题配置
-
-```csharp
-public class PixelTheme
-{
-    public static void Apply(Desktop desktop)
-    {
-        var styles = Desktop.DefaultStyles;
-
-        // 窗口样式
-        styles.WindowStyle = new WindowStyle
-        {
-            Background = new SolidBrush(new Color(20, 20, 40, 230)),
-            Border = new SolidBrush(new Color(60, 50, 30)),
-            BorderThickness = new Thickness(2)
-        };
-
-        // 按钮样式
-        styles.ButtonStyle = new ButtonStyle
-        {
-            Background = new SolidBrush(new Color(40, 35, 25)),
-            OverBackground = new SolidBrush(new Color(60, 50, 35)),
-            PressedBackground = new SolidBrush(new Color(30, 25, 15)),
-            TextColor = Color.White,
-            Font = FontStashSharp.DefaultFont
-        };
-
-        // 标签样式
-        styles.LabelStyle = new LabelStyle
-        {
-            TextColor = Color.White,
-            Font = FontStashSharp.DefaultFont
-        };
-
-        // 滚动视图样式
-        styles.ScrollViewerStyle = new ScrollViewerStyle
-        {
-            Background = new SolidBrush(new Color(10, 10, 20, 200))
-        };
-    }
-}
+两者并行展示在战斗日志面板中。
 ```
 
 ---
 
-## 3. 数据流与接口
+### 4.9 结算系统 (SettlementSystem)
 
-### 3.1 核心数据流图
+> 详细设计见 `design/gdd/08-failure-growth.md`。需在 Settlement Epic 前创建专门 ADR（见 §8 Required ADRs）。
 
-```
-                    ┌───────────────────────────────────────┐
-                    │          LLM API (云端)                │
-                    │  OpenAI / Claude / 国产模型            │
-                    └────────────┬──────────────────────────┘
-                                 │ HTTP POST (JSON via HttpClient)
-                                 ▼
-┌──────────┐    ┌───────────────────────────────────────┐
-│ 玩家操作  │───▶│           LLM Gateway                  │
-│ (输入)    │    │  · 请求队列 · Schema验证 · 缓存 · 降级 │
-└──────────┘    └────────────┬──────────────────────────┘
-                             │ AgentResponse (已验证JSON)
-                             ▼
-                    ┌───────────────────┐
-                    │  游戏逻辑层        │
-                    │  ──────────────   │
-                    │  · 冒险系统        │ ← 接收蓝图
-                    │  · 战斗引擎        │ ← 接收叙事文本
-                    │  · 酒馆系统        │ ← 接收招募/事件文本
-                    │  · 结算系统        │ ← 接收惩罚叙事
-                    └────────┬──────────┘
-                             │
-                    ┌────────▼──────────┐
-                    │  程序状态更新      │
-                    │  ──────────────   │
-                    │  · 数值计算        │ ← 不依赖LLM
-                    │  · 规则判定        │
-                    │  · 分支逻辑        │
-                    │  · 世界状态变更    │
-                    └───────────────────┘
-```
+#### 核心职责
 
-### 3.2 LLM与程序层的职责边界
+结算系统在每次冒险结束后执行，计算玩家奖励/惩罚并更新世界状态。是 FEATURE-L3 复合系统，依赖 CharacterSystem、CombatEngine（通过 IEventBus 事件）、WorldStateManager、LLMGateway。
+
+#### 结算管线
 
 ```
-"LLM只做皮肤层，程序做骨骼层"
-────────────────────────────────
-
-LLM做:
-  · 生成NPC说的话（不是NPC做的事）
-  · 写战斗描述文字（不是计算伤害数值）
-  · 生成选项的风味描述（不是定义选项的后果）
-  · 给角色取名字和写背景故事（不是决定角色的属性）
-  · 描述伤疤的外观（不是选择伤疤的数值效果）
-
-程序做:
-  · 计算所有伤害、治疗、buff数值
-  · 决定命中/未命中
-  · 控制NPC的行动逻辑
-  · 执行剧情分支的走向
-  · 管理角色升级和属性变化
-  · 计算战利品掉落
-  · 应用状态效果
-  · 变更世界状态
+冒险结束(成功/失败/撤退)
+  → 步骤1: XP计算 — 根据战斗难度、敌人数量、冒险深度计算经验值
+  → 步骤2: 等级提升 — 检查角色是否升级，触发等级提升流程
+  → 步骤3: 战利品生成 — 根据冒险主题和CR预算生成战利品
+  → 步骤4: 伤疤判定 — 角色死亡/重伤时判定伤疤类型与数值影响
+  → 步骤5: 惩罚计算 — 撤退/失败的资源惩罚与关系损失
+  → 步骤6: 世界状态更新 — 更新区域安全等级、势力关系、冒险印记
+  → 步骤7: 叙事生成 — LLM生成冒险结局叙事（可选，离线时用模板）
+  → 结算UI展示
 ```
 
-### 3.3 事件总线 (EventBus)
+#### 关键数据结构
 
-所有跨系统通信通过 `EventBus` 的C# event实现：
+- `SettlementResult`: 封装一次结算的完整结果（XP、战利品、伤疤、世界变更）
+- `ScarData`: 伤疤类型 + 数值影响（永久属性减益、外观变化、叙事标签）
+- `LootTable`: 按CR预算的战利品掉落表（JSON 配置驱动）
 
-```csharp
-public interface IEventBus
-{
-    // 通用事件发布/订阅
-    void Publish<T>(T eventData) where T : GameEvent;
-    void Subscribe<T>(Action<T> handler) where T : GameEvent;
-    void Unsubscribe<T>(Action<T> handler) where T : GameEvent;
-}
+#### 接口约定
 
-// 预定义游戏事件
-public abstract record GameEvent
-{
-    public DateTime Timestamp { get; init; } = DateTime.UtcNow;
-    public string SourceId { get; init; } = "";
-}
+- 通过 `IEventBus.CombatEnded` 事件触发结算流程，不直接引用 CombatEngine
+- XP 计算公式和战利品表定义在 JSON 配置中，不硬编码
+- 伤疤判定使用独立随机数种子，确保可复现
 
-public record CombatStarted(EncounterData Encounter) : GameEvent;
-public record CombatEnded(string Result, List<string> Casualties) : GameEvent;
-public record AdventureStarted(string BlueprintId) : GameEvent;
-public record AdventureCompleted(string Result, Dictionary<string, object> Changes) : GameEvent;
-public record TavernLevelUp(int NewLevel) : GameEvent;
-public record CharacterRecruited(CharacterData Character) : GameEvent;
-public record CharacterDied(string CharacterId, string Cause) : GameEvent;
-public record RelationshipChanged(string CharA, string CharB, int Delta) : GameEvent;
-public record WorldEventTriggered(string EventId) : GameEvent;
-public record LLMRequestStarted(string AgentId, string RequestId) : GameEvent;
-public record LLMResponseReceived(string AgentId, string RequestId, string Status) : GameEvent;
+---
 
-// 内部实现
-public class EventBus : IEventBus
-{
-    private readonly Dictionary<Type, Delegate> _handlers = new();
-    private readonly object _lock = new();
+## 5. API Boundaries
 
-    public void Publish<T>(T eventData) where T : GameEvent
-    {
-        lock (_lock)
-        {
-            if (_handlers.TryGetValue(typeof(T), out var handler))
-                ((Action<T>)handler)?.Invoke(eventData);
-        }
-    }
-
-    public void Subscribe<T>(Action<T> handler) where T : GameEvent
-    {
-        lock (_lock)
-        {
-            var type = typeof(T);
-            if (_handlers.TryGetValue(type, out var existing))
-                _handlers[type] = Delegate.Combine(existing, handler);
-            else
-                _handlers[type] = handler;
-        }
-    }
-
-    public void Unsubscribe<T>(Action<T> handler) where T : GameEvent
-    {
-        lock (_lock)
-        {
-            if (_handlers.TryGetValue(typeof(T), out var existing))
-                _handlers[typeof(T)] = Delegate.Remove(existing, handler);
-        }
-    }
-}
-```
-
-### 3.4 数据流关键路径
-
-**路径1: 玩家接任务 → 冒险开始**
+### 5.1 系统间接口规范
 
 ```
-玩家点击任务板 → TavernSystem.CreateAdventure(tier)
-  → await LLMGateway.CallAgent<ScreenwriterAgent, AdventureBlueprint>(input)
-    → 编剧Agent生成冒险蓝图
-    → JsonSchema.Net Schema验证 + 平衡Agent验证
-    → 返回 AdventureBlueprint
-  → await AdventureSystem.Instantiate(blueprint, partyState)
-    → 14步实例化算法 (纯C#，无LLM)
-    → 返回 AdventureInstance
-  → SceneManager.SwitchTo<AdventureScene>(instance)
-```
-
-**路径2: 战斗动作 → 玩家看到结果**
-
-```
-玩家选择"攻击" → CombatEngine.ExecuteAction(action)
-  → DiceRoller.RollAttack(...)      # 纯程序计算
-  → ActionResolver.Resolve(...)     # 纯程序计算
-  → CombatLog.Record(...)           # 记录日志
-  → EventBus.Publish(new AttackResolved(...))  # 事件驱动UI更新
-  → UI.Update()                     # 更新数值显示
-  → await LLMGateway.CallAgent<DMAgent, NarrativeText>(combatContext)  # 异步，不阻塞
-    → DM Agent生成叙事文本
-    → UI.AppendNarration(text)      # 追加到战斗日志
-```
-
-**路径3: 冒险结束 → 结算**
-
-```
-AdventureSystem.CheckCompletion() → 判定成功/失败
-  → SettlementSystem.CalculateRewards()   # 纯程序
-    → XP分配、战利品生成、世界状态变更
-  → SettlementSystem.CalculatePenalties()  # 纯程序
-    → 伤疤判定(预定义池)、资源消耗、关系变化
-  → await LLMGateway.CallAgent<DMAgent, NarrativeText>(settlementContext)  # 异步
-    → DM Agent生成结算叙事文本
-  → SceneManager.SwitchTo<SettlementScene>(result)
-```
-
-### 3.5 接口契约
-
-```
-系统间接口规范:
-───────────────
 1. 所有接口参数为 C# record 或 JsonElement
 2. 所有接口返回 record 或 void（通过 EventBus 传递结果）
-3. LLM相关接口使用 async Task<T> await LLMGateway.CallAgent()
+3. LLM相关接口使用 async Task<T> — await LLMGateway.CallAgent()
 4. 非LLM接口使用同步调用
-5. EventBus 事件数据包含 SourceId 和 Timestamp
+5. EventBus 事件数据使用 C# record（轻量、不可变、编译期类型安全）
 ```
+
+### 5.2 关键接口合同
+
+| 边界 | 接口 | 关键方法 | 调用方 |
+|------|------|---------|--------|
+| EventBus↔所有系统 | IEventBus | Subscribe/Publish/Unsubscribe | 全系统 |
+| ServiceLocator↔所有系统 | ServiceLocator(static) | Register/Get/FinalizeRegistration | 全系统 |
+| Combat↔Character | ICharacterCombatData | GetHP/GetAC/GetAbilityModifier/GetSavingThrowModifier | CombatEngine |
+| Combat↔Items | IWeaponData / IArmorData | GetDamageDice/GetDamageBonus/GetACBonus/GetEnchantments | CombatEngine |
+| Combat↔Conditions | IConditionTracker | Apply/Remove/GetActiveConditions/CheckImmunity | CombatEngine |
+| LLM↔冒险 | ILLMGateway.CallAgent | CallAgent<ScreenwriterAgent,AdventureBlueprint> | AdventureSystem |
+| LLM↔战斗叙事 | ILLMGateway.CallAgent | CallAgent<DMAgent,NarrativeText> | EventBus订阅→UI |
+| Tavern↔Character | ICharacterSystem | GetCharacter/SaveCharacter/LevelUp | TavernSystem |
+| Save↔Persistence | IDataPersistence | SaveAsync/LoadAsync/CreateSaveSlot | SaveSystem |
+| Tavern↔Items | IItemSystem | GetItem/EquipItem/UnequipItem/GetInventory | TavernSystem |
+| Adventure↔World | IWorldStateManager | GetRegionState/GetFactionRelation/GetContextForLLM | AdventureSystem |
+| UI↔Audio | IAudioManager | PlayBGM/StopBGM/PlaySFX/SetMasterVolume | UISystem |
+
+### 5.3 关键不变量
+
+- CombatEngine只通过 `ICharacterCombatData` 接口读取角色战斗数据，不直接引用 `CharacterSystem` 类
+- LLM输出必须通过Schema验证后才进入游戏系统（3次重试→降级模板）
+- EventBus事件使用C# record类型——轻量、不可变、编译期类型安全
+- 所有数值由程序层计算，LLM只生成叙事文本
+- 角色数据模型FROZEN字段不可删除、重命名、改变类型（ADR-0008）
+- 扩展操作仅允许新增（枚举值/可选字段），不修改已有定义
 
 ---
 
-## 4. 技术栈与工具
+## 6. Technology Stack & Project Structure
 
-### 4.1 核心技术栈
+### 6.1 核心技术栈
 
 | 层级 | 选型 | 版本 | 说明 |
 |------|------|:----:|------|
 | **游戏框架** | MonoGame | 3.8.5+ | MIT许可证，跨平台，C#/.NET原生 |
 | **语言** | C# | 12+ | .NET 8+，record类型、模式匹配 |
-| **场景/实体** | 自定义 ECS | — | Scene/Entity/Component/SceneComponent，GameRoot管理生命周期 |
-| **地图系统** | MonoGame.Extended | 6.0+ | Tiled/LDtk地图加载，正交/等距 |
-| **Roguelike工具** | GoRogue | 3.x | FOV视野、A*寻路、ArrayMap、MapGeneration |
-| **UI框架** | Myra | 最新 | 像素风UI，XML布局+数据绑定 |
-| **数据持久化** | sqlite-net | 最新 | 轻量ORM，SQLite原生绑定 |
+| **场景/实体** | 自定义 ECS | — | Scene/Entity/Component/SceneComponent，GameRoot管理生命周期（ADR-0001） |
+| **Roguelike工具** | GoRogue | **2.6.4** | FOV视野、A*寻路、ArrayMap — 版本锁定（ADR-0007） |
+| **扩展框架** | MonoGame.Extended | **6.0.0** | 扩展功能(含Tiled地图支持)、Content Pipeline | 
+| **UI框架** | Myra | 1.5.* | 像素风UI，XML布局+数据绑定 |
+| **数据持久化** | sqlite-net | 最新 | 轻量ORM，SQLite原生绑定（ADR-0005） |
 | **LLM集成** | HttpClient + System.Text.Json | .NET内置 | HTTP/JSON原生支持 |
 | **Schema验证** | JsonSchema.Net | 最新 | JSON Schema Draft 7+验证库 |
-| **字体渲染** | FontStashSharp | 最新 | 动态字体+简体中文支持 |
+| **字体渲染** | FontStashSharp.MonoGame | 1.5.* | 动态字体+简体中文支持 |
 | **内容管线** | MGCB (MonoGame Content Builder) | — | 纹理/音效/字体编译 |
-| **AI辅助开发** | monogame-mcp | — | MCP协议AI辅助开发MonoGame项目 |
 | **单元测试** | xUnit + FluentAssertions | 最新 | C#标准测试栈 |
-| **版本控制** | Git + GitHub | — | 纯文本.cs/.csproj，方便diff |
 
-### 4.2 NuGet包清单
+> ⚠️ **v3.0修正**：GoRogue版本从文档中的"3.x"统一锁定为2.6.4（ADR-0007）。MonoGame.Extended 6.0.0 已安装（含 Tiled 地图支持）。Myra/FontStashSharp 锁定为 1.5.* 稳定线。
 
-```xml
-<!-- TavernAndDestiny.csproj — NuGet依赖 -->
-<ItemGroup>
-  <!-- 游戏框架 -->
-  <PackageReference Include="MonoGame.Framework.DesktopGL" Version="3.8.5.*" />
-
-  <!-- 场景管理/ECS（已由自定义 ECS 替代，无需第三方框架） -->
-
-  <!-- 地图/Tiled支持 -->
-  <PackageReference Include="MonoGame.Extended" Version="6.0.*" />
-  <PackageReference Include="MonoGame.Extended.Content.Pipeline" Version="6.0.*" />
-  <PackageReference Include="MonoGame.Extended.Tiled" Version="6.0.*" />
-
-  <!-- Roguelike工具 -->
-  <PackageReference Include="GoRogue" Version="3.*" />
-
-  <!-- UI框架 -->
-  <PackageReference Include="Myra" Version="1.*" />
-
-  <!-- 数据持久化 -->
-  <PackageReference Include="sqlite-net-pcl" Version="1.9.*" />
-
-  <!-- JSON处理 -->
-  <PackageReference Include="JsonSchema.Net" Version="7.*" />
-
-  <!-- 字体渲染 -->
-  <PackageReference Include="FontStashSharp.MonoGame" Version="1.*" />
-
-  <!-- LLM集成（.NET内置，无需额外包） -->
-  <!-- System.Net.Http + System.Text.Json 已包含在.NET 8+ SDK中 -->
-</ItemGroup>
-
-<!-- 测试项目 -->
-<ItemGroup>
-  <PackageReference Include="xunit" Version="2.*" />
-  <PackageReference Include="FluentAssertions" Version="7.*" />
-  <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.*" />
-</ItemGroup>
-```
-
-### 4.3 工具链
-
-| 用途 | 工具 | 说明 |
-|------|------|------|
-| **像素美术** | Aseprite | 精灵绘制、逐帧动画、像素字体 |
-| **地图编辑** | Tiled | 基于Tile的地图编辑，Tiled格式 |
-| **音频** | Bosca Ceoil / LMMS | 芯片音乐、像素风音效 |
-| **项目管理** | GitHub Projects / Notion | 任务跟踪 |
-| **LLM服务** | OpenAI GPT-4o-mini (主力) | 备用: DeepSeek / 通义千问 / Ollama本地 |
-| **IDE** | JetBrains Rider / VS Code | C#开发 |
-| **AI开发辅助** | opencode + monogame-mcp | AI-first开发范式，MCP协议辅助 |
-
-### 4.4 项目结构
+### 6.2 项目结构
 
 ```
-TavernAndDestiny/
-├── src/
-│   ├── TavernAndDestiny.csproj
-│   ├── Program.cs                    # 入口: 创建Game1实例并Run()
-│   ├── Core/
-│   │   ├── Game1.cs                  # MonoGame主入口 (继承Game)
-│   │   ├── ServiceLocator.cs         # 服务定位器模式
-│   │   ├── EventBus.cs               # C#事件总线
-│   │   └── GameState.cs              # 全局状态枚举/上下文
-│   ├── Systems/
-│   │   ├── Combat/
-│   │   │   ├── CombatEngine.cs       # 战斗引擎主类
-│   │   │   ├── CombatFSM.cs          # 有限状态机
-│   │   │   ├── DiceRoller.cs         # 骰子工具
-│   │   │   ├── ActionResolver.cs     # 行动结算器
-│   │   │   ├── AISystem.cs           # AI行为系统
-│   │   │   ├── ConditionSystem.cs    # 条件追踪
-│   │   │   ├── InitiativeSystem.cs   # 先攻系统
-│   │   │   ├── CombatLog.cs          # 战斗日志
-│   │   │   ├── GoRogueMapManager.cs  # GoRogue集成
-│   │   │   └── TerrainInteract.cs    # 地形交互
-│   │   ├── Character/
-│   │   │   ├── CharacterSystem.cs    # 角色系统主类
-│   │   │   ├── CharacterData.cs      # 角色数据模型(record)
-│   │   │   ├── CharacterGenerator.cs # 角色生成管线
-│   │   │   ├── NumericalGenerator.cs # 数值层生成
-│   │   │   ├── LevelUpManager.cs     # 升级管理
-│   │   │   ├── RaceData.cs           # 种族数据
-│   │   │   ├── ClassData.cs          # 职业数据
-│   │   │   └── RelationshipSystem.cs # 关系系统
-│   │   ├── Tavern/
-│   │   │   ├── TavernSystem.cs       # 酒馆系统主类
-│   │   │   ├── TavernLevelManager.cs # 酒馆升级
-│   │   │   ├── RecruitmentManager.cs # 招募管理
-│   │   │   ├── ShopSystem.cs         # 商店系统
-│   │   │   ├── NPCScheduler.cs       # NPC调度
-│   │   │   ├── EventSystem.cs        # 酒馆事件
-│   │   │   └── RestSystem.cs         # 短休/长休
-│   │   ├── Adventure/
-│   │   │   ├── AdventureSystem.cs    # 冒险系统主类
-│   │   │   ├── BlueprintParser.cs    # 蓝图解析器
-│   │   │   ├── AdventureInstantiator.cs # 实例化引擎
-│   │   │   ├── NodeGraphGenerator.cs # 节点图生成
-│   │   │   ├── EncounterGenerator.cs # 遭遇生成器
-│   │   │   ├── LootGenerator.cs      # 战利品生成
-│   │   │   ├── SettlementSystem.cs   # 结算系统
-│   │   │   └── DungeonGenerator.cs   # GoRogue地牢生成
-│   │   ├── WorldState/
-│   │   │   ├── WorldStateManager.cs  # 世界状态管理器
-│   │   │   └── WorldStateData.cs     # 世界状态数据模型
-│   │   └── Items/
-│   │       ├── ItemSystem.cs         # 物品系统
-│   │       ├── ItemData.cs           # 物品数据模型
-│   │       └── EquipmentManager.cs   # 装备管理
-│   ├── Gateway/
-│   │   ├── LLMGateway.cs             # LLM网关主类
-│   │   ├── LLMAgent.cs               # Agent基类(abstract)
-│   │   ├── Agents/
-│   │   │   ├── ScreenwriterAgent.cs   # 编剧Agent
-│   │   │   ├── DMAgent.cs            # DM Agent
-│   │   │   ├── CopywriterAgent.cs     # 文案Agent
-│   │   │   └── BalancerAgent.cs       # 平衡Agent
-│   │   ├── Validation/
-│   │   │   └── SchemaValidator.cs     # JsonSchema.Net封装
-│   │   ├── Cache/
-│   │   │   └── CacheManager.cs        # SQLite语义缓存
-│   │   └── Fallback/
-│   │       ├── FallbackManager.cs     # 降级管理
-│   │       └── Templates/            # 离线模板(JSON)
-│   ├── Scenes/
-│   │   ├── MainMenuScene.cs          # 主菜单场景
-│   │   ├── TavernScene.cs            # 酒馆场景
-│   │   ├── AdventureScene.cs         # 冒险地图场景
-│   │   ├── CombatScene.cs            # 战斗场景
-│   │   ├── LoadingScene.cs           # 加载场景
-│   │   ├── SettlementScene.cs        # 结算场景
-│   │   └── DialogueScene.cs          # 对话场景
-│   ├── Entities/
-│   │   ├── CharacterEntity.cs        # 角色实体(自定义 Entity)
-│   │   ├── EnemyEntity.cs            # 敌人实体
-│   │   ├── ItemEntity.cs             # 物品实体
-│   │   └── NPCEntity.cs              # NPC实体
-│   ├── UI/
-│   │   ├── UIManager.cs              # UI管理器
-│   │   ├── PixelTheme.cs             # 像素风主题
-│   │   ├── Layouts/                  # Myra XML布局文件
-│   │   │   ├── TavernLayout.xml
-│   │   │   ├── CombatLayout.xml
-│   │   │   ├── CharacterPanel.xml
-│   │   │   └── DialoguePanel.xml
-│   │   └── Widgets/                  # 自定义UI组件
-│   │       ├── DiceWidget.cs
-│   │       ├── InitiativeBar.cs
-│   │       └── CombatLogWidget.cs
-│   └── Data/
-│       ├── Database/
-│       │   ├── DatabaseContext.cs     # sqlite-net DbContext
-│       │   └── Migrations/           # 数据库迁移
-│       ├── Templates/                 # JSON离线模板
-│       │   ├── adventures/            # 冒险模板
-│       │   ├── narratives/            # 叙事模板
-│       │   └── descriptions/          # 描述模板
-│       ├── Config/                    # 配置表(JSON)
-│       │   ├── races.json
-│       │   ├── classes.json
-│       │   ├── spells.json
-│       │   ├── monsters.json
-│       │   └── items.json
-│       └── Schemas/                   # JSON Schema定义
-│           ├── adventure_blueprint.schema.json
-│           ├── npc_dialogue.schema.json
-│           ├── narrative_text.schema.json
-│           ├── item_description.schema.json
-│           ├── balance_report.schema.json
-│           ├── character_narrative.schema.json
-│           └── settlement_result.schema.json
-├── tests/
-│   ├── TavernAndDestiny.Tests.csproj
-│   ├── Unit/
-│   │   ├── Combat/
-│   │   │   ├── DiceRollerTests.cs
-│   │   │   ├── ActionResolverTests.cs
-│   │   │   ├── CombatFSMTests.cs
-│   │   │   └── ConditionSystemTests.cs
-│   │   ├── Character/
-│   │   │   ├── CharacterGeneratorTests.cs
-│   │   │   ├── RaceDataTests.cs
-│   │   │   └── LevelUpTests.cs
-│   │   ├── Adventure/
-│   │   │   ├── BlueprintParserTests.cs
-│   │   │   ├── EncounterGeneratorTests.cs
-│   │   │   └── DungeonGeneratorTests.cs
-│   │   └── Gateway/
-│   │       ├── SchemaValidatorTests.cs
-│   │       └── CacheManagerTests.cs
-│   └── Integration/
-│       ├── CombatToCharacterTests.cs
-│       └── AdventureInstantiateTests.cs
-├── Content/
-│   ├── Sprites/
-│   │   ├── Characters/
-│   │   ├── Enemies/
-│   │   ├── Tilesets/
-│   │   └── UI/
-│   ├── Tilesets/                    # Tiled .tsx文件
-│   ├── Maps/                        # Tiled .tmx文件
-│   ├── Fonts/
-│   │   └── NotoSansCJKsc-Regular.ttf # FontStashSharp使用
-│   ├── Audio/
-│   │   ├── BGM/
-│   │   └── SFX/
-│   └── Content.mgcb                 # MGCB内容清单
-└── docs/
-    ├── GDD-v1.md
-    ├── technical/
-    │   ├── 01-engine-selection.md
-    │   ├── 02-overall-architecture.md
-    │   └── ...
-    └── subsystems/
-        ├── 01-character-system.md
-        ├── 02-llm-integration.md
-        ├── 04-combat-system.md
-        ├── 05-map-exploration.md
-        └── 06-adventure-generation.md
+src/DndGame/
+├── Core/                           # FOUNDATION层 (已实现)
+│   ├── ServiceLocator.cs           # 全局服务注册（126行）
+│   ├── EventBus.cs                 # 事件总线（136行）
+│   ├── GameRoot.cs                 # MonoGame主入口（200行）
+│   ├── Scene.cs                    # 场景基类（146行）
+│   ├── Entity.cs                   # 实体组合（158行）
+│   ├── Component.cs                # 实体组件（55行）
+│   ├── SceneComponent.cs           # 场景级组件（56行）
+│   └── GameStateManager.cs         # 场景状态管理
+├── Systems/                        # CORE + FEATURE层（待实现）
+│   ├── Combat/                     # 战斗引擎（ADR-0006蓝图）
+│   ├── Character/                  # 角色系统（ADR-0008冻结协议）
+│   ├── Items/                      # 物品装备系统
+│   ├── Tavern/                     # 酒馆系统
+│   ├── Adventure/                  # 冒险生成系统
+│   ├── WorldState/                 # 世界状态管理器
+│   └── Map/                        # 地图探索系统（GoRogue 2.6.4）
+├── Gateway/                        # LLM网关（ADR-0004蓝图）
+│   ├── LLMGateway.cs
+│   ├── Agents/                     # 编剧/DM/文案Agent
+│   ├── Validation/                 # Schema验证器
+│   ├── Cache/                      # 语义缓存
+│   └── Fallback/                   # 离线降级+模板
+├── Scenes/                         # 场景子类
+├── Entities/                       # 实体定义
+├── UI/                             # Myra面板+自定义Widget
+├── Data/                           # 数据层
+│   ├── Config/                     # JSON配置表（ADR-0005）
+│   ├── Schemas/                    # JSON Schema（7个）
+│   └── Database/                   # sqlite-net ORM
+└── Content/                        # MGCB资源
+    ├── Sprites/                    # 精灵图
+    ├── Fonts/                      # FontStashSharp字体
+    └── Audio/                      # BGM/SFX
+
+tests/DndGame.Tests/                # 测试
+└── Unit/                           # ServiceLocator(5) + EventBus(8) = 13测试
+
+Data/                               # 游戏数据目录
+├── config/                         # JSON配置（races/classes/spells/monsters/equipment）
+├── schemas/                        # JSON Schema（7个Agent输出约束）
+└── templates/                      # 离线降级模板（冒险/叙事/描述）
 ```
 
-### 4.5 JSON Schema 中心管理
+### 6.3 JSON Schema 中心管理
 
-所有Schema文件集中在 `Data/Schemas/` 目录，LLM Gateway在运行时通过 `JsonSchema.Net` 加载使用：
+Schema文件集中在 `Data/Schemas/`，LLM Gateway运行时通过 `JsonSchema.Net` 加载使用：
 
-```csharp
-public class SchemaValidator
-{
-    private readonly Dictionary<string, JsonSchema> _schemas = new();
+| Schema | Agent | 用途 |
+|--------|-------|------|
+| adventure_blueprint.schema.json | 编剧Agent | 冒险蓝图输出约束 |
+| narrative_text.schema.json | DM Agent | 实时叙事输出约束 |
+| npc_dialogue.schema.json | DM Agent | NPC对话输出约束 |
+| item_description.schema.json | 文案Agent | 物品描述输出约束 |
+| character_narrative.schema.json | 文案Agent | 角色叙事层约束 |
+| balance_report.schema.json | 蓝图验证 | 冒险难度验证 |
+| penalty_result.schema.json | DM Agent | 结算叙事约束 |
 
-    public void LoadFromDirectory(string schemaDir)
-    {
-        foreach (var file in Directory.GetFiles(schemaDir, "*.schema.json"))
-        {
-            var json = File.ReadAllText(file);
-            var schema = JsonSchema.FromText(json);
-            var name = Path.GetFileNameWithoutExtension(file);
-            _schemas[name] = schema;
-        }
-    }
-
-    public List<string> Validate(JsonNode data, JsonSchema schema)
-    {
-        var result = schema.Evaluate(data, new EvaluationOptions
-        {
-            OutputFormat = OutputFormat.List
-        });
-
-        return result.Errors?.Select(e => $"{e.Key}: {e.Value}").ToList() ?? new();
-    }
-
-    public JsonSchema GetSchema(string name) => _schemas[name];
-}
-```
-
-Schema文件清单：
-
-```
-Data/Schemas/
-├── adventure_blueprint.schema.json     # 编剧Agent输出
-├── npc_dialogue.schema.json            # DM Agent对话输出
-├── narrative_text.schema.json          # DM Agent叙事输出
-├── item_description.schema.json        # 文案Agent输出
-├── balance_report.schema.json          # 平衡Agent输出
-├── character_narrative.schema.json     # 角色叙事层
-└── settlement_result.schema.json       # 结算叙事输出
-```
-
-### 4.6 语言政策
+### 6.4 语言政策
 
 | 上下文 | 语言 | 示例 |
 |--------|------|------|
-| 面向玩家的叙事文本 | 简体中文 | "你推开酒馆的木门，一股温暖的炉火气息扑面而来..." |
-| UI界面文字 | 简体中文 | "招募"、"装备"、"法术"、"开始冒险" |
-| 内部技术标识符 | 英文PascalCase/camelCase | `CharacterId`, `adventureBlueprint`, `NodeType` |
-| JSON Schema字段名 | 英文snake_case | `plot_outline`, `interaction_tags`, `difficulty_profile` |
-| 枚举值 | 英文PascalCase | `Combat`, `Dialogue`, `Exploration` |
-| LLM Agent System Prompt | 中文 (要求输出中文叙事) | 见llm-integration.md §3.1.2 |
+| 面向玩家的叙事文本 | 简体中文 | "你推开酒馆的木门..." |
+| UI界面文字 | 简体中文 | "招募"、"装备"、"法术" |
+| 内部技术标识符 | 英文PascalCase/camelCase | CharacterId, adventureBlueprint |
+| JSON Schema字段名 | 英文snake_case | plot_outline, difficulty_profile |
+| 枚举值 | 英文PascalCase | Combat, Dialogue, Exploration |
+| LLM Agent System Prompt | 中文(要求输出中文叙事) | 见02-llm-integration.md |
+| XML文档注释(///) | 简体中文 | 所有public API |
 
 ---
 
-## 5. 开发路线图
+## 7. ADR Audit
 
-### 5.1 阶段总览
+### 7.1 ADR质量检查
+
+| ADR | Engine Compat | Version | GDD Linkage | 与本架构冲突 | Valid |
+|-----|:---:|:---:|:---:|------|:---:|
+| ADR-0000: MonoGame选型 | ✅ | ✅ 3.8.5+ | ✅ 8项需求 | 无 | ✅ |
+| ADR-0001: 自定义ECS | ✅ | ✅ | ✅ 6项需求 | 无（Scene归入FOUNDATION与ADR一致） | ✅ |
+| ADR-0002: ServiceLocator | ✅ | ✅ | ✅ 4项需求 | 无 | ✅ |
+| ADR-0003: EventBus | ✅ | ✅ | ✅ 6项需求 | 无 | ✅ |
+| ADR-0004: LLM皮肤层 | ✅ | ✅ | ✅ 7项需求 | ⚠️ 层级定位从"独立LLM层"→CORE层服务（原则不变） | ✅ |
+| ADR-0005: 数据驱动设计 | ✅ | ✅ | ✅ 6项需求 | 无 | ✅ |
+| ADR-0006: CombatEngine架构 | ✅ | ✅ | ✅ 10项需求 | 无 | ✅ |
+| ADR-0007: GoRogue版本锁定 | ✅ | ✅ 2.6.4 | ✅ 5项需求 | 无 | ✅ |
+| ADR-0008: 角色数据冻结 | ✅ | ✅ | ✅ 10项需求 | 无 | ✅ |
+
+**结果**：9/9 ADR全部Valid。唯一调整是ADR-0004的层级定位描述更新——从"LLM集成层（独立层）"调整为"CORE层服务"。**核心决策（LLM=皮肤层）不变。**
+
+### 7.2 TR 注册表（技术需求基线）
+
+从 12份 GDD + 7份 Quick Spec + 1份核心GDD 中提取的完整技术需求基线，共计 **1,211 条 TR**（1,149基础 + 34 failgrowth补读 + 28 combat补读）。每条 TR 的详细描述见对应 GDD/Quick Spec 原文，此处以索引表形式记录编号范围、数量、域分布和 ADR 覆盖映射。
+
+#### 7.2.1 GDD 子系统 TR
+
+| 来源 | Slug | 编号范围 | 数量 | 架构层 | 主要域 | ADR覆盖 |
+|------|------|----------|:----:|--------|--------|---------|
+| 01-角色系统 | `character` | 001~136 | 136 | CORE | Core(68), Data(48), Cross(14), Perf(4) | ADR-0008(数据冻结+契约), ADR-0003(EventBus) |
+| 02-LLM集成 | `llm` | 001~079 | 79 | CORE+FEATURE | Network(29), Core(30), Data(10), Perf(10) | ADR-0004(皮肤层), ADR-0005(数据驱动) |
+| 03-物品装备 | `items` | 001~071 | 71 | FEATURE-L2 | Data(35), Core(30), UI(3), Perf(3) | ADR-0005(数据驱动), ADR-0008(条件追踪) |
+| 04-战斗系统 | `combat` | 001~114 | 114 | FEATURE-L2 | Core(72), Data(22), UI(8), Network(4), Cross(4), Perf(4) | ADR-0006(FSM+数据驱动), ADR-0007(GoRogue) — 补读+28: Edge(6∈Core)+Retreat(4∈Core)+Boss(2∈Core)+Balance(3∈Perf)+Tunable(10∈Data)+Mock(1∈Perf)+v2AC(12∈Core) |
+| 05-地图探索 | `map` | 001~172 | 172 | FEATURE-L3 | Core(60), Data(50), UI(40), Perf(22) | ADR-0007(GoRogue 2.6.4), ADR-0001(ECS) |
+| 06-冒险生成 | `advgen` | 001~084 | 84 | FEATURE-L3 | Core(40), Data(30), Network(10), Perf(4) | ADR-0004(L1蓝图), 本文档(L2/L3实例化) ⚠️ |
+| 07-酒馆系统 | `tavern` | 001~093 | 93 | FEATURE-L1+L2 | Core(30), Data(35), UI(15), Network(8), Perf(5) | 无专门ADR（本文档§4.4） ⚠️ |
+| 08-失败成长 | `failgrowth` | 001~124 | 124 | FEATURE-L1+L3 | Core(40), Data(30), Network(10), Save(8), UI(5), Perf(2), Economy(6), Settlement(6), Cross-system(3) | 无专门ADR（本文档§4.4） ⚠️ |
+| 09-UI/UX | `ui` | 001~134 | 134 | PRESENTATION | UI(95), Perf(25), Phys(14) | 无专门ADR（本文档§4.8） |
+| 10-条件效果 | `condition` | 001~120 | 120 | CORE | Core(65), Data(40), UI(15) | ADR-0008(Extension-Only枚举), ADR-0003(EventBus) |
+| 11-敌人AI | `ai` | 001~099 | 99 | FEATURE-L2 | Core(65), Data(30), Perf(4) | ADR-0006(行为映射), ADR-0008(条件查询) |
+
+#### 7.2.2 Quick Spec TR
+
+| 来源 | Slug | 编号范围 | 数量 | 架构层 | 主要域 | ADR覆盖 |
+|------|------|----------|:----:|--------|--------|---------|
+| 骰子系统 | `dice-system` | 001~026 | 26 | FOUNDATION | Core(20), Data(5), Testing(1) | ADR-0006(DiceRoller纯函数) |
+| 场景管理 | `scene-management` | 001~013 | 13 | FOUNDATION | Core(9), UI(3), Data(1) | ADR-0001(自定义ECS), ADR-0002(初始化顺序) |
+| 对话系统 | `dialogue-system` | 001~023 | 23 | FEATURE-L1 | Core(14), UI(5), Cross(3), Perf(1) | ADR-0003(EventBus), ADR-0004(LLM皮肤层) |
+| 设置选项 | `settings-options` | 001~008 | 8 | FOUNDATION | Core(2), UI(5), Save(1) | 无需专门ADR（独立Meta系统） |
+| 音频系统 | `audio-system` | 001~011 | 11 | FOUNDATION | Audio(10), Perf(1) | 无需专门ADR（简单IAudioManager） |
+| 存档系统 | `save-system` | 001~010 | 10 | FOUNDATION | Save-Load(10) | ADR-0002(初始化顺序), ADR-0005(数据驱动) |
+| 世界状态 | `world-state` | 001~044 | 44 | CORE | Data(20), Core(12), Cross(8), Testing(4) | ADR-0003(EventBus), ADR-0005(数据驱动) |
+
+#### 7.2.3 核心GDD TR
+
+| 来源 | Slug | 编号范围 | 数量 | 架构层 | 主要域 | ADR覆盖 |
+|------|------|----------|:----:|--------|--------|---------|
+| GDD-v1 | `gdd-v1` | 001~148 | 148 | 全层 | Core(54), Data(16), UI(14), Network(16), Perf(3), Save(3) | 全部ADR（综合验证源） |
+
+**注**：gdd-v1 的约40条 TR 与子系统 GDD 重复——核心GDD作为权威验证源，子系统GDD作为实现规格。两端通过 TR 编号交叉引用，不删除重复项。详细交叉引用如下：
+
+| gdd-v1 TR | 子系统 TR | 重复主题 | 关系 |
+|-----------|----------|----------|------|
+| TR-gdd-v1-003 | TR-llm-001~030 | LLM=皮肤层原则 | gdd-v1定义原则，llm细化实现 |
+| TR-gdd-v1-005 | TR-combat-039, TR-failgrowth-037 | 死亡双轨制(MAX_FAILURES=1) | gdd-v1定义规则，combat/failgrowth各实现部分 |
+| TR-gdd-v1-006 | TR-character-084~096 | 关系值[-5,+5]+战斗触发 | gdd-v1概要，character细化矩阵 |
+| TR-gdd-v1-024~034 | TR-advgen-001~084 | 三层冒险生成管线 | gdd-v1定义管线架构，advgen细化14步实例化 |
+| TR-gdd-v1-037 | TR-combat-039, TR-failgrowth-037 | 死亡双轨(3轮无治/3失败) | 同规则两端引用 |
+| TR-gdd-v1-038 | TR-condition-032~038 | 疲乏3级制 | gdd-v1定义偏离，condition细化各级效果 |
+| TR-gdd-v1-039 | TR-character-016~017 | 槽位负重(10+STR×2) | 同公式两端引用 |
+| TR-gdd-v1-040 | TR-combat-007~009 | 先攻每轮重掷 | gdd-v1定义偏离，combat细化FSM |
+| TR-gdd-v1-042 | TR-combat-020 | 暴击取最大值 | gdd-v1定义偏离，combat细化伤害管线 |
+| TR-gdd-v1-046 | TR-character-039~051 | 3MVP职业完整特性 | gdd-v1定义MVP范围，character细化每级特性 |
+| TR-gdd-v1-047 | TR-map-107~138 | 交互标签枚举 | gdd-v1定义标签集，map细化每个标签数据模型 |
+| TR-gdd-v1-048 | TR-condition-001~027 | 8种MVP条件 | gdd-v1定义MVP范围，condition细化完整生命周期 |
+| TR-gdd-v1-049~055 | TR-failgrowth-001~090 | 结算+伤疤+世界状态 | gdd-v1概要，failgrowth细化全部数据 |
+| TR-gdd-v1-057~063 | TR-llm-044~079 | Gateway+Schema+缓存 | gdd-v1概要，llm细化6子组件 |
+| TR-gdd-v1-064~069 | TR-ui-001~134 | 像素规格+FF6风格 | gdd-v1定义视觉风格，ui细化每个像素参数 |
+| TR-gdd-v1-082~089 | TR-combat-017~086 | 6条战斗AC | gdd-v1验收标准，combat细化全部86条TR |
+| TR-gdd-v1-123~129 | TR-character-018~028, TR-combat-007~042 | 6个核心公式 | gdd-v1公式汇总，子系统各自展开实现细节 |
+
+#### 7.2.4 总量统计
+
+| 统计维度 | 数值 |
+|----------|------|
+| TR 总数 | **1,211** (1,149基础 + 34 failgrowth补读 + 28 combat补读) |
+| 来源数 | 19 (11 GDD + 7 QS + 1 核心GDD) |
+| ADR 完全覆盖的 TR | ~870 (72%) |
+| 架构文档覆盖的 TR | ~200 (17%) — 无专门ADR但本文档§4有详细设计 |
+| 待补充ADR的 TR | ~141 (11%) — 冒险实例化/酒馆/结算三个Feature层系统 |
+
+**按架构层分布：**
 
 ```
-Phase 1 (MVP)           Phase 2              Phase 3              Phase 4
-"第一次冒险"            "酒馆活起来"          "长路漫漫"             "命运之书"
-12-16周                12周                  12周                  12周
+PRESENTATION ─── ui(134) ──────────────────────── 134 (11%)
+FEATURE-L3 ── map(172)+advgen(84)+tavern(93)+failgrowth(124) ── 473 (39%)
+FEATURE-L2 ── combat(114)+items(71)+ai(99) ────────── 284 (23%)
+FEATURE-L1 ── dialogue(23)+tavern(基础)+failgrowth(结算) ─── ~50 (4%)
+CORE ──── character(136)+condition(120)+world-state(44)+llm(79) ── 379 (31%)
+FOUNDATION ── dice(26)+scene(13)+save(10)+audio(11)+settings(8) ── 68 (6%)
 ```
 
-### 5.2 Phase 1 — MVP ("第一次冒险")
+> **注**：gdd-v1(148)横跨全部层级，已在各层分布中计入重叠部分而非独立叠加。百分比以去重后的有效TR估算。
+
+**按域分类：**
+
+| 域 | TR 估计数 | 占比 |
+|----|----------|------|
+| Core | ~570 | 47% |
+| Data | ~210 | 17% |
+| UI | ~200 | 17% |
+| Network | ~80 | 7% |
+| Performance | ~40 | 3.3% |
+| Save-Load | ~30 | 2.5% |
+| Cross-system | ~20 | 1.7% |
+| Audio | ~10 | 0.8% |
+
+#### 7.2.5 关键TR→ADR 映射（原17项保留）
+
+| TR ID | 需求 | ADR覆盖 | 状态 |
+|-------|------|---------|------|
+| TR-character-001 | CharacterData record模型 | ADR-0008 | ✅ |
+| TR-character-002 | 六维属性+公式FROZEN | ADR-0008 | ✅ |
+| TR-combat-001 | 14状态FSM | ADR-0006 | ✅ |
+| TR-combat-002 | DND 5e偏离(6项) | ADR-0006 | ✅ |
+| TR-combat-003 | DiceRoller纯函数 | ADR-0006 | ✅ |
+| TR-combat-004 | 14种条件追踪 | ADR-0006+ADR-0008 | ✅ |
+| TR-llm-001 | LLM=皮肤层原则 | ADR-0004 | ✅ |
+| TR-llm-002 | Schema验证管线 | ADR-0004 | ✅ |
+| TR-llm-003 | 离线降级路径 | ADR-0004 | ✅ |
+| TR-map-001 | GoRogue FOV/A*(2.6.4) | ADR-0007 | ✅ |
+| TR-data-001 | JSON+SQLite双层数据 | ADR-0005 | ✅ |
+| TR-ecs-001 | 自定义Scene/Entity/Component | ADR-0001 | ✅ |
+| TR-service-001 | ServiceLocator初始化顺序 | ADR-0002 | ✅ |
+| TR-event-001 | EventBus跨系统解耦 | ADR-0003 | ✅ |
+| TR-adventure-001 | 三层生成管线 | ADR-0004(L1) + 本文档(L2/L3) | ⚠️ 部分覆盖 |
+| TR-tavern-001 | 酒馆元游戏循环 | 无专门ADR（本文档§4.4） | ⚠️ 依赖架构文档 |
+| TR-settlement-001 | 失败/惩罚/伤疤 | 无专门ADR（本文档§4.4） | ⚠️ 依赖架构文档 |
+
+**覆盖率**：1,211 条 TR 中 ~870 条(72%)完全由 ADR 覆盖，~200 条(17%)由本文档详细设计覆盖，~141 条(11%)待在对应 Epic 开始前补充专门 ADR。
+
+---
+
+## 8. Required ADRs
+
+### 必须在编码开始前创建（Foundation & Core决策）
+
+**无** — 所有Foundation和Core层决策已有ADR覆盖（ADR-0000~0008）。
+
+### 应在对应系统构建前创建（Feature层决策）
+
+| 优先级 | ADR标题 | 覆盖TR | 何时创建 |
+|:------:|---------|--------|---------|
+| HIGH | 冒险实例化14步算法架构 | TR-adventure-001(L2/L3) | Adventure Epic开始前 |
+| HIGH | 酒馆系统服务架构 | TR-tavern-001 | Tavern Epic开始前 |
+| MEDIUM | 结算/伤疤/传承管线架构 | TR-settlement-001 | Settlement Epic开始前 |
+
+### 可以推迟到实现时创建
+
+| 优先级 | ADR标题 | 说明 |
+|:------:|---------|------|
+| LOW | UI系统架构(Myra集成) | 本文档§4.8已充分描述，无需专门ADR |
+| LOW | 音频系统架构 | 简单IAudioManager服务，无需专门ADR |
+| LOW | 存档系统架构 | 依赖IDataPersistence接口，无需专门ADR |
+| LOW | 设置选项系统 | 独立系统，无复杂架构决策 |
+
+---
+
+## 9. Architecture Principles
+
+从游戏概念、GDD和9个ADR提炼的5条架构原则：
+
+### 原则1：LLM = 皮肤层，程序 = 骨骼层
+
+LLM只生成叙事文本（对话、描述、氛围）。程序控制所有数值、规则判定和分支逻辑。这一原则确保游戏核心循环可离线运行，LLM是增量体验而非必需品。（来源：ADR-0004、GDD §1.2）
+
+**违反信号**：任何让LLM直接决定数值（伤害、DC、战利品）的代码或设计。
+
+### 原则2：数据驱动设计
+
+游戏数值（种族属性、职业进阶、装备参数、法术伤害、怪物模板）存储在JSON配置和SQLite中，不硬编码在C#中。C#代码只负责规则逻辑和公式计算。（来源：ADR-0005）
+
+**违反信号**：代码中出现魔法数字（`= 10`）而非从配置加载或使用命名常量。
+
+### 原则3：接口优于实现，系统通过IEventBus解耦
+
+系统间禁止直接引用对方的具体类。所有跨系统通信通过IEventBus。新订阅者无需修改发布者代码。（来源：ADR-0003）
+
+**违反信号**：CombatEngine中出现 `using CharacterSystem` 直接引用。
+
+### 原则4：角色数据契约冻结
+
+CharacterData核心字段FROZEN——不可删除、重命名、改变类型。Extension-Only规则允许新增（枚举值/可选字段）。任何Frozen字段的破坏性变更必须走 `/propagate-design-change` 6步审批流程。（来源：ADR-0008）
+
+**违反信号**：PR中直接删除或重命名Frozen字段而未走变更流程。
+
+### 原则5：编译器即验证器
+
+`dotnet build`作为AI代码质量第一道防线。TreatWarningsAsErrors=true。编译器在2-5秒内捕获语法错误、类型错误、空引用风险、switch穷尽性。所有代码必须通过 `dotnet build` + `dotnet test` 才能提交。（来源：ADR-0000、03-vibe-coding-conventions.md）
+
+**违反信号**：代码提交时 `dotnet build` 有错误或警告；使用 `#pragma warning disable`。
+
+---
+
+## 10. Open Questions
+
+| # | 问题 | 影响层级 | 何时必须解决 | 备注 |
+|---|------|---------|-------------|------|
+| 1 | Game1.cs死代码处理 | FOUNDATION | Sprint 1开始前 | Program.cs创建GameRoot，Game1.cs从未实例化——删除或标记为废弃 |
+| 2 | ServiceRegistration补全4个服务注册+FinalizeRegistration() | FOUNDATION | Sprint 1开始前 | 当前只注册3个服务(IEventBus/IGameStateManager/IFontService) |
+| 3 | BalancerAgent旧引用清理 | CORE | 本文档已完成 | 已从GDD v1.2移除，architecture.md v3.0已清理 |
+| 4 | GoRogue版本文档统一 | FOUNDATION | 本文档已完成 | 已统一锁定为2.6.4(ADR-0007) |
+| 5 | MonoGame.Extended.Tiled 使用策略 | FOUNDATION | Map Epic开始前 | MonoGame.Extended 6.0.0 已安装（含 Tiled 支持），需决策地图格式（Tiled vs GoRogue 程序化生成 vs 混合） |
+| 6 | Myra 像素风 UI 原型验证 | PRESENTATION | Sprint 1开始前 | Myra/FontStashSharp 已锁定 1.5.*，需验证 134 TR UI 规格可实现性（FF6 风格） |
+| 7 | ICharacterCombatData接口契约细化 | CORE | Combat Epic开始前 | CombatEngine如何读取角色战斗数据的具体接口定义 |
+| 8 | 冒险实例化14步算法是否需要专门ADR | FEATURE | Adventure Epic开始前 | 建议创建（见§8 Required ADRs） |
+| 9 | .editorconfig和Directory.Build.props缺失 | FOUNDATION | Sprint 1开始前 | 代码风格统一和构建属性集中管理 |
+| 10 | ConditionTracker从CombatEngine子模块升级为独立系统(ADR-0006讨论) | CORE | Condition Epic开始前 | ADR-0006保留为内部类，实际开发时可独立 |
+
+### 10.1 签批条件追踪（TD + LP 双轨签批，2026-05-11）
+
+**TD-ARCHITECTURE: APPROVED** — 4 项条件已全部修复：
+
+| # | 条件 | 严重度 | 状态 |
+|---|------|:------:|:----:|
+| TD-1 | §5.2 补全缺失接口合同（IItemSystem/IWorldStateManager/IAudioManager） | ⚠️ | ✅ 已修复 |
+| TD-2 | §2.3 SettlementSystem Consumes 列修正：`CombatEngine`→`IEventBus(CombatEnded)` | ⚠️ | ✅ 已修复 |
+| TD-3 | §4 补充 SettlementSystem 详细设计子章节（§4.9） | ⚠️ | ✅ 已修复 |
+| TD-4 | Myra/FontStashSharp 版本锁定后更新 §6.1 表格 | ⚠️ | ✅ 已修复 |
+
+**LP-FEASIBILITY: FEASIBLE** — 7 项阻塞已全部解决（+ 3 项补充 ADR 不变）：
+
+| # | 阻塞项 | 严重度 | 状态 |
+|---|--------|:------:|:----:|
+| LP-1 | IDataPersistence 代码接口远简于架构定义（缺少 LoadConfig\<T\>/泛型 CRUD/完整性校验） | 🔴 | ✅ 已修复 — §2.1 行已对齐代码接口 |
+| LP-2 | MonoGame.Extended 6.0.0 在 csproj 但架构未记录 — 决策并文档化或移除 | 🔴 | ✅ 已修复 — §6.1 已添加 MonoGame.Extended 行，§10 #5 已更新 |
+| LP-3 | Myra 版本锁定（浮动 `1.*` → `1.5.*`） | 🟠 | ✅ 已修复 — csproj 锁定 1.5.* |
+| LP-4 | Myra 素风 UI 原型验证（134 TR/零 ADR/FF6风格未经验证） | 🟠 | 🔲 Sprint 1 启动前验证 |
+| LP-5 | CharacterData.cs CORE→FEATURE 反向依赖（`using DndGame.Systems.Combat`） | 🟠 | ✅ 已修复 — Condition 枚举移至 Core/ConditionType.cs |
+| LP-6 | Entity 构造函数改为 `internal`（强制 scene.CreateEntity 约定） | 🟡 | ✅ 已修复 — Entity.cs 构造函数已改为 internal |
+| LP-7 | 开放问题 #5 修正（MonoGame.Extended.Tiled "未安装"→已包含在 Extended 6.0.0） | 🟡 | ✅ 已修复 — §10 #5 已更新 |
+
+**补充 ADR（各 Epic 前创建，非整体阻塞）**：
+
+| 优先级 | ADR | 覆盖 TR | 启动条件 |
+|:------:|-----|:------:|---------|
+| HIGH | 冒险实例化 14 步算法架构 | TR-adventure-001~084 | Adventure Epic 前 |
+| HIGH | 酒馆系统服务架构 | TR-tavern-001~093 | Tavern Epic 前 |
+| MEDIUM | 结算/伤疤/传承管线架构 | TR-settlement-001~124 | Settlement Epic 前 |
+
+---
+
+## Appendix: Development Roadmap
+
+### Phase 1 — MVP ("第一次冒险")
 
 **目标**: 玩家能招募4人队伍 → 完成短冒险 → 体验核心循环
 
 | 优先级 | 模块 | C#实现内容 | 估算 |
 |:------:|------|-----------|:----:|
-| P0 | 战斗引擎 | CombatFSM, DiceRoller, ActionResolver, AISystem, GoRogue FOV/寻路 | 6-8周 |
+| P0 | 战斗引擎 | CombatFSM, DiceRoller, ActionResolver, EnemyAI, GoRogue FOV/寻路 | 6-8周 |
 | P0 | 角色系统 | CharacterData(record), NumericalGenerator, 3职业×3种族, Lv1-5 | 3-4周 |
 | P0 | 酒馆UI | Myra XML布局, 招募板(9预设角色), 任务板, 基础装备管理 | 2-3周 |
-| P0 | 地图/探索 | AdventureScene (自定义 Scene 子类), GoRogue地牢生成, 节点导航, 3房间模板 | 3-4周 |
-| P0 | LLM Gateway | HttpClient + System.Text.Json基础Gateway, DMAgent(战斗叙述), 文案Agent | 2-3周 |
+| P0 | 地图/探索 | AdventureScene, GoRogue地牢生成, 节点导航, 3房间模板 | 3-4周 |
+| P0 | LLM Gateway | HttpClient + System.Text.Json基础Gateway, DM Agent, 文案Agent | 2-3周 |
 | P0 | 美术资源 | 基础Tileset, 3角色精灵, 3敌人精灵, MGCB内容管线 | 持续 |
 | P1 | 短冒险模板 | 5个主题的离线模板JSON | 1-2周 |
 | P1 | 结算系统 | SettlementSystem, XP/战利品计算 | 2周 |
 | P2 | 音效 | 骰子音效, 基础战斗音效 | 1周 |
 
-**MVP不包含**:
-- 酒馆升级、铁匠/炼金/图书馆/神殿
-- 角色关系系统、伤疤系统
-- 中冒险、长冒险、分支地图
-- 编剧Agent、平衡Agent（MVP用模板代替）
-- BGM、环境音效
+**MVP不包含**: 酒馆升级、角色关系系统、中/长冒险、编剧Agent（MVP用模板代替）、BGM
 
-### 5.3 Phase 2 — "酒馆活起来"
-
-| 模块 | C#实现内容 |
-|------|-----------|
-| 酒馆系统 | TavernLevelManager, ShopSystem, 铁匠/炼金 |
-| 角色系统 | RelationshipSystem, ScarSystem, 6种关系类型 |
-| 冒险系统 | 编剧Agent上线、平衡Agent上线、短冒险×10 |
-| LLM | ScreenwriterAgent + BalancerAgent完整管线、缓存策略优化 |
-| 酒馆事件 | EventSystem, 6种事件, 机械结果+LLM叙事 |
-| NPC调度 | NPCScheduler, 固定NPC+轮换NPC |
-| 美术 | 酒馆区域视觉、更多敌人精灵 |
-| 商店系统 | 杂货商、铁匠铺、炼金店库存+定价 |
-
-### 5.4 Phase 3 — "长路漫漫"
-
-| 模块 | C#实现内容 |
-|------|-----------|
-| 冒险系统 | 中冒险解锁、分支地图、场景交互标签(8种)、GoRogue高级地图 |
-| 角色系统 | 知识传承、30+专长、新职业(牧师/游侠/圣武士) |
-| 战斗 | 更多敌人类型、Boss多阶段、地形交互(Flammable/Pushable等) |
-| 酒馆 | 图书馆(Lv5)、训练系统、神殿(Lv7) |
-| 结算 | ScarSystem深化、中惩罚系统、WorldState变更 |
-| LLM | 中冒险蓝图生成、上下文优化 |
-| 音效 | BGM基础、环境音 |
-
-### 5.5 Phase 4 — "命运之书"
-
-| 模块 | C#实现内容 |
-|------|-----------|
-| 冒险系统 | 长冒险、多结局系统、三幕结构 |
-| 角色系统 | 全12职业、英雄传记(LLM叙事)、传承深化 |
-| 酒馆 | 英雄之壁完整、Prestige系统、全区域 |
-| 结算 | 灾难性惩罚、全灭处理、世界剧变 |
-| LLM | 长冒险蓝图、Agent协作优化 |
-| 美术 | 完整酒馆全景、Boss动画、特效 |
-| 世界演进 | 完整世界状态网络、势力系统、区域状态 |
-
-### 5.6 测试策略
+### 测试策略
 
 ```
-测试分层:
-─────────
-
-Unit Tests (单元测试) — 覆盖所有纯程序逻辑
-  使用: xUnit + FluentAssertions
-  · DiceRoller: 骰子概率分布、优势/劣势
-  · CombatEngine: 攻击检定、伤害计算、状态应用
-  · CharacterSystem: 属性计算、升级公式、法术位
+Unit Tests (xUnit + FluentAssertions):
+  · DiceRoller: 骰子概率分布、优势/劣势、暴击取最大值
+  · CombatEngine: FSM状态转换、攻击检定、伤害计算、条件应用
+  · CharacterSystem: 属性计算、升级公式、法术位、关系值
   · AdventureInstantiator: 蓝图解析、实例化算法、遭遇生成
-  · SettlementSystem: XP计算、战利品生成
+  · SettlementSystem: XP计算、战利品生成、伤疤判定
   · GoRogue集成: FOV计算、寻路验证、地图生成
   全部可离线运行，不依赖LLM
 
-Integration Tests (集成测试) — 系统间交互
+Integration Tests:
   · 角色→战斗: 角色属性正确传入战斗引擎
   · 战斗→结算: 战斗胜负正确触发结算
   · 冒险→地图: 蓝图正确实例化为地图节点
   · LLM→冒险: Schema验证通过后正确解析
-  · GoRogue→战斗: FOV/寻路正确集成到战斗系统
-
-E2E Tests (端到端) — 完整游戏流程
-  · 酒馆→招募→任务→冒险→战斗→结算→返回
-  · LLM全流程: 请求→生成→验证→展示
 
 手动测试:
-  · LLM叙事质量评估 (不能自动化)
+  · LLM叙事质量评估（不能自动化）
   · 战斗平衡性测试
   · 像素美术视觉验收
 ```
 
 ---
 
-## 6. 风险与应对
+## Risk & Mitigation
 
-### 6.1 技术风险
+### 技术风险
 
-| 风险 | 概率 | 影响 | 应对措施 |
-|:----:|:----:|:----:|----------|
-| **LLM API成本超出预算** | 中 | 高 | Token预算控制、缓存策略、离线模板降级、选择性调用 |
-| **LLM输出不符合Schema** | 中 | 中 | 严格重试机制(最多3次)、增强prompt(附带失败原因)、兜底默认值 |
-| **MonoGame无可视化编辑器** | 高 | 中 | 代码创建所有对象(代码即场景)，配合Tiled编辑地图，monogame-mcp辅助调试 |
-| **MonoGame社区较小** | 中 | 中 | 核心框架稳定，GoRogue/Myra 有独立维护；ECS 自行维护 |
-| **C#热重载限制** | 中 | 中 | 开发使用dotnet watch + MonoGame的HotReload，核心循环提前充分测试 |
-| **GoRogue 版本兼容** | 低 | 中 | 锁定稳定版本，上游更新前在CI中验证兼容性 |
-| **中文像素字体现成选择少** | 低 | 低 | 使用Noto Sans CJK (FontStashSharp动态加载)或自建位图字体 |
-| **Myra UI对回合制回合复杂度** | 中 | 中 | Myra Grid/StackPanel构建复杂布局，自定义Widget处理战斗菜单 |
+| 风险 | 概率 | 影响 | 应对 |
+|:----:|:----:|:----:|------|
+| LLM API成本超预算 | 中 | 高 | Token预算控制、缓存策略、离线模板降级、选择性调用 |
+| LLM输出不符合Schema | 中 | 中 | 3次重试机制、增强prompt(附带失败原因)、兜底默认值 |
+| MonoGame无可视化编辑器 | 确定 | 中 | 代码创建所有对象(代码即场景)，Tiled编辑地图，monogame-mcp辅助 |
+| DND 5e规则复杂度超预期 | 中 | 高 | MVP精简规则(3职业+基本规则)、渐进式完善 |
+| GoRogue版本兼容 | 低 | 中 | 已锁定2.6.4(ADR-0007)，封装层隔离变更面 |
 
-### 6.2 MonoGame特有风险
-
-| 风险 | 概率 | 影响 | 应对措施 |
-|:----:|:----:|:----:|----------|
-| **无场景编辑器，全部代码手写** | 确定 | 中 | 建立Entity创建工厂和Scene初始化模板，使用monogame-mcp辅助生成样板代码 |
-| **内容管线(MGCB)配置复杂** | 中 | 中 | 建立标准化的Content.mgcb模板，自动化构建脚本 |
-| **无内置TileMap/寻路系统** | 确定 | 中 | 自定义 ECS 提供基础场景管理支持，GoRogue覆盖寻路/FOV/地图生成 |
-| **无内置UI系统** | 确定 | 中 | Myra UI成熟稳定，XML布局可热修改 |
-| **.NET版本和依赖冲突** | 低 | 中 | 使用global.json锁定.NET 8 SDK，NuGet版本锁定文件 |
-
-### 6.3 产品风险
-
-| 风险 | 概率 | 影响 | 应对措施 |
-|:----:|:----:|:----:|----------|
-| **LLM叙事质量不稳定** | 高 | 中 | Schema约束+System Prompt迭代、人工评估集、缓存聚合评分高的输出 |
-| **DND 5e规则复杂度超预期** | 中 | 高 | MVP阶段精简规则(只保留3职业+基本规则)、渐进式规则完善 |
-| **Roguelike节奏与DND规则冲突** | 中 | 中 | 通过GDD§5.3-5.4的Roguelike调整参数解决，IP阶段验证 |
-| **玩家对抗性叙事疲劳** | 中 | 低 | 缓存+多样化模板、控制短冒险中LLM调用频率 |
-| **美术风格不统一** | 中 | 中 | 购买统一风格的Tileset素材包，AI生成后手动调整 |
-
-### 6.4 项目风险
-
-| 风险 | 概率 | 影响 | 应对措施 |
-|:----:|:----:|:----:|----------|
-| **1-3人团队开发周期过长** | 高 | 高 | MVP严格范围控制、优先保证核心循环可玩、非核心功能推迟 |
-| **LLM API提供商变更/涨价** | 中 | 高 | Gateway层抽象多模型支持、降级链包含不同供应商 |
-| **第三方NuGet包停维护** | 低 | 中 | 核心层自建抽象(尤其LLM Gateway和SQLite)，不直接依赖特定包API |
-| **git合并冲突(C#/XML文件)** | 低 | 低 | 纯文本.cs/.csproj/.xml可diff，模块化分文件管理 |
-
-### 6.5 架构层面的安全护栏
+### 架构安全护栏
 
 ```
-架构安全护栏:
-─────────────
-
 ① LLM输出隔离:
-   LLM响应经JsonSchema.Net验证 → 业务逻辑验证 → 后处理
-   任何不符合Schema的字段被拒绝/使用默认值
-   数值字段(CR/伤害/DC)由程序计算或验证，不接受LLM提供的数值
+   LLM响应 → JsonSchema.Net验证 → 业务逻辑验证 → 后处理
+   不符合Schema的字段被拒绝/使用默认值
 
 ② 离线降级保障:
    内置50+冒险模板、100+叙事模板、物品/角色描述模板
    LLM完全不可用时，游戏核心循环不受影响
-   降级链: 主模型 → 备选模型 → 缓存 → 模板
 
 ③ 编译器即验证器:
-   dotnet build 作为AI代码质量第一道防线
-   所有C#代码在提交前必须通过dotnet build无错误
-   CI pipeline: dotnet build → dotnet test → 手动验收测试
+   dotnet build → dotnet test → 代码审查 → 合并
+   TreatWarningsAsErrors=true，禁止#pragma warning disable
 
 ④ 服务降级:
    LLM调用超时 → 不阻塞主线程 → 返回默认叙事文本
    战斗引擎完全离线运行，LLM只负责事后叙事渲染
-   Token预算是软限制（超限降级模型等级，不拒绝服务）
 
 ⑤ 数据安全:
    本地SQLite存档 + JSON备份
    存档文件独立于游戏目录
-   LLM请求日志不包含敏感信息（不上传角色数据原文到外部服务）
 ```
-
-### 6.6 备选方案
-
-| 场景 | 备选方案 |
-|------|----------|
-| MonoGame 暴露出严重缺陷 | FNA (MonoGame兼容替代品) 或 Stride Engine (迁移成本高) |
-| 角色系统复杂度失控 | 从全DND 5e规则退化为简化版（保留核心6维+HP+AC） |
-| LLM成本过高 | 全面切换到本地模型(Ollama+DeepSeek)或纯模板驱动 |
-| 团队无法完成MVP | 缩小范围：仅战斗引擎+酒馆基本交互，取消LLM集成 |
-| 自定义 ECS 需升级或重构 | 独立维护ECS层，或迁移到MonoGame.Extended的ECS |
 
 ---
 
-> **文档版本**: v2.0 (MonoGame迁移版)
-> **创建日期**: 2026-05-05
-> **前置文档**: 01-engine-selection.md, GDD-v1.md, 各子系统设计文档
-> **下一阶段**: 确认本文档后进入Phase 1 MVP开发，从战斗引擎和角色系统开始
+> **文档版本**: v3.0（重构版）
+> **创建日期**: 2026-05-05 (v1.0) → 2026-05-06 (v2.0 MonoGame迁移版) → 2026-05-11 (v3.0 重构版)
+> **前置文档**: docs/architecture/adr-0000~0008, design/gdd/systems-index.md
+> **下一阶段**: Technical Director签批 → Lead Programmer可行性评审 → Sprint 1 MVP开发

@@ -1,14 +1,8 @@
+using DndGame.Core;
+
 namespace DndGame.Systems.Combat;
 
-/// <summary>
-/// DND 5e 的 14 种基础状态条件。
-/// </summary>
-public enum Condition
-{
-    Blinded, Charmed, Deafened, Frightened, Grappled,
-    Incapacitated, Invisible, Paralyzed, Petrified, Poisoned,
-    Prone, Restrained, Stunned, Unconscious
-}
+// Condition 枚举已移至 Core/ConditionType.cs（CORE 层共享类型）
 
 /// <summary>
 /// 条件实例，记录条件类型、来源、剩余持续时间。

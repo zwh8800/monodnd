@@ -13,44 +13,537 @@
 #   - When a requirement is split or replaced: set status: superseded-by with
 #     the new TR-ID(s).
 #
-# WRITTEN BY: /architecture-review (appends new entries, never overwrites)
+# WRITTEN BY: /create-architecture (initial) → /architecture-review (appends)
 # READ BY:    /create-stories (embed IDs in stories)
 #             /story-done (look up current requirement text at review time)
 #             /story-readiness (validate TR-ID exists and is active)
 #
 # ID FORMAT: TR-[system-slug]-[NNN]
-#   system-slug = short slug matching the GDD system name
-#   NNN = three-digit zero-padded sequence per system, starting at 001
-#
 # STATUS VALUES: active | deprecated | superseded-by: TR-[system]-NNN
-
-version: 1
-last_updated: ""
-
-requirements: []
-
-# --- EXAMPLE ENTRIES (remove when first real entries are added) ---
 #
-# - id: TR-combat-001
-#   system: combat
-#   gdd: design/gdd/04-combat-system.md
-#   requirement: "Player takes damage from enemies based on attack power minus defence"
-#   created: 2026-03-10
-#   revised: ""
-#   status: active
-#
-# - id: TR-combat-002
-#   system: combat
-#   gdd: design/gdd/04-combat-system.md
-#   requirement: "Combo window timing is 0.4 seconds between hits"
-#   created: 2026-03-10
-#   revised: "2026-04-01"
-#   status: active
-#
-# - id: TR-combat-003
-#   system: combat
-#   gdd: design/gdd/04-combat-system.md
-#   requirement: "Old damage formula using raw stats"
-#   created: 2026-03-10
-#   revised: ""
-#   status: superseded-by: TR-combat-001
+# TOTAL: 1,211 TR (1,149基础 + 34 failgrowth补读 + 28 combat补读)
+# SOURCE: 19 documents (11 GDD subsystems + 7 Quick Specs + 1 核心GDD)
+
+version: 3
+last_updated: "2026-05-11"
+total_tr_count: 1211
+
+requirements:
+
+  # ============================================================
+  # 01-角色系统 (character) — 136 TR — CORE层
+  # Source: design/gdd/01-character-system.md
+  # ============================================================
+  - id: TR-character-001
+    system: character
+    gdd: "design/gdd/01-character-system.md"
+    requirement: "CharacterData record模型 (ADR-0008 FROZEN)"
+    domain: Core
+    created: "2026-05-11"
+    status: active
+
+  - id: TR-character-002
+    system: character
+    gdd: "design/gdd/01-character-system.md"
+    requirement: "六维属性+公式FROZEN (STR/DEX/CON/INT/WIS/CHA)"
+    domain: Core
+    created: "2026-05-11"
+    status: active
+
+  - id: TR-character-003~136
+    system: character
+    gdd: "design/gdd/01-character-system.md"
+    requirement: "角色系统完整TR范围 (属性/职业/种族/关系/叙事/装备/升级)"
+    domain: Core+Data+Cross+Perf
+    count: 134
+    created: "2026-05-11"
+    status: active
+
+  # ============================================================
+  # 02-LLM集成 (llm) — 79 TR — CORE+FEATURE层
+  # Source: design/gdd/02-llm-integration.md
+  # ============================================================
+  - id: TR-llm-001
+    system: llm
+    gdd: "design/gdd/02-llm-integration.md"
+    requirement: "LLM=皮肤层原则 (ADR-0004)"
+    domain: Network
+    created: "2026-05-11"
+    status: active
+
+  - id: TR-llm-002
+    system: llm
+    gdd: "design/gdd/02-llm-integration.md"
+    requirement: "Schema验证管线 (JsonSchema.Net)"
+    domain: Network
+    created: "2026-05-11"
+    status: active
+
+  - id: TR-llm-003
+    system: llm
+    gdd: "design/gdd/02-llm-integration.md"
+    requirement: "离线降级路径 (模板+缓存)"
+    domain: Network
+    created: "2026-05-11"
+    status: active
+
+  - id: TR-llm-004~079
+    system: llm
+    gdd: "design/gdd/02-llm-integration.md"
+    requirement: "LLM集成完整TR范围 (Agent调度/Schema/缓存/降级/预算)"
+    domain: Network+Core+Data+Perf
+    count: 76
+    created: "2026-05-11"
+    status: active
+
+  # ============================================================
+  # 03-物品装备 (items) — 71 TR — FEATURE-L2层
+  # Source: design/gdd/03-items-equipment.md
+  # ============================================================
+  - id: TR-items-001~071
+    system: items
+    gdd: "design/gdd/03-items-equipment.md"
+    requirement: "物品装备完整TR范围 (装备槽/AC公式/附魔/经济/消耗品)"
+    domain: Data+Core+UI+Perf
+    count: 71
+    created: "2026-05-11"
+    status: active
+
+  # ============================================================
+  # 04-战斗系统 (combat) — 114 TR — FEATURE-L2层
+  # Source: design/gdd/04-combat-system.md
+  # 包含补读+28: TR-combat-087~114 (边缘/撤退/Boss/平衡/可调/mock/v2AC)
+  # ============================================================
+  - id: TR-combat-001
+    system: combat
+    gdd: "design/gdd/04-combat-system.md"
+    requirement: "14状态FSM (ADR-0006)"
+    domain: Core
+    created: "2026-05-11"
+    status: active
+
+  - id: TR-combat-002
+    system: combat
+    gdd: "design/gdd/04-combat-system.md"
+    requirement: "DND 5e偏离(6项) (ADR-0006)"
+    domain: Core
+    created: "2026-05-11"
+    status: active
+
+  - id: TR-combat-003
+    system: combat
+    gdd: "design/gdd/04-combat-system.md"
+    requirement: "DiceRoller纯函数 (ADR-0006)"
+    domain: Core
+    created: "2026-05-11"
+    status: active
+
+  - id: TR-combat-004
+    system: combat
+    gdd: "design/gdd/04-combat-system.md"
+    requirement: "14种条件追踪 (ADR-0006+ADR-0008)"
+    domain: Core
+    created: "2026-05-11"
+    status: active
+
+  - id: TR-combat-005~086
+    system: combat
+    gdd: "design/gdd/04-combat-system.md"
+    requirement: "战斗系统基础TR范围 (FSM/行动经济/攻击管线/伤害/法术/豁免/GoRogue/日志)"
+    domain: Core+Data+UI+Network+Cross+Perf
+    count: 82
+    created: "2026-05-11"
+    status: active
+
+  - id: TR-combat-087~092
+    system: combat
+    gdd: "design/gdd/04-combat-system.md"
+    requirement: "补读: 边缘行为规则 (6条 — 全目标不可达/胜利庆祝/条件覆盖等)"
+    domain: Core
+    count: 6
+    created: "2026-05-11"
+    status: active
+
+  - id: TR-combat-093~096
+    system: combat
+    gdd: "design/gdd/04-combat-system.md"
+    requirement: "补读: 撤退子系统 (4条 — 阈值判定/Disengage执行/路径阻挡/死战不退)"
+    domain: Core
+    count: 4
+    created: "2026-05-11"
+    status: active
+
+  - id: TR-combat-097~098
+    system: combat
+    gdd: "design/gdd/04-combat-system.md"
+    requirement: "补读: Boss阶段转换 (2条 — 阶段切换/权重向量重载)"
+    domain: Core
+    count: 2
+    created: "2026-05-11"
+    status: active
+
+  - id: TR-combat-099~101
+    system: combat
+    gdd: "design/gdd/04-combat-system.md"
+    requirement: "补读: 平衡验证 (3条 — DPR分布/CR预算/回合时长)"
+    domain: Perf
+    count: 3
+    created: "2026-05-11"
+    status: active
+
+  - id: TR-combat-102~111
+    system: combat
+    gdd: "design/gdd/04-combat-system.md"
+    requirement: "补读: 可调参数 (10条 — FSM阈值/行动经济/伤害公式系数/条件参数等)"
+    domain: Data
+    count: 10
+    created: "2026-05-11"
+    status: active
+
+  - id: TR-combat-112
+    system: combat
+    gdd: "design/gdd/04-combat-system.md"
+    requirement: "补读: DiceRoller mock接口 (测试基础设施)"
+    domain: Perf
+    created: "2026-05-11"
+    status: active
+
+  - id: TR-combat-113~114
+    system: combat
+    gdd: "design/gdd/04-combat-system.md"
+    requirement: "补读: v2 AC (12条→编号113~114为末尾两段) — 见§7.2.3交叉引用TR-gdd-v1-082~089"
+    domain: Core
+    count: 2
+    created: "2026-05-11"
+    note: "v2 AC共12条(TR-combat-087~114中含)，编号113~114标记为末段"
+    status: active
+
+  # ============================================================
+  # 05-地图探索 (map) — 172 TR — FEATURE-L3层
+  # Source: design/gdd/05-map-exploration.md
+  # ============================================================
+  - id: TR-map-001
+    system: map
+    gdd: "design/gdd/05-map-exploration.md"
+    requirement: "GoRogue FOV/A* (2.6.4) (ADR-0007)"
+    domain: Core
+    created: "2026-05-11"
+    status: active
+
+  - id: TR-map-002~172
+    system: map
+    gdd: "design/gdd/05-map-exploration.md"
+    requirement: "地图探索完整TR范围 (FOV/寻路/地牢生成/节点图/迷雾/交互标签)"
+    domain: Core+Data+UI+Perf
+    count: 171
+    created: "2026-05-11"
+    status: active
+
+  # ============================================================
+  # 06-冒险生成 (advgen) — 84 TR — FEATURE-L3层
+  # Source: design/gdd/06-adventure-generation.md
+  # ============================================================
+  - id: TR-advgen-001~084
+    system: advgen
+    gdd: "design/gdd/06-adventure-generation.md"
+    requirement: "冒险生成完整TR范围 (蓝图解析/14步实例化/遭遇/地牢/节点图)"
+    domain: Core+Data+Network+Perf
+    count: 84
+    created: "2026-05-11"
+    status: active
+
+  # ============================================================
+  # 07-酒馆系统 (tavern) — 93 TR — FEATURE-L1+L2层
+  # Source: design/gdd/07-tavern-system.md
+  # ============================================================
+  - id: TR-tavern-001~093
+    system: tavern
+    gdd: "design/gdd/07-tavern-system.md"
+    requirement: "酒馆系统完整TR范围 (升级/招募/商店/NPC调度/事件/休息)"
+    domain: Core+Data+UI+Network+Perf
+    count: 93
+    created: "2026-05-11"
+    status: active
+
+  # ============================================================
+  # 08-失败成长 (failgrowth) — 124 TR — FEATURE-L1+L3层
+  # Source: design/gdd/08-failure-growth.md
+  # 包含补读+34: TR-failgrowth-091~124 (边缘/平衡/Schema/通胀控制)
+  # ============================================================
+  - id: TR-failgrowth-001~090
+    system: failgrowth
+    gdd: "design/gdd/08-failure-growth.md"
+    requirement: "失败成长基础TR范围 (XP/战利品/伤疤/惩罚/世界状态变更/关系)"
+    domain: Core+Data+Network+Save+UI+Perf
+    count: 90
+    created: "2026-05-11"
+    status: active
+
+  - id: TR-failgrowth-091~124
+    system: failgrowth
+    gdd: "design/gdd/08-failure-growth.md"
+    requirement: "补读: 边缘行为+平衡验证+Schema约束+通胀控制 (34条)"
+    domain: Core+Data+Perf+Economy+Settlement+Cross
+    count: 34
+    created: "2026-05-11"
+    status: active
+
+  # ============================================================
+  # 09-UI/UX (ui) — 134 TR — PRESENTATION层
+  # Source: design/gdd/09-ui-ux-design.md
+  # ============================================================
+  - id: TR-ui-001~134
+    system: ui
+    gdd: "design/gdd/09-ui-ux-design.md"
+    requirement: "UI/UX完整TR范围 (像素规格/FF6风格/Myra布局/战斗日志双轨/面板)"
+    domain: UI+Perf+Phys
+    count: 134
+    created: "2026-05-11"
+    status: active
+
+  # ============================================================
+  # 10-条件效果 (condition) — 120 TR — CORE层
+  # Source: design/gdd/10-condition-effects.md
+  # ============================================================
+  - id: TR-condition-001~120
+    system: condition
+    gdd: "design/gdd/10-condition-effects.md"
+    requirement: "条件效果完整TR范围 (14条件类型/持续时间/堆叠/互斥/Extension-Only)"
+    domain: Core+Data+UI
+    count: 120
+    created: "2026-05-11"
+    status: active
+
+  # ============================================================
+  # 11-敌人AI (ai) — 99 TR — FEATURE-L2层
+  # Source: design/gdd/11-enemy-ai-system.md (补充04-combat §11)
+  # ============================================================
+  - id: TR-ai-001~099
+    system: ai
+    gdd: "design/gdd/11-enemy-ai-system.md"
+    requirement: "敌人AI完整TR范围 (行为类型/权重向量/协作逻辑/难度/打分公式/位置选择/撤退)"
+    domain: Core+Data+Perf
+    count: 99
+    created: "2026-05-11"
+    status: active
+
+  # ============================================================
+  # Quick Spec: 骰子系统 (dice-system) — 26 TR — FOUNDATION层
+  # ============================================================
+  - id: TR-dice-system-001~026
+    system: dice-system
+    gdd: "design/quick-specs/dice-system.md"
+    requirement: "骰子系统完整TR范围 (d20检定/优势劣势/暴击取最大/表达式解析)"
+    domain: Core+Data+Testing
+    count: 26
+    created: "2026-05-11"
+    status: active
+
+  # ============================================================
+  # Quick Spec: 场景管理 (scene-management) — 13 TR — FOUNDATION层
+  # ============================================================
+  - id: TR-scene-management-001~013
+    system: scene-management
+    gdd: "design/quick-specs/scene-management.md"
+    requirement: "场景管理完整TR范围 (Scene/Entity/Component/切换/预加载)"
+    domain: Core+UI+Data
+    count: 13
+    created: "2026-05-11"
+    status: active
+
+  # ============================================================
+  # Quick Spec: 对话系统 (dialogue-system) — 23 TR — FEATURE-L1层
+  # ============================================================
+  - id: TR-dialogue-system-001~023
+    system: dialogue-system
+    gdd: "design/quick-specs/dialogue-system.md"
+    requirement: "对话系统完整TR范围 (UI框架/选项追踪/上下文/LLM集成)"
+    domain: Core+UI+Cross+Perf
+    count: 23
+    created: "2026-05-11"
+    status: active
+
+  # ============================================================
+  # Quick Spec: 设置选项 (settings-options) — 8 TR — FOUNDATION层
+  # ============================================================
+  - id: TR-settings-options-001~008
+    system: settings-options
+    gdd: "design/quick-specs/settings-options.md"
+    requirement: "设置选项完整TR范围 (音量/键位/语言/无障碍)"
+    domain: Core+UI+Save
+    count: 8
+    created: "2026-05-11"
+    status: active
+
+  # ============================================================
+  # Quick Spec: 音频系统 (audio-system) — 11 TR — FOUNDATION层
+  # ============================================================
+  - id: TR-audio-system-001~011
+    system: audio-system
+    gdd: "design/quick-specs/audio-system.md"
+    requirement: "音频系统完整TR范围 (BGM/SFX/音量/渐变)"
+    domain: Audio+Perf
+    count: 11
+    created: "2026-05-11"
+    status: active
+
+  # ============================================================
+  # Quick Spec: 存档系统 (save-system) — 10 TR — FOUNDATION层
+  # ============================================================
+  - id: TR-save-system-001~010
+    system: save-system
+    gdd: "design/quick-specs/save-system.md"
+    requirement: "存档系统完整TR范围 (序列化/完整性校验/槽位管理)"
+    domain: Save-Load
+    count: 10
+    created: "2026-05-11"
+    status: active
+
+  # ============================================================
+  # Quick Spec: 世界状态 (world-state) — 44 TR — CORE层
+  # ============================================================
+  - id: TR-world-state-001~044
+    system: world-state
+    gdd: "design/quick-specs/world-state.md"
+    requirement: "世界状态完整TR范围 (区域安全/势力友好/世界事件/冒险印记)"
+    domain: Data+Core+Cross+Testing
+    count: 44
+    created: "2026-05-11"
+    status: active
+
+  # ============================================================
+  # 核心GDD (gdd-v1) — 148 TR — 全层横跨
+  # Source: design/gdd/GDD-v1.md
+  # 注: 约40条与子系统GDD重复，见architecture.md §7.2.3交叉引用表
+  # ============================================================
+  - id: TR-gdd-v1-001~148
+    system: gdd-v1
+    gdd: "design/gdd/GDD-v1.md"
+    requirement: "核心GDD完整TR范围 (设计支柱/核心循环/偏离规则/验收标准/公式汇总)"
+    domain: Core+Data+UI+Network+Perf+Save
+    count: 148
+    created: "2026-05-11"
+    status: active
+    note: "约40条与子系统TR重复 — 核心GDD为权威验证源，子系统为实现规格"
+
+  # ============================================================
+  # 交叉引用标记 (gdd-v1 ↔ 子系统重复TR)
+  # 详细映射见 architecture.md §7.2.3
+  # ============================================================
+  cross_references:
+    - gdd_v1: TR-gdd-v1-003
+      subsystem: TR-llm-001~030
+      topic: "LLM=皮肤层原则"
+      relation: "gdd-v1定义原则，llm细化实现"
+
+    - gdd_v1: TR-gdd-v1-005
+      subsystem: "TR-combat-039, TR-failgrowth-037"
+      topic: "死亡双轨制(MAX_FAILURES=1)"
+      relation: "gdd-v1定义规则，combat/failgrowth各实现部分"
+
+    - gdd_v1: TR-gdd-v1-006
+      subsystem: TR-character-084~096
+      topic: "关系值[-5,+5]+战斗触发"
+      relation: "gdd-v1概要，character细化矩阵"
+
+    - gdd_v1: TR-gdd-v1-024~034
+      subsystem: TR-advgen-001~084
+      topic: "三层冒险生成管线"
+      relation: "gdd-v1定义管线架构，advgen细化14步实例化"
+
+    - gdd_v1: TR-gdd-v1-037
+      subsystem: "TR-combat-039, TR-failgrowth-037"
+      topic: "死亡双轨(3轮无治/3失败)"
+      relation: "同规则两端引用"
+
+    - gdd_v1: TR-gdd-v1-038
+      subsystem: TR-condition-032~038
+      topic: "疲乏3级制"
+      relation: "gdd-v1定义偏离，condition细化各级效果"
+
+    - gdd_v1: TR-gdd-v1-039
+      subsystem: TR-character-016~017
+      topic: "槽位负重(10+STR×2)"
+      relation: "同公式两端引用"
+
+    - gdd_v1: TR-gdd-v1-040
+      subsystem: TR-combat-007~009
+      topic: "先攻每轮重掷"
+      relation: "gdd-v1定义偏离，combat细化FSM"
+
+    - gdd_v1: TR-gdd-v1-042
+      subsystem: TR-combat-020
+      topic: "暴击取最大值"
+      relation: "gdd-v1定义偏离，combat细化伤害管线"
+
+    - gdd_v1: TR-gdd-v1-046
+      subsystem: TR-character-039~051
+      topic: "3MVP职业完整特性"
+      relation: "gdd-v1定义MVP范围，character细化每级特性"
+
+    - gdd_v1: TR-gdd-v1-047
+      subsystem: TR-map-107~138
+      topic: "交互标签枚举"
+      relation: "gdd-v1定义标签集，map细化每个标签数据模型"
+
+    - gdd_v1: TR-gdd-v1-048
+      subsystem: TR-condition-001~027
+      topic: "8种MVP条件"
+      relation: "gdd-v1定义MVP范围，condition细化完整生命周期"
+
+    - gdd_v1: TR-gdd-v1-049~055
+      subsystem: TR-failgrowth-001~090
+      topic: "结算+伤疤+世界状态"
+      relation: "gdd-v1概要，failgrowth细化全部数据"
+
+    - gdd_v1: TR-gdd-v1-057~063
+      subsystem: TR-llm-044~079
+      topic: "Gateway+Schema+缓存"
+      relation: "gdd-v1概要，llm细化6子组件"
+
+    - gdd_v1: TR-gdd-v1-064~069
+      subsystem: TR-ui-001~134
+      topic: "像素规格+FF6风格"
+      relation: "gdd-v1定义视觉风格，ui细化每个像素参数"
+
+    - gdd_v1: TR-gdd-v1-082~089
+      subsystem: TR-combat-017~086
+      topic: "6条战斗AC"
+      relation: "gdd-v1验收标准，combat细化全部86条TR(现114含补读)"
+
+  # ============================================================
+  # 统计摘要 (与 architecture.md §7.2.4 同步)
+  # ============================================================
+  statistics:
+    total_tr: 1211
+    by_source:
+      character: 136
+      llm: 79
+      items: 71
+      combat: 114
+      map: 172
+      advgen: 84
+      tavern: 93
+      failgrowth: 124
+      ui: 134
+      condition: 120
+      ai: 99
+      dice-system: 26
+      scene-management: 13
+      dialogue-system: 23
+      settings-options: 8
+      audio-system: 11
+      save-system: 10
+      world-state: 44
+      gdd-v1: 148
+    by_layer:
+      PRESENTATION: 134
+      FEATURE_L3: 473
+      FEATURE_L2: 284
+      FEATURE_L1: 50
+      CORE: 379
+      FOUNDATION: 68
+    adr_coverage:
+      fully_covered: 870
+      architecture_doc_covered: 200
+      pending_adr: 141

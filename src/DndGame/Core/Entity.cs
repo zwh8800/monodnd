@@ -48,7 +48,7 @@ public class Entity
     /// </summary>
     /// <param name="name">实体的名称标识符。</param>
     /// <param name="scene">实体所属的场景。</param>
-    public Entity(string name, Scene scene)
+    internal Entity(string name, Scene scene)
     {
         Name = name;
         Scene = scene;

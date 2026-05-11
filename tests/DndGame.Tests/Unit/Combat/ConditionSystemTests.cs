@@ -1,5 +1,6 @@
 using Xunit;
 using FluentAssertions;
+using DndGame.Core;
 using DndGame.Systems.Combat;
 
 namespace DndGame.Tests.Unit.Combat;
