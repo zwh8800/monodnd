@@ -10,7 +10,7 @@ Accepted
 
 | Field | Value |
 |-------|-------|
-| **Engine** | MonoGame 3.8.5+ |
+| **Engine** | MonoGame 3.8.x stable（当前 3.8.4.1） |
 | **Domain** | Data — 角色数据模型是 11 个下游系统的共享契约；冻结后可安全并行开发 |
 | **Knowledge Risk** | LOW — 角色数据模型基于 DND 5e SRD（六属性、HP/AC/法术位），规则高度固化；LLM 训练数据充分覆盖 |
 | **References Consulted** | `design/gdd/01-character-system.md`（角色完整 Schema §2.1、种族/职业定义 §2.2-2.3、衍生值公式 §2.1.2）、`src/DndGame/Systems/Character/CharacterData.cs`（当前实现）、`src/DndGame/Systems/Character/CharacterEnums.cs`（当前枚举）、`src/DndGame/Systems/Character/CharacterGenerator.cs`（生成器实现） |

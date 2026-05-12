@@ -6,7 +6,7 @@
 |-------|-------|
 | **版本** | v3.0（重构版，按 `/create-architecture` 10章节模板） |
 | **Last Updated** | 2026-05-11 |
-| **引擎** | MonoGame 3.8.5+ (C# 12 / .NET 8) |
+| **引擎** | MonoGame 3.8.x stable（当前 3.8.4.1） (C# 12 / .NET 8) |
 | **场景框架** | 自定义轻量 ECS (Scene/Entity/Component/SceneComponent) — ADR-0001 |
 | **规则基线** | DND 5e SRD（经Roguelike调整，6项偏离见 §4.2.6） |
 | **GDDs Covered** | GDD-v1, 01-character, 02-llm, 03-items, 04-combat, 05-map, 06-adventure, 07-tavern, 08-failure, 09-ui, 10-condition, 11-enemy-ai |
@@ -24,7 +24,7 @@
 
 ## Engine Knowledge Gap Summary
 
-引擎：MonoGame 3.8.5+ / C# 12 / .NET 8
+引擎：MonoGame 3.8.x stable（当前 3.8.4.1） / C# 12 / .NET 8
 
 LLM 训练覆盖版本：MonoGame API 自 XNA 时代（2006）以来高度稳定，LLM 训练数据充分覆盖。
 

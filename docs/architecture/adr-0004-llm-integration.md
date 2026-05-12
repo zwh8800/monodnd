@@ -10,7 +10,7 @@ Accepted
 
 | Field | Value |
 |-------|-------|
-| **Engine** | MonoGame 3.8.5+ |
+| **Engine** | MonoGame 3.8.x stable（当前 3.8.4.1） |
 | **Domain** | Core（跨系统架构原则，影响 LLM Gateway 及所有子系统） |
 | **Knowledge Risk** | LOW — LLM 集成基于 .NET 标准库 `HttpClient` + `System.Text.Json`，无引擎级 API 依赖 |
 | **References Consulted** | `design/gdd/GDD-v1.md`、`docs/technical/02-overall-architecture.md` §1.1-1.2、`design/gdd/02-llm-integration.md`（4213 行完整设计）、`design/gdd/06-adventure-generation.md` |

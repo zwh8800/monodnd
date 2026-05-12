@@ -10,7 +10,7 @@ Accepted
 
 | Field | Value |
 |-------|-------|
-| **Engine** | MonoGame 3.8.5+ |
+| **Engine** | MonoGame 3.8.x stable（当前 3.8.4.1） |
 | **Domain** | Core（数据架构原则，影响所有子系统的数值管理和持久化） |
 | **Knowledge Risk** | LOW — 基于 .NET 标准库 `System.Text.Json` + `sqlite-net` NuGet 包 |
 | **References Consulted** | `docs/technical/02-overall-architecture.md` §1.1（⑤数据驱动设计）、§1.4（DataPersistence 服务）；`design/gdd/01-character-system.md`、`design/gdd/03-items-equipment.md`；`design/gdd/GDD-v1.md` |

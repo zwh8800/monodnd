@@ -10,7 +10,7 @@ Accepted
 
 | Field | Value |
 |-------|-------|
-| **Engine** | MonoGame 3.8.5+ |
+| **Engine** | MonoGame 3.8.x stable（当前 3.8.4.1） |
 | **Domain** | Core（系统间解耦通信基础架构） |
 | **Knowledge Risk** | LOW — 纯 C# 实现，基于 `Delegate.Combine`/`Delegate.Remove`，无外部 API |
 | **References Consulted** | `src/DndGame/Core/EventBus.cs`（136 行）；`docs/technical/02-overall-architecture.md` §1.2、§1.4；`design/gdd/02-llm-integration.md`、`design/gdd/04-combat-system.md` |

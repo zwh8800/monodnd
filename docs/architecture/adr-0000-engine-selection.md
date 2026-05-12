@@ -1,4 +1,4 @@
-# ADR-0000：游戏框架与编程语言选型 — MonoGame 3.8.5+ / C# 12 / .NET 8
+# ADR-0000：游戏框架与编程语言选型 — MonoGame 3.8.x / C# 12 / .NET 8
 
 ## Status
 Accepted
@@ -10,7 +10,7 @@ Accepted
 
 | Field | Value |
 |-------|-------|
-| **Engine** | MonoGame 3.8.5+ |
+| **Engine** | MonoGame 3.8.x stable（当前 3.8.4.1，目标 3.8.5 正式发布后跟进） |
 | **Domain** | Core（根决策，影响所有系统） |
 | **Knowledge Risk** | LOW — MonoGame API 自 XNA 时代（2006）以来高度稳定，LLM 训练数据充分覆盖 |
 | **References Consulted** | `docs/technical/01-engine-selection.md`（完整对比分析，9 引擎评估）、`docs/technical/02-overall-architecture.md`、`design/gdd/GDD-v1.md` |
@@ -51,7 +51,7 @@ Accepted
 
 ## Decision
 
-**选择 MonoGame 3.8.5+ 作为游戏框架，C# 12 作为编程语言，.NET 8 作为运行时**。
+**选择 MonoGame 3.8.x 稳定版（当前 3.8.4.1，目标跟进 3.8.5 正式发布）作为游戏框架，C# 12 作为编程语言，.NET 8 作为运行时**。
 
 ### 架构示意图
 
@@ -188,9 +188,9 @@ public interface IEventBus
 ### Risks
 | Risk | Severity | Mitigation |
 |------|----------|------------|
-| 无编辑器导致开发效率低 | Medium | Nez ECS 减少样板代码；monogame-mcp 辅助 AI 开发；数据驱动设计减少手写量 |
+| 无编辑器导致开发效率低 | Medium | 自定义 ECS (ADR-0001) 减少样板代码；monogame-mcp 辅助 AI 开发；数据驱动设计减少手写量 |
 | 社区小中文资料少 | Medium | AI 代码生成替代社区教程查找；关键问题追踪 GitHub Issues |
-| GoRogue/Nez 停维护 | Low | 核心战斗/角色系统不依赖这些库；FOV/寻路可实现性低，备选方案多 |
+| GoRogue 停维护 | Low | 核心战斗/角色系统不依赖此库；FOV/寻路可实现性低，备选方案多（注：Nez 不在项目中使用，见 ADR-0001） |
 | monogame-mcp 不成熟 | Medium | 加分项非必需品；AI 通过标准 C# 代码生成也能工作 |
 | .NET 发布包体大 | Low | .NET 8 Native AOT 编译，最小发布包 5-15MB |
 

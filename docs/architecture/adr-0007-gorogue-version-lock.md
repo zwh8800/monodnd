@@ -10,7 +10,7 @@ Accepted
 
 | Field | Value |
 |-------|-------|
-| **Engine** | MonoGame 3.8.5+ |
+| **Engine** | MonoGame 3.8.x stable（当前 3.8.4.1） |
 | **Domain** | Core — GoRogue 2.6.4 提供 FOV、A* 寻路、地图生成等 Roguelike 基础设施 |
 | **Knowledge Risk** | LOW — GoRogue 2.6.4 API（`Coord`、`ArrayMap<T>`、`FOV`、`AStar`、`Distance`）高度稳定，LLM 训练数据充分覆盖 |
 | **References Consulted** | `src/DndGame/DndGame.csproj`（当前 PackageReference）、`src/DndGame/Systems/Combat/GoRogueMapManager.cs`（实际使用代码）、GoRogue 2.6.4 NuGet 文档、GoRogue 3.x SadRogue.Primitives 迁移指南 |
@@ -21,7 +21,7 @@ Accepted
 
 | Field | Value |
 |-------|-------|
-| **Depends On** | ADR-0000（MonoGame 引擎 — GoRogue 在 .NET Standard 2.0 上运行，与 MonoGame 3.8.5+ 完全兼容） |
+| **Depends On** | ADR-0000（MonoGame 引擎 — GoRogue 在 .NET Standard 2.0 上运行，与 MonoGame 3.8.x stable 完全兼容） |
 | **Enables** | Map 探索系统（FOV、A* 寻路、地图生成）、Combat 战斗空间系统（空间网格、覆盖范围）、Adventure 冒险实例化（地下城生成） |
 | **Blocks** | Map Epic 全部 Story、Combat Epic（空间部分）、Adventure Epic（地下城生成部分） |
 | **Ordering Note** | 必须在任何 Map 或 Combat 空间系统 Story 开始实现前 Accepted |

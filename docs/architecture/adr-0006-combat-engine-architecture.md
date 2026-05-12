@@ -10,7 +10,7 @@ Accepted
 
 | Field | Value |
 |-------|-------|
-| **Engine** | MonoGame 3.8.5+ |
+| **Engine** | MonoGame 3.8.x stable（当前 3.8.4.1） |
 | **Domain** | Core（战斗引擎：回合制 FSM、行动经济、攻击/伤害管线、法术/豁免/条件/AI） |
 | **Knowledge Risk** | LOW — 核心战斗逻辑为纯 C# 实现，不依赖 MonoGame 渲染 API。DND 5e SRD 规则在 LLM 训练数据中充分覆盖。 |
 | **References Consulted** | `design/gdd/GDD-v1.md` §5（战斗系统设计哲学与 DND 5e 偏离规则）、`design/gdd/04-combat-system.md`（完整 FSM/行动/管线/法术/条件/AI）、`design/gdd/01-character-system.md`（HP/AC/属性/熟练/死亡豁免）、`design/gdd/03-items-equipment.md`（武器伤害骰/护甲 AC 公式/附魔效果） |

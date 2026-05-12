@@ -255,7 +255,7 @@ public class CombatEngine
 ```csharp
 ServiceLocator.Register<IEventBus>(eventBus);
 ServiceLocator.Register<ICombatEngine>(combatEngine);
-var engine = ServiceLocator.Resolve<ICombatEngine>();
+var engine = ServiceLocator.Get<ICombatEngine>();
 ```
 
 **数据驱动。** 数值配置在 JSON 中。

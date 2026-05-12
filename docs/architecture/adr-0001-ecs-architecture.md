@@ -10,7 +10,7 @@ Accepted
 
 | Field | Value |
 |-------|-------|
-| **Engine** | MonoGame 3.8.5+ |
+| **Engine** | MonoGame 3.8.x stable（当前 3.8.4.1） |
 | **Domain** | Core（场景管理、实体组合基础架构） |
 | **Knowledge Risk** | LOW — 自定义 ECS 为 MonoGame 原生 C# 实现，无外部 API 依赖 |
 | **References Consulted** | `src/DndGame/Core/Scene.cs`（146 行）、`Entity.cs`（158 行）、`Component.cs`（55 行）、`SceneComponent.cs`（56 行）、`GameRoot.cs`（200 行）；`docs/technical/02-overall-architecture.md` §2.1 |
