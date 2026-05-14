@@ -100,6 +100,8 @@
 
 ## Layout Specification
 
+> **视觉投影约束**：场景渲染必须遵循 [Art Bible §3.0](../art/art-bible.md#30-摄像机与透视正交投影铁律) 正交投影铁律——固定俯视角 3/4 overhead、无透视消失点、无近大远小缩放、深度仅通过 Z-order 层叠遮挡表达。所有 Tile 和 Sprite 在屏幕上保持完全相同的像素尺寸，不因位置变化。参考摄像机角度：Stardew Valley / Chrono Trigger / FF6 探索场景。**严格禁止**：消失点透视、景深模糊、3D 旋转视角、透视地板网格。
+
 ### Information Hierarchy
 
 酒馆主屏幕的信息按「第一眼→第二眼→第三眼」分层展示：

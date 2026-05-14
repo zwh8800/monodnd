@@ -6,6 +6,7 @@
 > **Journey Phase(s)**: 全局可用（标题屏幕 + 酒馆 + 暂停菜单）
 > **Template**: UX Spec
 > **Accessibility Tier**: Standard（# Basic → Standard 升级，2026-05-12）
+> **关联文档**: `design/art/art-bible.md` §3.0（正交投影——遮罩下方场景必须遵循），§4.4（UI 色彩系统），§7（像素主题）
 
 ---
 

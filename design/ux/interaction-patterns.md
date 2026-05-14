@@ -3,7 +3,7 @@
 > **状态**: 草稿 (Draft) — 启动于 Technical Setup → Pre-Production 门控检查
 > **版本**: v0.1
 > **适用范围**: 全部 UI 屏幕
-> **关联文档**: `design/art/art-bible.md` §7, `src/DndGame/UI/PixelTheme.cs`, `design/ux/hud.md`
+> **关联文档**: `design/art/art-bible.md` §3.0（正交投影）, §7（UI 像素主题）, `src/DndGame/UI/PixelTheme.cs`, `design/ux/hud.md`
 
 ---
 

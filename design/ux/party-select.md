@@ -7,6 +7,7 @@
 > **Template**: UX Spec
 > **Accessibility Tier**: Standard
 > **Key Decisions**: Q1=双路径(C) · Q2=完整预览(B) · Q3=战术检查(B)
+> **关联文档**: `design/art/art-bible.md` §3.0（正交投影——下方酒馆场景必须遵循），§4.1（色彩系统）
 
 ---
 
