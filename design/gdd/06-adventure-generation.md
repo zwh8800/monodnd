@@ -130,7 +130,7 @@
 |----------|----------|----------|
 | LLM Gateway | 本系统→Gateway | 调用编剧Agent/平衡Agent/DM Agent |
 | Character System | 读取 | 角色等级、属性、职业、装备状态 |
-| Map System | 本系统→Map | 节点图、房间模板、交互标签、遭遇配置 |
+| Map System | 本系统→Map | 节点图、区域模板、交互标签、遭遇配置 |
 | Combat System | 本系统→Combat | 遭遇数据、敌人stat block、Boss阶段 |
 | Tavern System | 读取/写入 | 任务配置、声望等级、酒馆解锁状态 |
 | Items & Equipment | 读取 | 物品模板、战利品池、商人库存 |
@@ -655,7 +655,8 @@ Step 14: 初始化冒险状态机
 
 ```gdscript
 func generate_adventure_node_graph(blueprint: Dictionary) -> Dictionary:
-    """将蓝图nodes[]转换为Map System兼容的节点图"""
+    """将蓝图nodes[]转换为Map System兼容的节点图
+    ⚠️ 节点图为内部数据结构，不直接暴露给玩家"""
     var nodes = blueprint.plot_outline.nodes
     var graph = {}
 
@@ -689,7 +690,7 @@ func generate_adventure_node_graph(blueprint: Dictionary) -> Dictionary:
     return graph
 ```
 
-### 4.3 Step 3: 房间模板分配
+### 4.3 Step 3: 区域模板分配
 
 ```
 Algorithm: AssignRoomTemplates(node_graph, theme_tags)
@@ -699,7 +700,7 @@ for each node in node_graph:
     node.room_size = get_default_room_size(node.type, tier)
         # 参见 map-exploration.md §2.3.2 默认房间尺寸表
 
-    # 2. 选择房间模板
+    # 2. 选择区域模板
     candidates = RoomTemplateDB.query({
         "node_type": node.type,
         "size_match": node.room_size,
@@ -751,7 +752,7 @@ func configure_dialogue_node(node_data: Dictionary, blueprint: Dictionary) -> Di
 
 ```gdscript
 func configure_exploration_node(node_data: Dictionary, difficulty_profile: Dictionary) -> Dictionary:
-    """为探索节点生成隐藏物体、陷阱和战利品"""
+    """为探索节点生成隐藏物体、陷阱和战利品（探索节点 = 地图上的关键区域/遭遇点）"""
     var config = {
         "hidden_checks": [],
         "loot_spots": [],
